@@ -1,0 +1,22 @@
+{
+  "name": "shell-2",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Joshua Horowitz <joshuah@alum.mit.edu>",
+  "license": "MIT",
+  "dependencies": {
+    "@types/tmp": "^0.2.6",
+    "ansi-to-html": "^0.7.2",
+    "http": "^0.0.1-security",
+    "mvdan-sh": "^0.10.1",
+    "serve-handler": "^6.1.5",
+    "tmp": "^0.2.1",
+    "yargs": "^17.0.32"
+  },
+  "devDependencies": {
+    "@types/mvdan-sh": "^0.10.9",
+    "@types/node": "^20.10.6",
+    "@types/serve-handler": "^6.1.4",
+    "@types/yargs": "^17.0.32"
+  }
+}
