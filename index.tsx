@@ -73,7 +73,10 @@ function expandObject(obj: any): any {
     }
 
     if (toReturn.$type.endsWith('*Pos')) {
-      toReturn = { __position__: toReturn.Offset.__return_value__ };
+      toReturn = {
+        __line__: toReturn.Line.__return_value__,
+        // __position__: toReturn.Offset.__return_value__
+      };
     }
 
     return toReturn;
@@ -133,10 +136,15 @@ sh.syntax.Walk(ast, (node) => {
       const wordIter = loop as sh.WordIter;
       const name = wordIter.Name;
       if (name) {
+        const forLine = forClause.Pos().Line();
         const value = name.Value;
+        const counterName = `__fun_run_loop_counter_${forLine}__`;
         forClause.Do = [
+          parseStmt(`let ${counterName}+=1`),
+          messageStmt({type: "for-body-start", forLine, counter: "$" + counterName}),
           // parseStmt(`echo "for loop; ${value} = \$${value}" >&3`),
           ...forClause.Do,
+          messageStmt({type: "for-body-done", forLine, counter: "$" + counterName}),
         ]
       }
     }
@@ -152,7 +160,7 @@ fs.writeFileSync(tmpFile.name, transformed, { encoding: 'utf-8' });
 const child = child_process.spawn(
   'try',
   ['-n', 'bash', tmpFile.name],
-  // { cwd: '/Users/joshuah/Documents/research/engraft/paper-uist-2023-old' }
+  { cwd: '/Users/joshuah/Documents/research/engraft/paper-uist-2023-old' }
 );
 
 type Message =
@@ -163,6 +171,15 @@ type Message =
   | {
     type: 'stmt-done',
     stmtLine: number,
+    }
+  | {
+      type: 'for-body-start',
+      forLine: number,
+      counter: string,
+    }
+  | {
+      type: 'for-body-done',
+      forLine: number
     };
 
 type LogEntry =
@@ -218,6 +235,7 @@ child.stdout.on('data', (data: string) => {
 
 child.stderr.on('data', (data: string) => {
   // TODO: not implemented
+  console.error("got stderr", data);
 });
 
 child.on('close', (exitCodeIn: number) => {
@@ -298,14 +316,14 @@ function writeHtml() {
         color: #999;
         margin-right: 20px;
         text-align: right;
-        width: 30px;
+        min-width: 30px;
         font-family: monospace;
       }
 
       .code-linecode {
         flex-grow: 1;
         flex-basis: 0;
-        white-space: pre-wrap;
+        white-space: pre;
         font-family: monospace;
       }
 
@@ -330,7 +348,7 @@ function writeHtml() {
         </div>;
       })}
     </div>
-    {false && <div className="row">
+    {true && <div className="row">
       <div>
         <h1>log</h1>
         <div>started @ {startTime.toLocaleTimeString()}</div>
@@ -348,15 +366,19 @@ function writeHtml() {
         {exitCode !== null && <div>exit code: {exitCode}</div>}
       </div>
     </div>}
-    {false && <div className="row">
+    {true &&
       <div>
         <h1>script</h1>
         <pre>{scriptStr}</pre>
         <h1>ast</h1>
         <details>
-          {inspectHtml(expandObject(ast))}
+          {inspectHtml(expandObject(
+            parser.Parse(scriptStr)
+          ))}
         </details>
       </div>
+    }
+    {true && <div>
       <div>
         <h1>transformed</h1>
         <pre>{transformed}</pre>
