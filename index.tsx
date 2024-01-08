@@ -13,6 +13,12 @@ import { parse } from "node:path";
 
 // fun-run
 
+
+// TODO: multi-char delimiter would take different logic
+const delimiterCode = 31;
+const delimiterChar = String.fromCharCode(delimiterCode);
+const delimiterOctal = `\\${delimiterCode.toString(8).padStart(3, '0')}`;
+
 const ansiToHtml = new AnsiToHtml({});
 
 const parser = sh.syntax.NewParser(sh.syntax.KeepComments());
@@ -87,16 +93,18 @@ function parseStmt(s: string): sh.Stmt {
   return stmts[0];
 }
 
+function messageStmt(message: any): sh.Stmt {
+  const messageStr = JSON.stringify(message).replaceAll('"', '\\"');
+  return parseStmt(`echo -e -n "${delimiterOctal}${messageStr}${delimiterOctal}"`);
+}
+
 function augmentStmts(stmts: (sh.Stmt | null)[]): sh.Stmt[] {
   return stmts.flatMap((stmt) => {
     if (!stmt) { return []; }
-    // const stmtName = `${stmt.Pos().Offset()}-${stmt.End().Offset()}`;
-    const stmtName = `${stmt.Pos().Line()}`;
     return [
-      // parseStmt(`echo starting ${stmtName} >&3`),
-      parseStmt(`echo starting ${stmtName}`),
+      messageStmt({type: "stmt-start", stmtLine: stmt.Pos().Line()}),
       stmt,
-      // parseStmt(`echo ending ${stmtName} >&3`),
+      messageStmt({type: "stmt-done", stmtLine: stmt.Pos().Line()}),
     ];
   });
 }
@@ -110,9 +118,9 @@ sh.syntax.Walk(ast, (node) => {
     const file = node as sh.File;
     file.Stmts = augmentStmts(file.Stmts);
     file.Stmts = [
-      parseStmt(`exec 3>${pipe}`),
+      // parseStmt(`exec 3>${pipe}`),
       ...file.Stmts,
-      parseStmt(`exec 3>&-`),
+      // parseStmt(`exec 3>&-`),
     ]
   }
   if (sh.syntax.NodeType(node) == "ForClause") {
@@ -146,22 +154,61 @@ const child = child_process.spawn(
   // { cwd: '/Users/joshuah/Documents/research/engraft/paper-uist-2023-old' }
 );
 
-type OutputBit = {
-  type: 'stdout' | 'stderr' | 'meta',
-  data: string,
-};
+type Message = any;
 
-let outputBits: OutputBit[] = [];
+type LogEntry =
+  | {
+    type: 'stdout',
+    data: string,
+  }
+  | {
+    type: 'message',
+    data: Message,
+  };
+
+let log: LogEntry[] = [];
 let exitCode: number | null = null;
 
+let messageInProgress: string | null = null;
+
 child.stdout.on('data', (data: string) => {
-  outputBits.push({ type: 'stdout', data });
+  data = data.toString();
+  let stdoutInProgress: string = '';
+  for (const char of data) {
+    if (char === delimiterChar) {
+      // we're starting or ending a message
+      if (messageInProgress !== null) {
+        // ending
+        try {
+          log.push({ type: 'message', data: JSON.parse(messageInProgress) });
+      } catch (e) {
+          console.error(e);
+        }
+        messageInProgress = null;
+      } else {
+        // starting
+        if (stdoutInProgress) {
+          log.push({ type: 'stdout', data: stdoutInProgress });
+          stdoutInProgress = '';
+        }
+        messageInProgress = '';
+      }
+    } else {
+      if (messageInProgress !== null) {
+        messageInProgress += char;
+      } else {
+        stdoutInProgress += char;
+      }
+    }
+  }
+  if (stdoutInProgress) {
+    log.push({ type: 'stdout', data: stdoutInProgress });
+  }
   writeHtml();
 });
 
 child.stderr.on('data', (data: string) => {
-  outputBits.push({ type: 'stderr', data });
-  writeHtml();
+  // TODO: not implemented
 });
 
 child.on('close', (exitCodeIn: number) => {
@@ -169,12 +216,12 @@ child.on('close', (exitCodeIn: number) => {
   writeHtml();
 });
 
-const pipeStream = fs.createReadStream(pipe, { encoding: 'utf-8' });
+// const pipeStream = fs.createReadStream(pipe, { encoding: 'utf-8' });
 
-pipeStream.on('data', (data: string) => {
-  outputBits.push({ type: 'meta', data });
-  writeHtml();
-});
+// pipeStream.on('data', (data: string) => {
+//   outputBits.push({ type: 'meta', data });
+//   writeHtml();
+// });
 
 const startTime = new Date();
 
@@ -207,6 +254,26 @@ function writeHtml() {
       flex-basis: 0;
     }
   </style>
+  <div>
+  <h1>code</h1>
+  </div>
+  <div class="row">
+  <div>
+  <h1>log</h1>
+  <div>started @ ${startTime.toLocaleTimeString()}</div>
+  <div>updated @ ${new Date().toLocaleTimeString()}</div>
+  <ul>
+    ${log.map(({ data, type }) => {
+      if (type === 'stdout') {
+        return `<li><pre>${data}</pre></li>`;
+      } else if (type === 'message') {
+        return `<li><pre>${ansiToHtml.toHtml(util.inspect(expandObject(data), {showHidden: false, depth: null, colors: true}))}</pre></li>`;
+      }
+  }).join('')}
+  </ul>
+  ${exitCode !== null ? `<div>exit code: ${exitCode}</div>` : ''}
+  </div>
+  </div>
   <div class="row">
   <div>
   <h1>script</h1>
@@ -221,23 +288,13 @@ function writeHtml() {
   <pre>${transformed}</pre>
   </div>
   </div>
-  <div class="row">
-  <div>
-  <h1>output</h1>
-  <div>started @ ${startTime.toLocaleTimeString()}</div>
-  <div>updated @ ${new Date().toLocaleTimeString()}</div>
-  <ul>
-    ${outputBits.map(({ data, type }) => `
-      <li>${type}: <pre>${data}</pre></li>
-    `).join('')}
-  </ul>
-  ${exitCode !== null ? `<div>exit code: ${exitCode}</div>` : ''}
-  </div>
   `;
 
-  fs.writeFile(opts.out, html, { encoding: 'utf-8' }, () => {
-    console.log("wrote html");
-  });
+  fs.writeFileSync(opts.out, html, { encoding: 'utf-8' });
+
+  // fs.writeFile(opts.out, html, { encoding: 'utf-8' }, () => {
+  //   console.log("wrote html");
+  // });
 }
 
 console.log("done");

@@ -9,6 +9,8 @@
     "ansi-to-html": "^0.7.2",
     "http": "^0.0.1-security",
     "mvdan-sh": "^0.10.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "serve-handler": "^6.1.5",
     "tmp": "^0.2.1",
     "yargs": "^17.0.32"
