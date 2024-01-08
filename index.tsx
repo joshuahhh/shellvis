@@ -94,7 +94,7 @@ function parseStmt(s: string): sh.Stmt {
   return stmts[0];
 }
 
-function messageStmt(message: any): sh.Stmt {
+function messageStmt(message: Message): sh.Stmt {
   const messageStr = JSON.stringify(message).replaceAll('"', '\\"');
   return parseStmt(`echo -e -n "${delimiterOctal}${messageStr}${delimiterOctal}"`);
 }
@@ -155,7 +155,15 @@ const child = child_process.spawn(
   // { cwd: '/Users/joshuah/Documents/research/engraft/paper-uist-2023-old' }
 );
 
-type Message = any;
+type Message =
+  | {
+    type: 'stmt-start',
+    stmtLine: number,
+    }
+  | {
+    type: 'stmt-done',
+    stmtLine: number,
+    };
 
 type LogEntry =
   | {
@@ -233,6 +241,25 @@ function inspectHtml(value: any) {
 }
 
 function writeHtml() {
+  const outputPerLine: { [line: number]: string } = {};
+  let currentLine = null;
+  for (const { type, data } of log) {
+    if (type === 'message') {
+      const message = data as Message;
+      if (message.type === 'stmt-start') {
+        currentLine = message.stmtLine;
+      } else if (message.type === 'stmt-done') {
+        currentLine = null;
+      }
+    } else if (type === 'stdout') {
+      if (currentLine === null) {
+        console.error("got stdout without a current line", data);
+      } else {
+        outputPerLine[currentLine] = (outputPerLine[currentLine] || '') + data;
+      }
+    }
+  }
+
   const jsx = <>
     <script dangerouslySetInnerHTML={{
       __html: live
@@ -264,14 +291,15 @@ function writeHtml() {
       .code-line {
         display: flex;
         flex-direction: row;
+        font-size: 16px;
       }
 
       .code-linenum {
         color: #999;
-        margin-right: 10px;
+        margin-right: 20px;
         text-align: right;
         width: 30px;
-        font-family: sans-serif;
+        font-family: monospace;
       }
 
       .code-linecode {
@@ -280,17 +308,29 @@ function writeHtml() {
         white-space: pre-wrap;
         font-family: monospace;
       }
+
+      .code-stdout {
+        color: #999;
+      }
     `}</style>
     <div>
-      <h1>code</h1>
       {scriptStr.split('\n').map((line, i) => {
+        const lineIndent = line.match(/^\s*/)?.[0] || '';
         return <div key={i} className="code-line">
           <div className="code-linenum">{i + 1}</div>
-          <div className="code-linecode">{line}</div>
+          <div className="code-linecode">
+            <div>{line}</div>
+            { outputPerLine[i + 1] &&
+              <div className="row">
+                <div>{lineIndent}</div>
+                <div className="code-stdout">{outputPerLine[i + 1]}</div>
+              </div>
+            }
+          </div>
         </div>;
       })}
     </div>
-    <div className="row">
+    {false && <div className="row">
       <div>
         <h1>log</h1>
         <div>started @ {startTime.toLocaleTimeString()}</div>
@@ -307,8 +347,8 @@ function writeHtml() {
         </ul>
         {exitCode !== null && <div>exit code: {exitCode}</div>}
       </div>
-    </div>
-    <div className="row">
+    </div>}
+    {false && <div className="row">
       <div>
         <h1>script</h1>
         <pre>{scriptStr}</pre>
@@ -321,7 +361,7 @@ function writeHtml() {
         <h1>transformed</h1>
         <pre>{transformed}</pre>
       </div>
-    </div>
+    </div>}
   </>;
 
   const html = renderToString(jsx);
