@@ -90,11 +90,13 @@ function parseStmt(s: string): sh.Stmt {
 function augmentStmts(stmts: (sh.Stmt | null)[]): sh.Stmt[] {
   return stmts.flatMap((stmt) => {
     if (!stmt) { return []; }
-    const stmtName = `${stmt.Pos().Offset()}-${stmt.End().Offset()}`;
+    // const stmtName = `${stmt.Pos().Offset()}-${stmt.End().Offset()}`;
+    const stmtName = `${stmt.Pos().Line()}`;
     return [
-      parseStmt(`echo starting ${stmtName} >&3`),
+      // parseStmt(`echo starting ${stmtName} >&3`),
+      parseStmt(`echo starting ${stmtName}`),
       stmt,
-      parseStmt(`echo ending ${stmtName} >&3`),
+      // parseStmt(`echo ending ${stmtName} >&3`),
     ];
   });
 }
@@ -124,7 +126,7 @@ sh.syntax.Walk(ast, (node) => {
       if (name) {
         const value = name.Value;
         forClause.Do = [
-          parseStmt(`echo "for loop; ${value} = \$${value}" >&3`),
+          // parseStmt(`echo "for loop; ${value} = \$${value}" >&3`),
           ...forClause.Do,
         ]
       }
@@ -145,7 +147,7 @@ const child = child_process.spawn(
 );
 
 type OutputBit = {
-  type: 'stdout' | 'stderr',
+  type: 'stdout' | 'stderr' | 'meta',
   data: string,
 };
 
@@ -167,12 +169,10 @@ child.on('close', (exitCodeIn: number) => {
   writeHtml();
 });
 
-let metaBits: string[] = [];
-
 const pipeStream = fs.createReadStream(pipe, { encoding: 'utf-8' });
 
 pipeStream.on('data', (data: string) => {
-  metaBits.push(data);
+  outputBits.push({ type: 'meta', data });
   writeHtml();
 });
 
@@ -226,17 +226,18 @@ function writeHtml() {
   <h1>output</h1>
   <div>started @ ${startTime.toLocaleTimeString()}</div>
   <div>updated @ ${new Date().toLocaleTimeString()}</div>
-  <pre>${outputBits.map(({ data, type }) => `<span class="output-${type}">${data}</span>`).join('')}</pre>
+  <ul>
+    ${outputBits.map(({ data, type }) => `
+      <li>${type}: <pre>${data}</pre></li>
+    `).join('')}
+  </ul>
   ${exitCode !== null ? `<div>exit code: ${exitCode}</div>` : ''}
-  </div>
-  <div>
-  <h1>metadata</h1>
-  <pre>${metaBits.join('')}</pre>
-  </div>
   </div>
   `;
 
-  fs.writeFileSync(opts.out, html, { encoding: 'utf-8' });
+  fs.writeFile(opts.out, html, { encoding: 'utf-8' }, () => {
+    console.log("wrote html");
+  });
 }
 
 console.log("done");
