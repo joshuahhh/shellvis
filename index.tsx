@@ -8,6 +8,7 @@ import * as repl from "node:repl";
 import * as tmp from "tmp";
 import AnsiToHtml from "ansi-to-html";
 import { parse } from "node:path";
+import { renderToString } from "react-dom/server";
 // import serveHandler from "serve-handler";
 // import * as http from "node:http";
 
@@ -225,70 +226,105 @@ child.on('close', (exitCodeIn: number) => {
 
 const startTime = new Date();
 
+function inspectHtml(value: any) {
+  return <pre dangerouslySetInnerHTML={{ __html:
+    ansiToHtml.toHtml(util.inspect(value, { showHidden: false, depth: null, colors: true }))
+  }} />;
+}
+
 function writeHtml() {
-  const html = `
-  <script>
-  ${live}
-  </script>
-  <style>
-    body {
-      background-color: #333;
-      color: white;
-      margin: 50px;
-    }
-
-    .output-stderr {
-      color: red;
-    }
-    pre {
-      white-space: pre-wrap;
-    }
-
-    .row {
-      display: flex;
-      flex-direction: row;
-    }
-
-    .row > * {
-      flex-grow: 1;
-      flex-basis: 0;
-    }
-  </style>
-  <div>
-  <h1>code</h1>
-  </div>
-  <div class="row">
-  <div>
-  <h1>log</h1>
-  <div>started @ ${startTime.toLocaleTimeString()}</div>
-  <div>updated @ ${new Date().toLocaleTimeString()}</div>
-  <ul>
-    ${log.map(({ data, type }) => {
-      if (type === 'stdout') {
-        return `<li><pre>${data}</pre></li>`;
-      } else if (type === 'message') {
-        return `<li><pre>${ansiToHtml.toHtml(util.inspect(expandObject(data), {showHidden: false, depth: null, colors: true}))}</pre></li>`;
+  const jsx = <>
+    <script dangerouslySetInnerHTML={{
+      __html: live
+    }} />
+    <style>{`
+      body {
+        background-color: #333;
+        color: white;
+        margin: 50px;
       }
-  }).join('')}
-  </ul>
-  ${exitCode !== null ? `<div>exit code: ${exitCode}</div>` : ''}
-  </div>
-  </div>
-  <div class="row">
-  <div>
-  <h1>script</h1>
-  <pre>${scriptStr}</pre>
-  <h1>ast</h1>
-  <details>
-  <pre>${ansiToHtml.toHtml(util.inspect(expandObject(ast), {showHidden: false, depth: null, colors: true}))}</pre>
-  </details>
-  </div>
-  <div>
-  <h1>transformed</h1>
-  <pre>${transformed}</pre>
-  </div>
-  </div>
-  `;
+
+      .output-stderr {
+        color: red;
+      }
+      pre {
+        white-space: pre-wrap;
+      }
+
+      .row {
+        display: flex;
+        flex-direction: row;
+      }
+
+      .row > * {
+        flex-grow: 1;
+        flex-basis: 0;
+      }
+
+      .code-line {
+        display: flex;
+        flex-direction: row;
+      }
+
+      .code-linenum {
+        color: #999;
+        margin-right: 10px;
+        text-align: right;
+        width: 30px;
+        font-family: sans-serif;
+      }
+
+      .code-linecode {
+        flex-grow: 1;
+        flex-basis: 0;
+        white-space: pre-wrap;
+        font-family: monospace;
+      }
+    `}</style>
+    <div>
+      <h1>code</h1>
+      {scriptStr.split('\n').map((line, i) => {
+        return <div key={i} className="code-line">
+          <div className="code-linenum">{i + 1}</div>
+          <div className="code-linecode">{line}</div>
+        </div>;
+      })}
+    </div>
+    <div className="row">
+      <div>
+        <h1>log</h1>
+        <div>started @ {startTime.toLocaleTimeString()}</div>
+        <div>updated @ {new Date().toLocaleTimeString()}</div>
+        <ul>
+          {log.map(({ data, type }, i) =>
+            <li key={i}>
+              { type === 'stdout'
+              ? <pre>{data}</pre>
+              : inspectHtml(expandObject(data))
+              }
+            </li>
+          )}
+        </ul>
+        {exitCode !== null && <div>exit code: {exitCode}</div>}
+      </div>
+    </div>
+    <div className="row">
+      <div>
+        <h1>script</h1>
+        <pre>{scriptStr}</pre>
+        <h1>ast</h1>
+        <details>
+          {inspectHtml(expandObject(ast))}
+        </details>
+      </div>
+      <div>
+        <h1>transformed</h1>
+        <pre>{transformed}</pre>
+      </div>
+    </div>
+  </>;
+
+  const html = renderToString(jsx);
 
   fs.writeFileSync(opts.out, html, { encoding: 'utf-8' });
 
