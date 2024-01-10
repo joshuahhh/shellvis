@@ -144,7 +144,7 @@ sh.syntax.Walk(ast, (node) => {
           messageStmt({type: "for-body-start", forLine, counter: "$" + counterName}),
           // parseStmt(`echo "for loop; ${value} = \$${value}" >&3`),
           ...forClause.Do,
-          messageStmt({type: "for-body-done", forLine, counter: "$" + counterName}),
+          messageStmt({type: "for-body-done", forLine}),
         ]
       }
     }
