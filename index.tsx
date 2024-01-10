@@ -6,8 +6,9 @@ import * as util from "node:util";
 import * as sh from "mvdan-sh";
 import * as repl from "node:repl";
 import * as tmp from "tmp";
+import * as os from "os";
 import AnsiToHtml from "ansi-to-html";
-import { parse } from "node:path";
+import * as path from "node:path";
 import { renderToString } from "react-dom/server";
 // import serveHandler from "serve-handler";
 // import * as http from "node:http";
@@ -89,6 +90,18 @@ function expandObject(obj: any): any {
 
 // console.log(util.inspect(expandObject(ast), {showHidden: false, depth: null, colors: true}))
 
+
+
+const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sandbox-'));
+const sandboxUnionDir = path.join(sandboxDir, 'union');
+const deltaDir = fs.mkdtempSync(path.join(os.tmpdir(), 'delta-'));
+child_process.execSync(`fr-sandbox make ${sandboxDir} /`);
+child_process.execSync(`fr-sandbox make ${deltaDir} ${sandboxUnionDir}`);
+// console.log("sandboxDir", sandboxDir);
+// console.log("deltaDir", deltaDir);
+
+const deltaLogFile = tmp.tmpNameSync();
+
 function parseStmt(s: string): sh.Stmt {
   const stmts = parser.Parse(s).Stmts;
   if (stmts.length !== 1 || !stmts[0]) {
@@ -106,16 +119,17 @@ function augmentStmts(stmts: (sh.Stmt | null)[]): sh.Stmt[] {
   return stmts.flatMap((stmt) => {
     if (!stmt) { return []; }
     return [
-      messageStmt({type: "stmt-start", stmtLine: stmt.Pos().Line()}),
+      messageStmt({type: "stmt-start", stmtLine: stmt.Pos().Line(), pwd: "$PWD"}),
+      parseStmt(`fr-sandbox before-run ${deltaDir}`),
+      parseStmt(`pushd ${deltaDir}/union/$PWD 1>/dev/null`),
       stmt,
-      messageStmt({type: "stmt-done", stmtLine: stmt.Pos().Line()}),
+      parseStmt(`popd 1>/dev/null`),
+      parseStmt(`fr-sandbox after-run ${deltaDir} ${sandboxDir} ${deltaLogFile}`),
+      parseStmt(`[ -s ${deltaLogFile} ] && (echo -e "\\033[3mFile changes:\\033[0m"; cat ${deltaLogFile} | awk '{ print "  " $0 }')`),
+      messageStmt({type: "stmt-done", stmtLine: stmt.Pos().Line(), pwd: "$PWD"}),
     ];
   });
 }
-
-const pipe = tmp.tmpNameSync();
-// TODO: do it in node?
-child_process.execSync(`mkfifo ${pipe}`);
 
 sh.syntax.Walk(ast, (node) => {
   if (sh.syntax.NodeType(node) == "File") {
@@ -140,11 +154,13 @@ sh.syntax.Walk(ast, (node) => {
         const value = name.Value;
         const counterName = `__fun_run_loop_counter_${forLine}__`;
         forClause.Do = [
+          parseStmt(`popd 1>/dev/null`),  // AWFUL HACK
           parseStmt(`let ${counterName}+=1`),
           messageStmt({type: "for-body-start", forLine, counter: "$" + counterName}),
           // parseStmt(`echo "for loop; ${value} = \$${value}" >&3`),
           ...forClause.Do,
           messageStmt({type: "for-body-done", forLine}),
+          parseStmt(`pushd ${deltaDir}/union/$PWD 1>/dev/null`), // HACK AWFUL
         ]
       }
     }
@@ -156,21 +172,29 @@ const transformed = printer.Print(ast);
 
 const tmpFile = tmp.fileSync();
 fs.writeFileSync(tmpFile.name, transformed, { encoding: 'utf-8' });
+// console.log("wrote transformed into tmp file", tmpFile.name);
+
+// const child = child_process.spawn(
+//   'try',
+//   ['-n', 'bash', tmpFile.name],
+//   { cwd: '/Users/joshuah/Documents/research/engraft/paper-uist-2023-old' }
+// );
 
 const child = child_process.spawn(
-  'try',
-  ['-n', 'bash', tmpFile.name],
-  { cwd: '/Users/joshuah/Documents/research/engraft/paper-uist-2023-old' }
+  'bash',
+  [tmpFile.name],
 );
 
 type Message =
   | {
     type: 'stmt-start',
     stmtLine: number,
+    pwd: string,
     }
   | {
     type: 'stmt-done',
     stmtLine: number,
+    pwd: string,
     }
   | {
       type: 'for-body-start',
@@ -235,12 +259,15 @@ child.stdout.on('data', (data: string) => {
 
 child.stderr.on('data', (data: string) => {
   // TODO: not implemented
-  console.error("got stderr", data);
+  console.error("got stderr", data.toString());
 });
 
 child.on('close', (exitCodeIn: number) => {
   exitCode = exitCodeIn;
   writeHtml();
+
+  child_process.execSync(`fr-sandbox remove ${deltaDir}`);
+  child_process.execSync(`fr-sandbox remove ${sandboxDir}`);
 });
 
 // const pipeStream = fs.createReadStream(pipe, { encoding: 'utf-8' });
@@ -310,6 +337,7 @@ function writeHtml() {
         display: flex;
         flex-direction: row;
         font-size: 16px;
+        margin-top: 8px;
       }
 
       .code-linenum {
@@ -330,6 +358,10 @@ function writeHtml() {
       .code-stdout {
         color: #999;
       }
+
+      .code-command {
+        margin-bottom: 8px;
+      }
     `}</style>
     <div>
       {scriptStr.split('\n').map((line, i) => {
@@ -337,18 +369,18 @@ function writeHtml() {
         return <div key={i} className="code-line">
           <div className="code-linenum">{i + 1}</div>
           <div className="code-linecode">
-            <div>{line}</div>
+            <div className="code-command">{line}</div>
             { outputPerLine[i + 1] &&
               <div className="row">
                 <div>{lineIndent}</div>
-                <div className="code-stdout">{outputPerLine[i + 1]}</div>
+                <div className="code-stdout" dangerouslySetInnerHTML={{__html: ansiToHtml.toHtml(outputPerLine[i + 1])}}/>
               </div>
             }
           </div>
         </div>;
       })}
     </div>
-    {true && <div className="row">
+    {true && <div className="row" style={{marginTop: 1000}}>
       <div>
         <h1>log</h1>
         <div>started @ {startTime.toLocaleTimeString()}</div>

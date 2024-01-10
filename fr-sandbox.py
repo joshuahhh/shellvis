@@ -57,96 +57,102 @@ def remove_system(system_dir):
 
 def main_make(args):
   sandbox_dir = args.SANDBOX_DIR
-  make_system(sandbox_dir, "/")
+  root_dir = args.ROOT_DIR
+  make_system(sandbox_dir, root_dir)
 
-def main_run(args):
+def main_before_run(args):
+  delta_dir = args.DELTA_DIR
+
+  # TODO: We could do this cleanup after main_after_run, obviating the need for main_before_run entirely.
+  #       For now, I'm leaving this here, for flexibility's sake.
+  upper_dir = get_upper_dir(delta_dir)
+  shutil.rmtree(upper_dir)
+  os.mkdir(upper_dir)
+
+def main_after_run(args):
+  delta_dir = args.DELTA_DIR
   sandbox_dir = args.SANDBOX_DIR
-  sandbox_union_dir = get_union_dir(sandbox_dir)
+  log_file = args.LOG_FILE
 
-  delta_dir = tempfile.mkdtemp()
-  make_system(delta_dir, sandbox_union_dir)
+  # stage 1: walk delta's upper dir for changed files
 
   upper_dir = get_upper_dir(delta_dir)
-  union_dir = get_union_dir(delta_dir)
 
-  try:
-    start_dir = os.path.join(union_dir, os.getcwd()[1:])
-    command = args.CMD
-    result = subprocess.run(command, cwd=start_dir, shell=True)
+  deleted_dirs = []
+  deleted_files = []
+  present_dirs = []
+  present_files = []
+  for parent, dirs, files in os.walk(upper_dir):
+    parent_in_upper = parent[len(upper_dir) + 1:]  # path of `parent` relative to `upper`, without leading or trailing slash
+    if parent_in_upper.startswith('.unionfs'):
+      # we are in unionfs metadata folder, containing deletions
+      parent_in_uppermeta = parent_in_upper[len('.unionfs/'):]  # path of `parent` relative to `upper/.unionfs`, without leading or trailing slash
+      for file in files:
+        if file.endswith('_HIDDEN~'):
+          deleted_files.append(os.path.join(parent_in_uppermeta, file[:-len('_HIDDEN~')]))
+      deleted_dirs_here = []
+      for dir in dirs:
+        if dir.endswith('_HIDDEN~'):
+          deleted_dir_here = dir[:-len('_HIDDEN~')]
+          deleted_dirs_here.append(deleted_dir_here)
+          deleted_dirs.append(os.path.join(parent_in_uppermeta, deleted_dir_here))
+      if deleted_dirs_here:
+        dirs[:] = [dir for dir in dirs if dir not in deleted_dirs_here]
+    else:
+      # we are in unionfs non-metadata folder, containing creations & modifications
+      if parent_in_upper != '':
+        present_dirs.append(parent_in_upper)
+      for file in files:
+        present_files.append(os.path.join(parent_in_upper, file))
 
-    if result.returncode != 0:
-      # TODO: is this still the behavior we want for fun-run?
-      sys.exit(result.returncode)
+  # TODO: looks like unionfs can have a _HIDDEN~ marker parallel to a modified marker; weird?
+  deleted_dirs = [dir for dir in deleted_dirs if dir not in present_dirs]
+  deleted_files = [file for file in deleted_files if file not in present_files]
 
-    # subprocess.run(['tree', '-a', upper_dir])
+  # print('present:', present_dirs, present_files)
+  # print('deleted:', deleted_dirs, deleted_files)
 
-    deleted_dirs = []
-    deleted_files = []
-    present_dirs = []
-    present_files = []
-    for parent, dirs, files in os.walk(upper_dir):
-      parent_in_upper = parent[len(upper_dir):]
-      if parent_in_upper.startswith('/.unionfs'):
-        # we are in unionfs metadata folder, containing deletions
-        parent_in_upper = parent_in_upper[len('/.unionfs'):]
-        for file in files:
-          if file.endswith('_HIDDEN~'):
-            deleted_files.append(os.path.join(parent_in_upper, file[:-len('_HIDDEN~')]))
-        deleted_dirs_here = []
-        for dir in dirs:
-          if dir.endswith('_HIDDEN~'):
-            deleted_dir_here = dir[:-len('_HIDDEN~')]
-            deleted_dirs_here.append(deleted_dir_here)
-            deleted_dirs.append(os.path.join(parent_in_upper, deleted_dir_here))
-        if deleted_dirs_here:
-          dirs[:] = [dir for dir in dirs if dir not in deleted_dirs_here]
+  # TODO: this is commented out cuz for this use-case we want to write an empty file when there are no changes
+  # if not (deleted_dirs or deleted_files or present_dirs or present_files):
+  #   return
+
+  # stage 2: turn changed files into commands to apply
+
+  sandbox_union_dir = get_union_dir(sandbox_dir)
+
+  commands = []
+  with open(log_file, 'w') as f:
+    for file in deleted_dirs:
+      commands.append(['rm', '-rf', os.path.join(sandbox_union_dir, file)])
+      print(file, '(deleted)', file=f)
+    for file in deleted_files:
+      commands.append(['rm', os.path.join(sandbox_union_dir, file)])
+      print(file, '(deleted)', file=f)
+    for file in present_dirs:
+      if not os.path.isdir(os.path.join(sandbox_union_dir, file)):
+        commands.append(['mkdir', '-p', os.path.join(sandbox_union_dir, file)])
+        print(file, '(new dir)', file=f)
+    for file in present_files:
+      if os.path.isfile(os.path.join(sandbox_union_dir, file)):
+        commands.append(['cp', '-fa', os.path.join(upper_dir, file), os.path.join(sandbox_union_dir, file)])
+        print(file, '(modified)', file=f)
+      elif os.path.isdir(os.path.join(sandbox_union_dir, file)):
+        commands.append(['rm', '-rf', os.path.join(sandbox_union_dir, file)])
+        commands.append(['cp', '-fa', os.path.join(upper_dir, file), os.path.join(sandbox_union_dir, file)])
+        print(file, '(dir replaced with file)', file=f)
       else:
-        # we are in unionfs non-metadata folder, containing creations & modifications
-        if parent_in_upper != '':
-          present_dirs.append(parent_in_upper)
-        for file in files:
-          present_files.append(os.path.join(parent_in_upper, file))
-    # print('present:', present_dirs, present_files)
-    # print('deleted:', deleted_dirs, deleted_files)
+        commands.append(['cp', '-fa', os.path.join(upper_dir, file), os.path.join(sandbox_union_dir, file)])
+        print(file, '(new file)', file=f)
 
-    if not (deleted_dirs or deleted_files or present_dirs or present_files):
-      return
+  # print()
+  # for command in commands:
+  #   print(' '.join(command))
+  # return
 
-    # TODO: looks like unionfs can have a _HIDDEN~ marker parallel to a modified marker; weird?
-    deleted_dirs = [dir for dir in deleted_dirs if dir not in present_dirs]
-    deleted_files = [file for file in deleted_files if file not in present_files]
+  # stage 3: apply commands
 
-    commands = []
-    with open(args.LOG_FILE, 'w') as f:
-      for file in deleted_dirs:
-        commands.append(['rm', '-rf', os.path.join(sandbox_union_dir, file[1:])])
-        print(file, '(deleted)', file=f)
-      for file in deleted_files:
-        commands.append(['rm', os.path.join(sandbox_union_dir, file[1:])])
-        print(file, '(deleted)', file=f)
-      for file in present_dirs:
-        if not os.path.isdir(file):
-          commands.append(['mkdir', '-p', os.path.join(sandbox_union_dir, file[1:])])
-          print(file, '(new dir)', file=f)
-      for file in present_files:
-        if os.path.isfile(file):
-          commands.append(['cp', '-fa', os.path.join(upper_dir, file[1:]), os.path.join(sandbox_union_dir, file[1:])])
-          print(file, '(modified)', file=f)
-        elif os.path.isdir(file):
-          commands.append(['rm', '-rf', os.path.join(sandbox_union_dir, file[1:])])
-          commands.append(['cp', '-fa', os.path.join(upper_dir, file[1:]), os.path.join(sandbox_union_dir, file[1:])])
-          print(file, '(dir replaced with file)', file=f)
-        else:
-          commands.append(['cp', '-fa', os.path.join(upper_dir, file[1:]), os.path.join(sandbox_union_dir, file[1:])])
-          print(file, '(new file)', file=f)
-
-    # print()
-    # for command in commands:
-    #   print(' '.join(command))
-    for command in commands:
-      subprocess.run(command, check=True)
-  finally:
-    remove_system(delta_dir)
+  for command in commands:
+    subprocess.run(command, check=True)
 
 def main_remove(args):
   sandbox_dir = args.SANDBOX_DIR
@@ -158,13 +164,18 @@ def main():
 
   parser_make = subparsers.add_parser('make')
   parser_make.add_argument('SANDBOX_DIR')
+  parser_make.add_argument('ROOT_DIR')
   parser_make.set_defaults(func=main_make)
 
-  parser_run = subparsers.add_parser('run')
-  parser_run.add_argument('SANDBOX_DIR')
-  parser_run.add_argument('CMD')
-  parser_run.add_argument('LOG_FILE')
-  parser_run.set_defaults(func=main_run)
+  parser_before_run = subparsers.add_parser('before-run')
+  parser_before_run.add_argument('DELTA_DIR')
+  parser_before_run.set_defaults(func=main_before_run)
+
+  parser_after_run = subparsers.add_parser('after-run')
+  parser_after_run.add_argument('DELTA_DIR')
+  parser_after_run.add_argument('SANDBOX_DIR')
+  parser_after_run.add_argument('LOG_FILE')
+  parser_after_run.set_defaults(func=main_after_run)
 
   parser_remove = subparsers.add_parser('remove')
   parser_remove.add_argument('SANDBOX_DIR')
