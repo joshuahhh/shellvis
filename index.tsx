@@ -52,6 +52,10 @@ const excludedSuffixes: string[] = [];
 
 const excludedKeys: {[key: string]: true} = {
   '__internal_object__': true,
+  End: true,
+  Lit: true,
+  ValuePos: true,
+  ValueEnd: true,
 };
 
 function expandObject(obj: any): any {
@@ -121,9 +125,7 @@ function augmentStmts(stmts: (sh.Stmt | null)[]): sh.Stmt[] {
     return [
       messageStmt({type: "stmt-start", stmtLine: stmt.Pos().Line(), pwd: "$PWD"}),
       parseStmt(`fr-sandbox before-run ${deltaDir}`),
-      parseStmt(`pushd ${deltaDir}/union/$PWD 1>/dev/null`),
       stmt,
-      parseStmt(`popd 1>/dev/null`),
       parseStmt(`fr-sandbox after-run ${deltaDir} ${sandboxDir} ${deltaLogFile}`),
       parseStmt(`[ -s ${deltaLogFile} ] && (echo -e "\\033[3mFile changes:\\033[0m"; cat ${deltaLogFile} | awk '{ print "  " $0 }')`),
       messageStmt({type: "stmt-done", stmtLine: stmt.Pos().Line(), pwd: "$PWD"}),
@@ -154,13 +156,11 @@ sh.syntax.Walk(ast, (node) => {
         const value = name.Value;
         const counterName = `__fun_run_loop_counter_${forLine}__`;
         forClause.Do = [
-          parseStmt(`popd 1>/dev/null`),  // AWFUL HACK
           parseStmt(`let ${counterName}+=1`),
           messageStmt({type: "for-body-start", forLine, counter: "$" + counterName}),
           // parseStmt(`echo "for loop; ${value} = \$${value}" >&3`),
           ...forClause.Do,
           messageStmt({type: "for-body-done", forLine}),
-          parseStmt(`pushd ${deltaDir}/union/$PWD 1>/dev/null`), // HACK AWFUL
         ]
       }
     }
@@ -183,6 +183,7 @@ fs.writeFileSync(tmpFile.name, transformed, { encoding: 'utf-8' });
 const child = child_process.spawn(
   'bash',
   [tmpFile.name],
+  { cwd: path.join(deltaDir, 'union', process.cwd()) }
 );
 
 type Message =
