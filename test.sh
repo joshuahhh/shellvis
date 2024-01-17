@@ -1,6 +1,6 @@
-for i in {1..10}; do
-  echo "$i"
-  sleep 0.5
+for i in {1..100}; do
+  echo "hi$i"
+  # sleep 0.2
 done
 
 ls
