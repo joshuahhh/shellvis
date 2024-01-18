@@ -286,7 +286,7 @@ export class Run {
         body {
           background-color: #333;
           color: white;
-          margin: 50px;
+          margin: 20px;
         }
 
         .output-stderr {

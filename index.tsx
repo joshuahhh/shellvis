@@ -20,7 +20,7 @@ const wss = new WebSocketServer({ port: 8080 });
 
 let output = "";
 function broadcast(data: string) {
-  console.log('broadcast', +new Date());
+  // console.log('broadcast', +new Date());
   output = data;
   wss.clients.forEach(function each(client) {
     if (client.readyState === WebSocket.OPEN) {
