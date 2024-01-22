@@ -36,7 +36,7 @@ async function main() {
   mkfifo(sh2frPath);
 
   // open this after we start the child process so it doesn't block
-  const sh2frHandle = await fs.open(sh2frPath, fs.constants.O_WRONLY);
+  const sh2frHandle = await fs.open(sh2frPath, fs.constants.O_RDWR);
 
   const childProcess = child_process.spawn(
     'bash',
