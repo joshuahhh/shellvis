@@ -16,6 +16,7 @@
     "serve-handler": "^6.1.5",
     "tmp": "^0.2.1",
     "ws": "^8.16.0",
+    "wtfnode": "^0.9.1",
     "yargs": "^17.0.32"
   },
   "devDependencies": {
@@ -24,6 +25,8 @@
     "@types/react-dom": "^18.2.18",
     "@types/serve-handler": "^6.1.4",
     "@types/ws": "^8.5.10",
-    "@types/yargs": "^17.0.32"
+    "@types/wtfnode": "^0.7.3",
+    "@types/yargs": "^17.0.32",
+    "typescript": "^5.3.3"
   }
 }

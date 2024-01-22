@@ -1,6 +1,6 @@
 import sh from "mvdan-sh";
 import AnsiToHtml from "ansi-to-html";
-import { ParseError, expandObject } from "./mvdan-sh-helpers";
+import { ParseError, expandObject, nodeSpan } from "./mvdan-sh-helpers";
 import * as child_process from "node:child_process";
 import * as util from "node:util";
 import * as repl from "node:repl";
@@ -134,6 +134,14 @@ export class Run {
     // transform
 
     this.sandbox = makeSandbox();
+
+    sh.syntax.Walk(ast, (node) => {
+      if (!node) { return true; }
+      if (sh.syntax.NodeType(node) === 'Stmt') {
+        console.log(nodeSpan(node), sh.syntax.NodeType(node));
+      }
+      return true;
+    });
 
     sh.syntax.Walk(ast, (node) => {
       if (sh.syntax.NodeType(node) == "File") {
@@ -286,7 +294,7 @@ export class Run {
         body {
           background-color: #333;
           color: white;
-          margin: 20px;
+          margin: 0px;
         }
 
         .output-stderr {
@@ -310,7 +318,7 @@ export class Run {
           display: flex;
           flex-direction: row;
           font-size: 16px;
-          margin-top: 8px;
+          margin-top: 0px;
         }
 
         .code-linenum {
@@ -333,7 +341,7 @@ export class Run {
         }
 
         .code-command {
-          margin-bottom: 8px;
+          margin-bottom: 0px;
         }
       `}</style>
       <div>
@@ -353,7 +361,26 @@ export class Run {
           </div>;
         })}
       </div>
-      {true && <div className="row" style={{marginTop: 1000}}>
+      <div className="row" style={{marginTop: 1000}}></div>
+      {true &&
+        <div>
+          <h1>script</h1>
+          <pre>{this.scriptSrc}</pre>
+          <h1>ast</h1>
+          <details open={true}>
+            {inspectHtml(expandObject(
+              parser.Parse(this.scriptSrc)
+            ))}
+          </details>
+        </div>
+      }
+      {true && <div>
+        <div>
+          <h1>transformed</h1>
+          <pre>{this.transformedSrc}</pre>
+        </div>
+      </div>}
+      {true && <div className="row">
         <div>
           <h1>log</h1>
           <div>started @ {this.startTime.toLocaleTimeString()}</div>
@@ -369,24 +396,6 @@ export class Run {
             )}
           </ul>
           {this.exitCode !== null && <div>exit code: {this.exitCode}</div>}
-        </div>
-      </div>}
-      {true &&
-        <div>
-          <h1>script</h1>
-          <pre>{this.scriptSrc}</pre>
-          <h1>ast</h1>
-          <details>
-            {inspectHtml(expandObject(
-              parser.Parse(this.scriptSrc)
-            ))}
-          </details>
-        </div>
-      }
-      {true && <div>
-        <div>
-          <h1>transformed</h1>
-          <pre>{this.transformedSrc}</pre>
         </div>
       </div>}
     </>;
