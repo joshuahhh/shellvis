@@ -35,6 +35,9 @@ async function main() {
   const sh2frPath = tmp.tmpNameSync();
   mkfifo(sh2frPath);
 
+  // open this after we start the child process so it doesn't block
+  const sh2frHandle = await fs.open(sh2frPath, fs.constants.O_WRONLY);
+
   const childProcess = child_process.spawn(
     'bash',
     [ "msg-test.sh", fr2shPath, sh2frPath ],
@@ -42,9 +45,6 @@ async function main() {
   );
 
   console.log(`node started ${childProcess.pid}`);
-
-  // open this after we start the child process so it doesn't block
-  const sh2frHandle = await fs.open(sh2frPath, fs.constants.O_WRONLY);
 
   fr2shSocket.on("data", (data) => {
     const dataString = data.toString();
