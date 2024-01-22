@@ -35,13 +35,19 @@ async function main() {
   const sh2frPath = tmp.tmpNameSync();
   mkfifo(sh2frPath);
 
-  // open this after we start the child process so it doesn't block
+  // TODO: if O_WRONLY, needs to be opened after child process started, so it doesn't block
   const sh2frHandle = await fs.open(sh2frPath, fs.constants.O_RDWR);
 
   const childProcess = child_process.spawn(
     'bash',
-    [ "msg-test.sh", fr2shPath, sh2frPath ],
-    { stdio: [ "ignore", "inherit", "inherit" ] }
+    [ "msg-test.sh" ],
+    {
+      stdio: [ "ignore", "inherit", "inherit" ],
+      env: {
+        fr2sh: fr2shPath,
+        sh2fr: sh2frPath,
+      }
+    }
   );
 
   console.log(`node started ${childProcess.pid}`);
