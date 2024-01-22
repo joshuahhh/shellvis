@@ -39,7 +39,7 @@ async function main() {
   const sh2frHandle = await fs.open(sh2frPath, fs.constants.O_RDWR);
 
   const childProcess = child_process.spawn(
-    'bash',
+    'zsh',
     [ "msg-test.sh" ],
     {
       stdio: [ "ignore", "inherit", "inherit" ],
