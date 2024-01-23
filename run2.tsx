@@ -28,12 +28,12 @@ type Message =
     nodeId: string,
     context: string,
     pwd: string,
-    exitCode: string,
+    exitCode: number,
     }
   | {
       type: 'for-body-enter',
       nodeId: string,
-      counter: string,
+      counter: number,
     }
   | {
       type: 'for-body-exit',
@@ -101,8 +101,14 @@ function parseStmt(s: string): sh.Stmt {
 }
 
 function callStmtStr(message: Message) {
-  const messageStr = JSON.stringify(message).replaceAll('"', '\\"');
+  const messageStr = JSON.stringify(message)
+    .replaceAll(new RegExp('"RAW<<<(.*)>>>RAW"', "g"), (_, p1) => p1)
+    .replaceAll('"', '\\"');
   return `frmsg_call "${messageStr}" | read -r fr_stdout fr_stderr`;
+}
+
+function RAW(str: string): any {
+  return `RAW<<<${str}>>>RAW`;
 }
 
 function callStmt(message: Message): sh.Stmt {
@@ -161,7 +167,7 @@ export class Run {
           if (cmdType === "CallExpr") {
             const nodeId = getNodeId(stmt);
             const enterStmt = callStmtStr({type: "stmt-enter", nodeId, context: "$frctx", pwd: "$PWD"});
-            const exitStmt = callStmtStr({type: "stmt-exit", nodeId, context: "$frctx", pwd: "$PWD", exitCode: "$frret"});
+            const exitStmt = callStmtStr({type: "stmt-exit", nodeId, context: "$frctx", pwd: "$PWD", exitCode: RAW("$frret")});
             wrapStmt(parser, stmt, `{ ${enterStmt}; ___; frret=$?; ${exitStmt}; fr_exitcode $frret; }`);
           }
           if (cmdType === "ForClause") {
@@ -171,7 +177,7 @@ export class Run {
             wrapStmt(parser, stmt, `{ ${counterVar}=0; ___; }`);
             forClause.Do = [
               parseStmt(`frctx_push "${forNodeId}-$${counterVar}"`),
-              callStmt({type: "for-body-enter", nodeId: forNodeId, counter: `$${counterVar}`}),
+              callStmt({type: "for-body-enter", nodeId: forNodeId, counter: RAW(`$${counterVar}`)}),
               ...forClause.Do,
               callStmt({type: "for-body-exit", nodeId: forNodeId}),
               parseStmt(`frctx_pop`),
@@ -187,7 +193,7 @@ export class Run {
     const initSrc = ['frmsg_init', 'frctx_init'].join("\n");
     this.transformedSrc = [frmsgHeaderSrc, initSrc, printer.Print(ast)].join("\n\n");
 
-    await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
+    // await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
 
     // run
 
@@ -241,18 +247,19 @@ export class Run {
       this.stop();
     });
 
+    function onMessage(message: Message): string {
+      return "\n";
+    }
+
     this.fr2shSocket.on("data", (data) => {
       const dataString = data.toString();
       if (dataString.indexOf("\n") !== dataString.length - 1) {
         FATAL("node pipe data not a single line", dataString);
       }
-      console.log("pipe data", dataString);
       try {
         const dataParsed = JSON.parse(dataString);
-        const response = `${dataParsed.i + 1}`;
-        console.log("node writing response", response);
         this.log.push(dataParsed);
-        sh2frHandle.write(response + "\n");
+        sh2frHandle.write(onMessage(dataParsed));  // nothing in the response yet
       } catch (err) {
         FATAL("node error parsing data", err);
       }

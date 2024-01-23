@@ -33,11 +33,8 @@ frctx_push () {
 }
 
 frctx_pop () {
-  unset 'frctx[-1]'
-}
-
-frctx_peek () {
-  echo "${frctx[-1]}"
+  # WARNING: we are now in zsh/bash incompatibility world
+  shift -p frctx
 }
 
 fr_exitcode () {

@@ -1,7 +1,12 @@
-true && echo "true" 1>&2
+for i in {1..3}; do
+  echo "i=$i"
+  for j in {1..3}; do
+    echo "i,j=$i,$j"
+  done
+done
 
-false && echo "false" 1>&2
-
+# true && echo "true" 1>&2
+# false && echo "false" 1>&2
 
 # for f in *.sh; do
 #   # copy each $f from .sh to .txt
