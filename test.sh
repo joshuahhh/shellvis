@@ -2,8 +2,10 @@ for i in {1..3}; do
   echo "i=$i"
   for j in {1..3}; do
     echo "i,j=$i,$j"
+    sleep 1
   done
-done
+done | rev
+
 
 # true && echo "true" 1>&2
 # false && echo "false" 1>&2

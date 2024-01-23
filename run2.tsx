@@ -10,6 +10,7 @@ import * as path from "node:path";
 import * as net from "node:net";
 import * as fs from "node:fs/promises";
 import { renderToString } from "react-dom/server";
+import { stdout } from "node:process";
 
 function FATAL(...args: any[]): never {
   console.error("FATAL", ...args);
@@ -18,17 +19,21 @@ function FATAL(...args: any[]): never {
 
 type Message =
   | {
-    type: 'stmt-enter',
-    nodeId: string,
-    context: string,
-    pwd: string,
+      type: 'debug',
+      [key: string]: any,
     }
   | {
-    type: 'stmt-exit',
-    nodeId: string,
-    context: string,
-    pwd: string,
-    exitCode: number,
+      type: 'stmt-enter',
+      nodeId: string,
+      context: string,
+      pwd: string,
+    }
+  | {
+      type: 'stmt-exit',
+      nodeId: string,
+      context: string,
+      pwd: string,
+      exitCode: number,
     }
   | {
       type: 'for-body-enter',
@@ -39,16 +44,6 @@ type Message =
       type: 'for-body-exit',
       nodeId: string
     };
-
-type LogEntry =
-  | {
-    type: 'stdout',
-    data: string,
-  }
-  | {
-    type: 'message',
-    data: Message,
-  };
 
 type Sandbox = {
   sandboxDir: string,
@@ -100,19 +95,19 @@ function parseStmt(s: string): sh.Stmt {
   return stmts[0];
 }
 
-function callStmtStr(message: Message) {
+function callStmtStr(message: Message, returnVars: string = "fr_dummy") {
   const messageStr = JSON.stringify(message)
     .replaceAll(new RegExp('"RAW<<<(.*)>>>RAW"', "g"), (_, p1) => p1)
     .replaceAll('"', '\\"');
-  return `frmsg_call "${messageStr}" | read -r fr_stdout fr_stderr`;
+  return `frmsg_call "${messageStr}" | read -r ${returnVars}`;
 }
 
 function RAW(str: string): any {
   return `RAW<<<${str}>>>RAW`;
 }
 
-function callStmt(message: Message): sh.Stmt {
-  return parseStmt(callStmtStr(message))
+function callStmt(message: Message, returnVars?: string): sh.Stmt {
+  return parseStmt(callStmtStr(message, returnVars))
 }
 
 function inspectHtml(value: any) {
@@ -127,20 +122,30 @@ function mkfifo(path: string): void {
   child_process.execSync(mkfifoCommand);
 }
 
+async function readPipe(path: string): Promise<Buffer> {
+  const handle = await fs.open(path, fs.constants.O_RDONLY);
+  const result = await handle.readFile();
+  await handle.close();
+  return result;
+}
+
+
+
 export class Run {
   sandbox: Sandbox = undefined as any;  // TODO: don't care
   childProcess: child_process.ChildProcessWithoutNullStreams = undefined as any;  // TODO: don't care
   startTime: Date = undefined as any;  // TODO: don't care
-  log: LogEntry[] = [];
+  messageLog: Message[] = [];
   exitCode: number | null = null;
   transformedSrc: string = undefined as any;  // TODO: don't care
-  fr2shHandle: fs.FileHandle = undefined as any;  // TODO: don't care
-  fr2shSocket: net.Socket = undefined as any;  // TODO: don't care
+  sh2frHandle: fs.FileHandle = undefined as any;  // TODO: don't care
+  sh2frSocket: net.Socket = undefined as any;  // TODO: don't care
+  stdouts: { [execId: string]: string } = {};
 
   constructor(public scriptSrc: string, public broadcast: (data: string) => void) { }
 
   async start() {
-    console.log("starting");
+    console.log("\n\n\nstarting");
 
     // parse
 
@@ -166,9 +171,21 @@ export class Run {
           const cmdType = sh.syntax.NodeType(cmd);
           if (cmdType === "CallExpr") {
             const nodeId = getNodeId(stmt);
-            const enterStmt = callStmtStr({type: "stmt-enter", nodeId, context: "$frctx", pwd: "$PWD"});
-            const exitStmt = callStmtStr({type: "stmt-exit", nodeId, context: "$frctx", pwd: "$PWD", exitCode: RAW("$frret")});
-            wrapStmt(parser, stmt, `{ ${enterStmt}; ___; frret=$?; ${exitStmt}; fr_exitcode $frret; }`);
+            const enterStmt = callStmtStr({
+              type: "stmt-enter",
+              nodeId,
+              context: '$(fr_join / ${frctx[@]})',
+              pwd: "$PWD"
+            }, "fr_stdout");
+            // const debugStmt = callStmtStr({type: "debug", data: "$fr_stdout"});
+            const exitStmt = callStmtStr({
+              type: "stmt-exit",
+              nodeId,
+              context: '$(fr_join / ${frctx[@]})',
+              pwd: "$PWD",
+              exitCode: RAW("$fr_ret")
+            });
+            wrapStmt(parser, stmt, `{ ${enterStmt}; ___ 1>&1 1>$fr_stdout; fr_ret=$?; ${exitStmt}; fr_exitcode $fr_ret; }`);
           }
           if (cmdType === "ForClause") {
             const forClause = cmd as sh.ForClause;
@@ -193,7 +210,7 @@ export class Run {
     const initSrc = ['frmsg_init', 'frctx_init'].join("\n");
     this.transformedSrc = [frmsgHeaderSrc, initSrc, printer.Print(ast)].join("\n\n");
 
-    // await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
+    await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
 
     // run
 
@@ -202,20 +219,16 @@ export class Run {
 
     this.startTime = new Date();
 
-    const fr2shPath = tmp.tmpNameSync();
-    mkfifo(fr2shPath);
-
-    this.fr2shHandle = await fs.open(fr2shPath, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
-    // PITFALL NOTICE:
-    //   createReadStream is inappropriate here. Per https://nodejs.org/dist/latest-v11.x/docs/api/fs.html#fs_fs_createreadstream_path_options,
-    //   "fd should be blocking; non-blocking fds should be passed to net.Socket". See also: https://stackoverflow.com/a/52622889/.
-    this.fr2shSocket = new net.Socket({ fd: this.fr2shHandle.fd });
-
     const sh2frPath = tmp.tmpNameSync();
     mkfifo(sh2frPath);
 
-    // TODO: if O_WRONLY, needs to be opened after child process started, so it doesn't block
-    const sh2frHandle = await fs.open(sh2frPath, fs.constants.O_RDWR);
+    // console.log("sh2frPath", sh2frPath)
+
+    this.sh2frHandle = await fs.open(sh2frPath, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+    // PITFALL NOTICE:
+    //   createReadStream is inappropriate here. Per https://nodejs.org/dist/latest-v11.x/docs/api/fs.html#fs_fs_createreadstream_path_options,
+    //   "fd should be blocking; non-blocking fds should be passed to net.Socket". See also: https://stackoverflow.com/a/52622889/.
+    this.sh2frSocket = new net.Socket({ fd: this.sh2frHandle.fd });
 
     this.childProcess = child_process.spawn(
       'zsh',
@@ -223,7 +236,7 @@ export class Run {
       {
         cwd: path.join(this.sandbox.deltaDir, 'union', process.cwd()),
         env: {
-          fr2sh: fr2shPath,
+          ...process.env,
           sh2fr: sh2frPath,
         }
       }
@@ -247,29 +260,54 @@ export class Run {
       this.stop();
     });
 
-    function onMessage(message: Message): string {
+    const onMessage = (message: Message): string => {
+      if (message.type === "stmt-enter") {
+        // TODO: use a pipe pool
+        const stdoutPath = tmp.tmpNameSync();
+        mkfifo(stdoutPath);
+
+        // TODO OH NO THIS DOESN'T SHOW PROGRESS :( :( :(
+        readPipe(stdoutPath).then((data) => {
+          const execId = `${message.context}//${message.nodeId}`;
+          console.log(`got stdout from ${execId}`, data.toString());
+          this.stdouts[execId] = data.toString();
+          this._writeHtml();
+        });
+
+        return stdoutPath + "\n";
+      }
       return "\n";
     }
 
-    this.fr2shSocket.on("data", (data) => {
+    this.sh2frSocket.on("data", (data) => {
       const dataString = data.toString();
-      if (dataString.indexOf("\n") !== dataString.length - 1) {
-        FATAL("node pipe data not a single line", dataString);
-      }
-      try {
-        const dataParsed = JSON.parse(dataString);
-        this.log.push(dataParsed);
-        sh2frHandle.write(onMessage(dataParsed));  // nothing in the response yet
-      } catch (err) {
-        FATAL("node error parsing data", err);
+      // TODO: this might be naive; a message might be split across events?
+      const lines = dataString.split("\n");
+      for (const line of lines) {
+        if (line === "") { continue; }
+        try {
+          // find first comma and separate
+          const firstCommaIndex = line.indexOf(",");
+          if (firstCommaIndex === -1) {
+            FATAL("node pipe data missing comma", line);
+          }
+          const returnAddress = line.slice(0, firstCommaIndex);
+          const contents = line.slice(firstCommaIndex + 1);
+          const dataParsed = JSON.parse(contents);
+          this.messageLog.push(dataParsed);
+          fs.writeFile(returnAddress, onMessage(dataParsed));
+          this._writeHtml();
+        } catch (err) {
+          FATAL("node error parsing data", err, dataString);
+        }
       }
     });
 
-    this.fr2shSocket.on("error", (err) => {
+    this.sh2frSocket.on("error", (err) => {
       console.log("pipe error", err);
     });
 
-    this.fr2shSocket.on("end", () => {
+    this.sh2frSocket.on("end", () => {
       console.log("pipe end");
     });
 
@@ -281,8 +319,8 @@ export class Run {
       this.childProcess.kill();
     }
     removeSandbox(this.sandbox);
-    await this.fr2shHandle.close();
-    this.fr2shSocket.destroy();
+    await this.sh2frHandle.close();
+    this.sh2frSocket.destroy();
   }
 
   _writeHtml() {
@@ -385,11 +423,11 @@ export class Run {
       </div>}
       {true && <div className="row">
         <div>
-          <h1>log</h1>
+          <h1>messages</h1>
           <div>started @ {this.startTime.toLocaleTimeString()}</div>
           <div>updated @ {new Date().toLocaleTimeString()}</div>
           <ul>
-            {this.log.map((entry, i) =>
+            {this.messageLog.map((entry, i) =>
               <li key={i}>
                 { inspectHtml(entry) }
               </li>
@@ -397,6 +435,17 @@ export class Run {
           </ul>
           {this.exitCode !== null && <div>exit code: {this.exitCode}</div>}
         </div>
+      </div>}
+      {true && <div>
+        <h1>stdouts</h1>
+        <ul>
+          {Object.entries(this.stdouts).map(([execId, stdout], i) =>
+            <li key={i}>
+              <div>{execId}</div>
+              <pre>{stdout}</pre>
+            </li>
+          )}
+        </ul>
       </div>}
 
       <div className="row" style={{marginTop: 1000}}></div>
