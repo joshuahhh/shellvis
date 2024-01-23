@@ -23,3 +23,23 @@ frmsg_call () {
   echo "done reading"
   echo "$RESPONSE"
 }
+
+frctx_init () {
+  frctx=()
+}
+
+frctx_push () {
+  frctx+=("$1")
+}
+
+frctx_pop () {
+  unset 'frctx[-1]'
+}
+
+frctx_peek () {
+  echo "${frctx[-1]}"
+}
+
+fr_exitcode () {
+  return $1
+}

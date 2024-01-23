@@ -1,4 +1,5 @@
-import { Node } from "mvdan-sh";
+import sh from "mvdan-sh";
+import { type Node } from "mvdan-sh";
 
 export type ParseError = {
   Error(): String,
@@ -27,8 +28,12 @@ export function isNode(maybeNode: any): maybeNode is Node {
   return maybeNode !== null && typeof maybeNode === 'object' && '__internal_object__' in maybeNode && 'Pos' in maybeNode && 'End' in maybeNode;
 }
 
-export function nodeSpan(node: Node): string {
-  return node.Pos().String() + '-' + node.End().String();
+export function posStr(pos: sh.Pos): string {
+  return pos.Line() + '_' + pos.Col();
+}
+
+export function getNodeId(node: Node): string {
+  return posStr(node.Pos()) + '_' + posStr(node.End());
 }
 
 export function expandObject(obj: any): any {
@@ -52,7 +57,7 @@ export function expandObject(obj: any): any {
     }
 
     if (isNode(obj)) {
-      toReturn.__span__ = nodeSpan(obj);
+      toReturn.__span__ = getNodeId(obj);
     }
 
     return toReturn;
@@ -61,4 +66,76 @@ export function expandObject(obj: any): any {
   } else {
     return obj;
   }
+}
+
+enum EnterResponse { Continue, Skip, Abort }
+
+enum ExitResponse { Continue, Abort }
+
+type Walker = {
+  enter?(node: sh.Node, ancestors: sh.Node[]): EnterResponse | void,
+  exit?(node: sh.Node, ancestors: sh.Node[]): ExitResponse | void,
+}
+
+export function myWalk (
+  node: sh.Node,
+  walker: Walker,
+): void {
+  let ancestors: sh.Node[] = [];
+  let aborted = false;
+  sh.syntax.Walk(node, (node: sh.Node | null) => {
+    if (aborted) {
+      return false;
+    }
+
+    if (node !== null) {
+      // entering
+      const response = walker.enter ? walker.enter(node, ancestors) : EnterResponse.Continue;
+      if (response === EnterResponse.Abort) {
+        aborted = true;
+        return false;
+      } else if (response === EnterResponse.Skip) {
+        return false;
+      } else if (response === EnterResponse.Continue || response === undefined) {
+        ancestors.push(node);
+        return true;
+      } else {
+        throw new Error(`unknown EnterResponse ${response}`);
+      }
+    } else {
+      // exiting
+      const exitedNode = ancestors.pop()!;
+      const response = walker.exit ? walker.exit(exitedNode, ancestors) : ExitResponse.Continue;
+      if (response === ExitResponse.Abort) {
+        aborted = true;
+      }
+      return true;  // meaningless but required by API
+    }
+  });
+}
+
+// we can't even clone parsed nodes, so no use trying to cache the parsed template
+// make sure that templateStr is a bare command, no top-level redirects or nothing
+// (cuz we need to take on stmt's redirects!)
+export function wrapStmt(parser: sh.Parser, stmt: sh.Stmt, templateStr: string): void {
+  const templateNode = parser.Parse(templateStr, "template");
+
+  // now we walk, looking for the smallest statement containing ___
+  myWalk(templateNode, {
+    enter(node, ancestors) {
+      if (sh.syntax.NodeType(node) === "Lit" && (node as sh.Lit).Value === "___") {
+        for (let i = ancestors.length - 1; i >= 0; i--) {
+          const node = ancestors[i];
+          if (sh.syntax.NodeType(node) === "Stmt") {
+            const foundStmt = node as sh.Stmt;
+            foundStmt.Cmd = stmt.Cmd;
+            return EnterResponse.Abort;
+          }
+        }
+        throw new Error("found ___ outside of Stmt");
+      }
+    }
+  });
+
+  stmt.Cmd = templateNode.Stmts[0]!.Cmd;
 }

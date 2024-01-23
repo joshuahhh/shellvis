@@ -1,6 +1,6 @@
 import sh from "mvdan-sh";
 import AnsiToHtml from "ansi-to-html";
-import { ParseError, expandObject, nodeSpan } from "./mvdan-sh-helpers";
+import { ParseError, expandObject, myWalk, getNodeId, wrapStmt } from "./mvdan-sh-helpers";
 import * as child_process from "node:child_process";
 import * as util from "node:util";
 import * as repl from "node:repl";
@@ -18,23 +18,26 @@ function FATAL(...args: any[]): never {
 
 type Message =
   | {
-    type: 'stmt-start',
-    stmtLine: number,
+    type: 'stmt-enter',
+    nodeId: string,
+    context: string,
     pwd: string,
     }
   | {
-    type: 'stmt-done',
-    stmtLine: number,
+    type: 'stmt-exit',
+    nodeId: string,
+    context: string,
     pwd: string,
+    exitCode: string,
     }
   | {
-      type: 'for-body-start',
-      forLine: number,
+      type: 'for-body-enter',
+      nodeId: string,
       counter: string,
     }
   | {
-      type: 'for-body-done',
-      forLine: number
+      type: 'for-body-exit',
+      nodeId: string
     };
 
 type LogEntry =
@@ -97,9 +100,13 @@ function parseStmt(s: string): sh.Stmt {
   return stmts[0];
 }
 
-function callStmt(message: Message): sh.Stmt {
+function callStmtStr(message: Message) {
   const messageStr = JSON.stringify(message).replaceAll('"', '\\"');
-  return parseStmt(`frmsg_call "${messageStr}" | read -r fr_stdout fr_stderr`);
+  return `frmsg_call "${messageStr}" | read -r fr_stdout fr_stderr`;
+}
+
+function callStmt(message: Message): sh.Stmt {
+  return parseStmt(callStmtStr(message))
 }
 
 function inspectHtml(value: any) {
@@ -143,52 +150,42 @@ export class Run {
 
     this.sandbox = await makeSandbox();
 
-    sh.syntax.Walk(ast, (node) => {
-      if (!node) { return true; }
-      if (sh.syntax.NodeType(node) === 'Stmt') {
-        console.log(nodeSpan(node), sh.syntax.NodeType(node));
-      }
-      return true;
-    });
+    myWalk(ast, {
+      exit: (node) => {
+        const nodeType = sh.syntax.NodeType(node);
 
-    sh.syntax.Walk(ast, (node) => {
-      if (sh.syntax.NodeType(node) == "File") {
-        const file = node as sh.File;
-        file.Stmts = this._augmentStmts(file.Stmts);
-        file.Stmts = [
-          // parseStmt(`exec 3>${pipe}`),
-          ...file.Stmts,
-          // parseStmt(`exec 3>&-`),
-        ]
-      }
-      if (sh.syntax.NodeType(node) == "ForClause") {
-        const forClause = node as sh.ForClause;
-        forClause.Do = this._augmentStmts(forClause.Do);
-
-        const loop = forClause.Loop;
-        if (sh.syntax.NodeType(loop) == "WordIter") {
-          const wordIter = loop as sh.WordIter;
-          const name = wordIter.Name;
-          if (name) {
-            const forLine = forClause.Pos().Line();
-            const value = name.Value;
-            const counterName = `__fun_run_loop_counter_${forLine}__`;
+        if (nodeType === "Stmt") {
+          const stmt = node as sh.Stmt;
+          const cmd = stmt.Cmd;
+          const cmdType = sh.syntax.NodeType(cmd);
+          if (cmdType === "CallExpr") {
+            const nodeId = getNodeId(stmt);
+            const enterStmt = callStmtStr({type: "stmt-enter", nodeId, context: "$frctx", pwd: "$PWD"});
+            const exitStmt = callStmtStr({type: "stmt-exit", nodeId, context: "$frctx", pwd: "$PWD", exitCode: "$frret"});
+            wrapStmt(parser, stmt, `{ ${enterStmt}; ___; frret=$?; ${exitStmt}; fr_exitcode $frret; }`);
+          }
+          if (cmdType === "ForClause") {
+            const forClause = cmd as sh.ForClause;
+            const forNodeId = getNodeId(forClause);
+            const counterVar = `fr_loop_counter_${forNodeId}`;
+            wrapStmt(parser, stmt, `{ ${counterVar}=0; ___; }`);
             forClause.Do = [
-              parseStmt(`let ${counterName}+=1`),
-              callStmt({type: "for-body-start", forLine, counter: "$" + counterName}),
-              // parseStmt(`echo "for loop; ${value} = \$${value}" >&3`),
+              parseStmt(`frctx_push "${forNodeId}-$${counterVar}"`),
+              callStmt({type: "for-body-enter", nodeId: forNodeId, counter: `$${counterVar}`}),
               ...forClause.Do,
-              callStmt({type: "for-body-done", forLine}),
-            ]
+              callStmt({type: "for-body-exit", nodeId: forNodeId}),
+              parseStmt(`frctx_pop`),
+              parseStmt(`${counterVar}=$(($${counterVar} + 1))`),
+            ];
           }
         }
       }
-      return true
     });
 
-    const frmsgHeader = await fs.readFile(path.join(__dirname, 'frmsg.sh'), { encoding: 'utf-8' });
+    const frmsgHeaderSrc = await fs.readFile(path.join(__dirname, 'frmsg.sh'), { encoding: 'utf-8' });
 
-    this.transformedSrc = frmsgHeader + '\nfrmsg_init\n\n' + printer.Print(ast);
+    const initSrc = ['frmsg_init', 'frctx_init'].join("\n");
+    this.transformedSrc = [frmsgHeaderSrc, initSrc, printer.Print(ast)].join("\n\n");
 
     await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
 
@@ -238,6 +235,7 @@ export class Run {
     });
 
     this.childProcess.on('close', (exitCodeIn: number) => {
+      console.log("child process exited with code", exitCodeIn);
       this.exitCode = exitCodeIn;
       this._writeHtml();
       this.stop();
@@ -253,6 +251,7 @@ export class Run {
         const dataParsed = JSON.parse(dataString);
         const response = `${dataParsed.i + 1}`;
         console.log("node writing response", response);
+        this.log.push(dataParsed);
         sh2frHandle.write(response + "\n");
       } catch (err) {
         FATAL("node error parsing data", err);
@@ -279,36 +278,25 @@ export class Run {
     this.fr2shSocket.destroy();
   }
 
-  _augmentStmts(stmts: (sh.Stmt | null)[]): sh.Stmt[] {
-    return stmts.flatMap((stmt) => {
-      if (!stmt) { return []; }
-      return [
-        callStmt({type: "stmt-start", stmtLine: stmt.Pos().Line(), pwd: "$PWD"}),
-        stmt,
-        callStmt({type: "stmt-done", stmtLine: stmt.Pos().Line(), pwd: "$PWD"}),
-      ];
-    });
-  }
-
   _writeHtml() {
     const outputPerLine: { [line: number]: string } = {};
-    let currentLine = null;
-    for (const { type, data } of this.log) {
-      if (type === 'message') {
-        const message = data as Message;
-        if (message.type === 'stmt-start') {
-          currentLine = message.stmtLine;
-        } else if (message.type === 'stmt-done') {
-          currentLine = null;
-        }
-      } else if (type === 'stdout') {
-        if (currentLine === null) {
-          console.error("got stdout without a current line", data);
-        } else {
-          outputPerLine[currentLine] = (outputPerLine[currentLine] || '') + data;
-        }
-      }
-    }
+    // let currentLine = null;
+    // for (const { type, data } of this.log) {
+    //   if (type === 'message') {
+    //     const message = data as Message;
+    //     if (message.type === 'stmt-enter') {
+    //       currentLine = message.stmtLine;
+    //     } else if (message.type === 'stmt-exit') {
+    //       currentLine = null;
+    //     }
+    //   } else if (type === 'stdout') {
+    //     if (currentLine === null) {
+    //       console.error("got stdout without a current line", data);
+    //     } else {
+    //       outputPerLine[currentLine] = (outputPerLine[currentLine] || '') + data;
+    //     }
+    //   }
+    // }
 
     const jsx = <>
       {/* <script dangerouslySetInnerHTML={{
@@ -382,7 +370,7 @@ export class Run {
       </div>}
       {true && <div>
         <h1>ast</h1>
-        <details open={true}>
+        <details open={false}>
           {inspectHtml(expandObject(
             parser.Parse(this.scriptSrc)
           ))}
@@ -394,18 +382,17 @@ export class Run {
           <div>started @ {this.startTime.toLocaleTimeString()}</div>
           <div>updated @ {new Date().toLocaleTimeString()}</div>
           <ul>
-            {this.log.map(({ data, type }, i) =>
+            {this.log.map((entry, i) =>
               <li key={i}>
-                { type === 'stdout'
-                ? <pre>{data}</pre>
-                : inspectHtml(expandObject(data))
-                }
+                { inspectHtml(entry) }
               </li>
             )}
           </ul>
           {this.exitCode !== null && <div>exit code: {this.exitCode}</div>}
         </div>
       </div>}
+
+      <div className="row" style={{marginTop: 1000}}></div>
 
       <div>
         {this.scriptSrc.split('\n').map((line, i) => {
@@ -424,7 +411,6 @@ export class Run {
           </div>;
         })}
       </div>
-      <div className="row" style={{marginTop: 1000}}></div>
     </>;
 
     const html = renderToString(jsx);
