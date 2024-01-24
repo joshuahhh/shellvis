@@ -1,39 +1,41 @@
 # set -eu
 
+echo "hello"
+
 echo "hi" | cat | cat
 
-# true && echo "true"
-# false && echo "false"
+true && echo "true"
+false && echo "false"
 
-# fr_exitcode 10
+fr_exitcode 10
 
-# for i in {1..10}; do
-#   echo "i=$i"
-# done | cat | cat
+for i in {1..10}; do
+  echo "i=$i"
+done | cat | cat
 
-# sleep 1
+sleep 1
 
-# x=$(ls)
+x=$(ls)
 
-# cd ..
+cd ..
 
-# diff <(ls) <(echo $x)
+diff <(ls) <(echo $x)
 
-# ls
+ls
 
-# sleep 2
+sleep 2
 
-# echo $x
+echo $x
 
-# ls | rev
+ls | rev
 
-# echo "hello" | rev
+echo "hello" | rev
 
-# sleep 1
+sleep 1
 
-# echo "#1" | echo "#2"
+echo "#1" | echo "#2"
 
-# echo "#1" | echo "#2" | echo "#3"
+echo "#1" | echo "#2" | echo "#3"
 
 # false
 

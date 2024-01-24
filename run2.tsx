@@ -118,6 +118,10 @@ function callStmt(message: Message, returnVars?: string): sh.Stmt {
   return parseStmt(callStmtStr(message, returnVars))
 }
 
+function uploadCmdStr(uploadId: string) {
+  return `curl -s -X POST -T - http://localhost:1234/upload/${uploadId}`;
+}
+
 function inspectHtml(value: any) {
   return <pre dangerouslySetInnerHTML={{ __html:
     ansiToHtml.toHtml(util.inspect(value, { showHidden: false, depth: null, colors: true }))
@@ -237,7 +241,10 @@ export class Run {
   messageLog: Message[] = [];
   exitCode: number | null = null;
   transformedSrc: string | null = null;
+  sh2frPort: number | null = null;
+  sh2frExpress: express.Express | null = null;
   sh2frServer: Server | null = null;
+  sh2frUploadHandlers: Record<string, (req: express.Request, res: express.Response) => void> = {};
   execInfos: Record<string, ExecInfo> = {};
   allStmts: { [nodeId: string]: {stmt: sh.Stmt, src: string} } = {};
   callExprs: {callExpr: sh.CallExpr, stmtNodeId: string}[] = [];
@@ -282,7 +289,8 @@ export class Run {
                 context: '$(fr_join / ${frctx[@]})',
                 pwd: "$PWD"
               }, "fr_stdout fr_stderr")};
-              ___ 1>&1 1>$fr_stdout 2>&2 2>$fr_stderr;
+              echo "sh: got upload ids $fr_stdout $fr_stderr" 1>&2;
+              ___ 1>&1 1> >(${uploadCmdStr('$fr_stdout')}) 2>&2 2> >(${uploadCmdStr('$fr_stderr')});
               fr_ret=$?;
               ${callStmtStr({
                 type: "stmt-exit",
@@ -334,17 +342,6 @@ export class Run {
 
     this.startTime = new Date();
 
-    // const sh2frPath = tmp.tmpNameSync();
-    // mkfifo(sh2frPath);
-
-    // console.log("sh2frPath", sh2frPath)
-
-    // this.sh2frHandle = await fs.open(sh2frPath, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
-    // PITFALL NOTICE:
-    //   createReadStream is inappropriate here. Per https://nodejs.org/dist/latest-v11.x/docs/api/fs.html#fs_fs_createreadstream_path_options,
-    //   "fd should be blocking; non-blocking fds should be passed to net.Socket". See also: https://stackoverflow.com/a/52622889/.
-    // this.sh2frSocket = new net.Socket({ fd: this.sh2frHandle.fd });
-
     this.childProcess = child_process.spawn(
       'zsh',
       [ tmpFile.name ],
@@ -382,14 +379,14 @@ export class Run {
       this.stop();
     });
 
+    let uploadId = 0;
+
     const onMessage = (message: Message): string => {
       if (message.type === "stmt-enter") {
         // TODO: use a pipe pool
-        const stdoutPath = tmp.tmpNameSync();
-        mkfifo(stdoutPath);
 
-        const stderrPath = tmp.tmpNameSync();
-        mkfifo(stderrPath);
+        const stdoutUploadId = `${uploadId++}`;
+        const stderrUploadId = `${uploadId++}`;
 
         const execId = mkExecId(message.context, message.nodeId);
         const execOutput: ExecInfo = this.execInfos[execId] = {
@@ -399,17 +396,39 @@ export class Run {
           exitInfo: null,
         };
 
-        readPipeWithProgress(stdoutPath, (progress) => {
-          execOutput.stdout = progress;
-          this._scheduleWriteHtml();
-        });
+        this.sh2frUploadHandlers[stdoutUploadId] = (req, res) => {
+          console.log("fr: stdout upload handler called")
+          // console.log(req);
+          req.setEncoding('utf8');
+          req.on('data', (data) => {
+            console.log("fr: stdout upload handler got data", data)
+            execOutput.stdout.data += data;
+            this._scheduleWriteHtml();
+          });
+          req.on('end', () => {
+            console.log("fr: stdout upload handler got end")
+            execOutput.stdout.done = true;
+            this._scheduleWriteHtml();
+            res.end();
+          });
+        };
 
-        readPipeWithProgress(stderrPath, (progress) => {
-          execOutput.stderr = progress;
-          this._scheduleWriteHtml();
-        });
+        this.sh2frUploadHandlers[stderrUploadId] = (req, res) => {
+          console.log("fr: stderr upload handler called")
+          req.on('data', (data) => {
+            console.log("fr: stderr upload handler got data", data)
+            execOutput.stderr.data += data;
+            this._scheduleWriteHtml();
+          });
+          req.on('end', () => {
+            console.log("fr: stderr upload handler got end")
+            execOutput.stderr.done = true;
+            this._scheduleWriteHtml();
+            res.end();
+          });
+        };
 
-        return `${stdoutPath} ${stderrPath}\n`;
+        return `${stdoutUploadId} ${stderrUploadId}\n`;
       } else if (message.type === "stmt-exit") {
         const execId = mkExecId(message.context, message.nodeId);
         this.execInfos[execId].exitInfo = {
@@ -422,13 +441,12 @@ export class Run {
       return "\n";
     }
 
-    const app = express()
-    const port = 1234
+    this.sh2frExpress = express()
 
     // app.use(express.json())
-    app.use('/', express.raw({ type: "*/*" }))
+    this.sh2frExpress.use('/', express.raw({ type: "*/*" }))
 
-    app.post('/', (req, res) => {
+    this.sh2frExpress.post('/', (req, res) => {
       const dataString = req.body.toString();
       // TODO: this might be naive; a message might be split across events?
       const lines = dataString.trim().split("\n");
@@ -447,10 +465,31 @@ export class Run {
       }
     })
 
+    this.sh2frExpress.post('/upload/:uploadId', (req, res) => {
+      console.log("fr: upload", req.params.uploadId);
+
+      const uploadHandler = this.sh2frUploadHandlers[req.params.uploadId];
+
+      if (!uploadHandler) {
+        res.status(404).send(`upload handler not found for ${req.params.uploadId}`);
+        return;
+      }
+
+      uploadHandler(req, res);
+
+      delete this.sh2frUploadHandlers[req.params.uploadId];
+    });
+
+    this.sh2frExpress.get('*', (req, res) => {
+      // log and 404
+      console.log("fr: 404", req.url);
+      res.status(404).send(`404 not found`);
+    });
 
 
-    this.sh2frServer = app.listen(port, () => {
-      console.log(`Example app listening on port ${port}`)
+    this.sh2frPort = 1234;
+    this.sh2frServer = this.sh2frExpress.listen(this.sh2frPort, () => {
+      console.log(`Example app listening on port ${this.sh2frPort}`)
     })
 
     this._scheduleWriteHtml();
@@ -462,7 +501,7 @@ export class Run {
       this.childProcess.kill();
     }
     this.sandbox && removeSandbox(this.sandbox);
-    this.sh2frServer && await new Promise((resolve) => {
+    this.sh2frServer && this.sh2frServer.listening && await new Promise((resolve) => {
       this.sh2frServer!.close((err) => {
         if (err) {
           console.error("error closing sh2frServer", err);
