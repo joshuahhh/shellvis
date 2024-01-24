@@ -129,7 +129,24 @@ async function readPipe(path: string): Promise<Buffer> {
   return result;
 }
 
+type PipeProgress = {
+  data: string,
+  done: boolean,
+}
 
+async function readPipeWithProgress(path: string, onProgress: (progress: PipeProgress) => void): Promise<void> {
+  const handle = await fs.open(path, fs.constants.O_RDONLY);
+  const buffers: Buffer[] = [];
+  const stream = handle.createReadStream()
+  stream.on('data', (data: Buffer) => {
+    buffers.push(data);
+    onProgress({ data: buffers.concat().toString(), done: false });
+  });
+  stream.on('end', () => {
+    onProgress({ data: buffers.concat().toString(), done: true });
+    handle.close();
+  });
+}
 
 export class Run {
   sandbox: Sandbox = undefined as any;  // TODO: don't care
@@ -140,7 +157,7 @@ export class Run {
   transformedSrc: string = undefined as any;  // TODO: don't care
   sh2frHandle: fs.FileHandle = undefined as any;  // TODO: don't care
   sh2frSocket: net.Socket = undefined as any;  // TODO: don't care
-  stdouts: { [execId: string]: string } = {};
+  stdouts: { [execId: string]: PipeProgress } = {};
 
   constructor(public scriptSrc: string, public broadcast: (data: string) => void) { }
 
@@ -266,11 +283,10 @@ export class Run {
         const stdoutPath = tmp.tmpNameSync();
         mkfifo(stdoutPath);
 
-        // TODO OH NO THIS DOESN'T SHOW PROGRESS :( :( :(
-        readPipe(stdoutPath).then((data) => {
-          const execId = `${message.context}//${message.nodeId}`;
-          console.log(`got stdout from ${execId}`, data.toString());
-          this.stdouts[execId] = data.toString();
+        const execId = `${message.context}//${message.nodeId}`;
+
+        readPipeWithProgress(stdoutPath, (progress) => {
+          this.stdouts[execId] = progress;
           this._writeHtml();
         });
 
@@ -304,11 +320,11 @@ export class Run {
     });
 
     this.sh2frSocket.on("error", (err) => {
-      console.log("pipe error", err);
+      console.log("sh2fr pipe error", err);
     });
 
     this.sh2frSocket.on("end", () => {
-      console.log("pipe end");
+      console.log("sh2fr pipe end");
     });
 
   }
@@ -442,7 +458,8 @@ export class Run {
           {Object.entries(this.stdouts).map(([execId, stdout], i) =>
             <li key={i}>
               <div>{execId}</div>
-              <pre>{stdout}</pre>
+              <pre>{stdout.data}</pre>
+              {stdout.done && <div>done!</div>}
             </li>
           )}
         </ul>

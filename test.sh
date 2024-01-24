@@ -2,7 +2,7 @@ for i in {1..3}; do
   echo "i=$i"
   for j in {1..3}; do
     echo "i,j=$i,$j"
-    sleep 1
+    # sleep 1
   done
 done | rev
 
