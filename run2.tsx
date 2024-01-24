@@ -214,6 +214,16 @@ function addDecorationsToLine(line: string, decorations: Decoration[]): React.Re
 //   }
 // ])}
 
+type ExecInfo = {
+  stdout: PipeProgress,
+  stderr: PipeProgress,
+  enterPwd: string,
+  exitInfo: {
+    exitCode: number,
+    pwd: string,
+  } | null,
+}
+
 export class Run {
   sandbox: Sandbox = undefined as any;  // TODO: don't care
   childProcess: child_process.ChildProcessByStdio<null, null, null> = undefined as any;  // TODO: don't care
@@ -224,7 +234,7 @@ export class Run {
   // sh2frHandle: fs.FileHandle = undefined as any;  // TODO: don't care
   // sh2frSocket: net.Socket = undefined as any;  // TODO: don't care
   sh2frServer: Server | null = null;
-  execOutputs: { [execId: string]: { stdout: PipeProgress, stderr: PipeProgress } } = {};
+  execInfos: Record<string, ExecInfo> = {};
   allStmts: { [nodeId: string]: {stmt: sh.Stmt, src: string} } = {};
   callExprs: {callExpr: sh.CallExpr, stmtNodeId: string}[] = [];
 
@@ -378,9 +388,11 @@ export class Run {
         mkfifo(stderrPath);
 
         const execId = `${message.context}//${message.nodeId}`;
-        const execOutput = this.execOutputs[execId] = {
-          stdout: { data: "", done: false } as PipeProgress,
-          stderr: { data: "", done: false } as PipeProgress,
+        const execOutput: ExecInfo = this.execInfos[execId] = {
+          stdout: { data: "", done: false },
+          stderr: { data: "", done: false },
+          enterPwd: message.pwd,
+          exitInfo: null,
         };
 
         readPipeWithProgress(stdoutPath, (progress) => {
@@ -394,6 +406,14 @@ export class Run {
         });
 
         return `${stdoutPath} ${stderrPath}\n`;
+      } else if (message.type === "stmt-exit") {
+        const execId = `${message.context}//${message.nodeId}`;
+        this.execInfos[execId].exitInfo = {
+          exitCode: message.exitCode,
+          pwd: message.pwd,
+        };
+        this._scheduleWriteHtml();
+        return "\n";
       }
       return "\n";
     }
@@ -471,20 +491,28 @@ export class Run {
           return callExpr.Pos().Line() === i + 1;
         });
         const decorations: Decoration[] = callExprsOnLine.map(({callExpr, stmtNodeId}) => {
-          const execOutput = this.execOutputs['//' + stmtNodeId] as {stdout: PipeProgress, stderr: PipeProgress} | undefined;
+          const execInfo = this.execInfos['//' + stmtNodeId] as ExecInfo | undefined;
+          const execExitInfo = execInfo?.exitInfo;
+          const statusClass =
+            execInfo
+            ? execExitInfo
+              ? execExitInfo.exitCode === 0 ? 'call-done-success' : 'call-done-failure'
+              : 'call-running'
+            : 'call-not-started';
+
           return {
             start: callExpr.Pos().Col() - 1,
             end: callExpr.End().Col() - 1,
             decorator: (contents) =>
-              <div key={stmtNodeId} className={`call ${execOutput?.stdout.done ? 'call-done' : ''}`}>
+              <div key={stmtNodeId} className={`call ${statusClass}`}>
                 <span style={{textDecoration: 'none'}}>{contents}</span>
-                { execOutput &&
+                { execInfo &&
                   <div style={{fontSize: '80%'}}>
                     <pre>
-                      {execOutput.stdout.data}
+                      {execInfo.stdout.data}
                     </pre>
                     <pre style={{color: 'rgba(255,200,200)'}}>
-                      {execOutput.stderr.data}
+                      {execInfo.stderr.data}
                     </pre>
                   </div>
                 }
@@ -543,19 +571,23 @@ export class Run {
     </div>;
 
     const partExecOutput = <div>
-      <h1>exec output</h1>
+      <h1>exec info</h1>
       <dl>
-        {Object.entries(this.execOutputs).map(([execId, { stdout, stderr }]) =>
-          <Fragment key={execId}>
+        {Object.entries(this.execInfos).map(([execId, execInfo]) => {
+          const { stdout, stderr, ...rest } = execInfo;
+          return <Fragment key={execId}>
             <dt>{execId}</dt>
             <dd>
               <div><b>stdout</b> {stdout.done && <small>✓</small>}</div>
               <pre>{stdout.data}</pre>
               <div><b>stderr</b> {stderr.done && <small>✓</small>}</div>
               <pre>{stderr.data}</pre>
+              <div><b>other</b>
+                {inspectHtml(rest)}
+              </div>
             </dd>
           </Fragment>
-        )}
+        })}
       </dl>
     </div>;
 
