@@ -1,4 +1,5 @@
-echo "hi"
+echo "hei"
+echo "yay"
 echo "error" 1>&2
 false
 

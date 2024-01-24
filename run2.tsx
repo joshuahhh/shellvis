@@ -218,6 +218,7 @@ export class Run {
   sh2frHandle: fs.FileHandle = undefined as any;  // TODO: don't care
   sh2frSocket: net.Socket = undefined as any;  // TODO: don't care
   execOutputs: { [execId: string]: { stdout: PipeProgress, stderr: PipeProgress } } = {};
+  callExprs: {callExpr: sh.CallExpr, stmtNodeId: string}[] = [];
 
   constructor(public scriptSrc: string, public broadcast: (data: string) => void) { }
 
@@ -263,6 +264,7 @@ export class Run {
               exitCode: RAW("$fr_ret")
             });
             wrapStmt(parser, stmt, `{ ${enterStmt}; ___ 1>&1 1>$fr_stdout 2>&2 2>$fr_stderr; fr_ret=$?; ${exitStmt}; fr_exitcode $fr_ret; }`);
+            this.callExprs.push({callExpr: cmd as sh.CallExpr, stmtNodeId: nodeId});
           }
           if (cmdType === "ForClause") {
             const forClause = cmd as sh.ForClause;
@@ -427,10 +429,37 @@ export class Run {
     const partMain = <div>
       {this.scriptSrc.split('\n').map((line, i) => {
         const lineIndent = line.match(/^\s*/)?.[0] || '';
+        const callExprsOnLine = this.callExprs.filter(({callExpr}) => {
+          // TODO: everything's limited to single lines
+          return callExpr.Pos().Line() === i + 1;
+        });
+        const decorations: Decoration[] = callExprsOnLine.map(({callExpr, stmtNodeId}) => {
+          const execOutput = this.execOutputs['//' + stmtNodeId];
+          return {
+            start: callExpr.Pos().Col() - 1,
+            end: callExpr.End().Col() - 1,
+            decorator: (contents) =>
+              <div key={stmtNodeId} className="call">
+                <span style={{textDecoration: 'none'}}>{contents}</span>
+                { execOutput &&
+                  <div style={{fontSize: '80%'}}>
+                    <pre>
+                      {execOutput.stdout.data}
+                    </pre>
+                    <pre style={{color: 'rgba(255,200,200)'}}>
+                      {execOutput.stderr.data}
+                    </pre>
+                  </div>
+                }
+                {false && <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>}
+              </div>
+          };
+        });
+        const decoratedLine = addDecorationsToLine(line, decorations);
         return <div key={i} className="code-line">
           <div className="code-linenum">{i + 1}</div>
           <div className="code-linecode">
-            <div className="code-command">{line}</div>
+            <div className="code-command">{decoratedLine}</div>
             {/* { outputPerLine[i + 1] &&
               <div className="row">
                 <div>{lineIndent}</div>
