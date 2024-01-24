@@ -3,14 +3,13 @@ import AnsiToHtml from "ansi-to-html";
 import { ParseError, expandObject, myWalk, getNodeId, wrapStmt } from "./mvdan-sh-helpers";
 import * as child_process from "node:child_process";
 import * as util from "node:util";
-import * as repl from "node:repl";
 import * as tmp from "tmp";
 import * as os from "os";
 import * as path from "node:path";
 import * as net from "node:net";
 import * as fs from "node:fs/promises";
 import { renderToString } from "react-dom/server";
-import { stdout } from "node:process";
+import { Fragment } from "react";
 
 function FATAL(...args: any[]): never {
   console.error("FATAL", ...args);
@@ -157,7 +156,7 @@ export class Run {
   transformedSrc: string = undefined as any;  // TODO: don't care
   sh2frHandle: fs.FileHandle = undefined as any;  // TODO: don't care
   sh2frSocket: net.Socket = undefined as any;  // TODO: don't care
-  stdouts: { [execId: string]: PipeProgress } = {};
+  execOutputs: { [execId: string]: { stdout: PipeProgress, stderr: PipeProgress } } = {};
 
   constructor(public scriptSrc: string, public broadcast: (data: string) => void) { }
 
@@ -193,7 +192,7 @@ export class Run {
               nodeId,
               context: '$(fr_join / ${frctx[@]})',
               pwd: "$PWD"
-            }, "fr_stdout");
+            }, "fr_stdout fr_stderr");
             // const debugStmt = callStmtStr({type: "debug", data: "$fr_stdout"});
             const exitStmt = callStmtStr({
               type: "stmt-exit",
@@ -202,7 +201,7 @@ export class Run {
               pwd: "$PWD",
               exitCode: RAW("$fr_ret")
             });
-            wrapStmt(parser, stmt, `{ ${enterStmt}; ___ 1>&1 1>$fr_stdout; fr_ret=$?; ${exitStmt}; fr_exitcode $fr_ret; }`);
+            wrapStmt(parser, stmt, `{ ${enterStmt}; ___ 1>&1 1>$fr_stdout 2>&2 2>$fr_stderr; fr_ret=$?; ${exitStmt}; fr_exitcode $fr_ret; }`);
           }
           if (cmdType === "ForClause") {
             const forClause = cmd as sh.ForClause;
@@ -262,18 +261,17 @@ export class Run {
     // collect output
 
     this.childProcess.stdout.on('data', (data: string) => {
-      // console.error("got stdout", data.toString());
+      console.error("childProcess stdout", data.toString());
     });
 
     this.childProcess.stderr.on('data', (data: string) => {
-      // TODO: not implemented
-      console.error("got stderr", data.toString());
+      console.error("childProcess stderr", data.toString());
     });
 
     this.childProcess.on('close', (exitCodeIn: number) => {
       console.log("child process exited with code", exitCodeIn);
       this.exitCode = exitCodeIn;
-      this._writeHtml();
+      this._scheduleWriteHtml();
       this.stop();
     });
 
@@ -283,14 +281,26 @@ export class Run {
         const stdoutPath = tmp.tmpNameSync();
         mkfifo(stdoutPath);
 
+        const stderrPath = tmp.tmpNameSync();
+        mkfifo(stderrPath);
+
         const execId = `${message.context}//${message.nodeId}`;
+        const execOutput = this.execOutputs[execId] = {
+          stdout: { data: "", done: false } as PipeProgress,
+          stderr: { data: "", done: false } as PipeProgress,
+        };
 
         readPipeWithProgress(stdoutPath, (progress) => {
-          this.stdouts[execId] = progress;
-          this._writeHtml();
+          execOutput.stdout = progress;
+          this._scheduleWriteHtml();
         });
 
-        return stdoutPath + "\n";
+        readPipeWithProgress(stderrPath, (progress) => {
+          execOutput.stderr = progress;
+          this._scheduleWriteHtml();
+        });
+
+        return `${stdoutPath} ${stderrPath}\n`;
       }
       return "\n";
     }
@@ -312,7 +322,8 @@ export class Run {
           const dataParsed = JSON.parse(contents);
           this.messageLog.push(dataParsed);
           fs.writeFile(returnAddress, onMessage(dataParsed));
-          this._writeHtml();
+          this._scheduleWriteHtml();
+          // console.log("node pipe data", dataParsed)
         } catch (err) {
           FATAL("node error parsing data", err, dataString);
         }
@@ -327,6 +338,7 @@ export class Run {
       console.log("sh2fr pipe end");
     });
 
+    this._scheduleWriteHtml();
   }
 
   async stop() {
@@ -337,6 +349,17 @@ export class Run {
     removeSandbox(this.sandbox);
     await this.sh2frHandle.close();
     this.sh2frSocket.destroy();
+    // dump();
+  }
+
+  _writeHtmlScheduled = false;
+  _scheduleWriteHtml() {
+    if (this._writeHtmlScheduled) { return; }
+    setImmediate(() => {
+      this._writeHtmlScheduled = false;
+      this._writeHtml()
+    });
+    this._writeHtmlScheduled = true;
   }
 
   _writeHtml() {
@@ -453,16 +476,20 @@ export class Run {
         </div>
       </div>}
       {true && <div>
-        <h1>stdouts</h1>
-        <ul>
-          {Object.entries(this.stdouts).map(([execId, stdout], i) =>
-            <li key={i}>
-              <div>{execId}</div>
-              <pre>{stdout.data}</pre>
-              {stdout.done && <div>done!</div>}
-            </li>
+        <h1>exec output</h1>
+        <dl>
+          {Object.entries(this.execOutputs).map(([execId, { stdout, stderr }]) =>
+            <Fragment key={execId}>
+              <dt>{execId}</dt>
+              <dd>
+                <div><b>stdout</b> {stdout.done && <small>✓</small>}</div>
+                <pre>{stdout.data}</pre>
+                <div><b>stderr</b> {stderr.done && <small>✓</small>}</div>
+                <pre>{stderr.data}</pre>
+              </dd>
+            </Fragment>
           )}
-        </ul>
+        </dl>
       </div>}
 
       <div className="row" style={{marginTop: 1000}}></div>

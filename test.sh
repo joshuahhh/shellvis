@@ -1,10 +1,14 @@
-for i in {1..3}; do
-  echo "i=$i"
-  for j in {1..3}; do
-    echo "i,j=$i,$j"
-    # sleep 1
-  done
-done | rev
+echo "hi"
+echo "error" 1>&2
+false
+
+# for i in {1..3}; do
+#   echo "i=$i"
+#   for j in {1..3}; do
+#     echo "i,j=$i,$j"
+#     # sleep 1
+#   done
+# done | rev
 
 
 # true && echo "true" 1>&2
