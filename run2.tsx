@@ -143,7 +143,9 @@ type PipeProgress = {
 }
 
 async function readPipeWithProgress(path: string, onProgress: (progress: PipeProgress) => void): Promise<void> {
+  console.log("fr: readPipeWithProgress is opening", path)
   const handle = await fs.open(path, fs.constants.O_RDONLY);
+  console.log("fr: readPipeWithProgress opened", path)
   const buffers: Buffer[] = [];
   const stream = handle.createReadStream()
   stream.on('data', (data: Buffer) => {
@@ -225,14 +227,12 @@ type ExecInfo = {
 }
 
 export class Run {
-  sandbox: Sandbox = undefined as any;  // TODO: don't care
-  childProcess: child_process.ChildProcessByStdio<null, null, null> = undefined as any;  // TODO: don't care
-  startTime: Date = undefined as any;  // TODO: don't care
+  sandbox: Sandbox | null = null;
+  childProcess: child_process.ChildProcessByStdio<null, null, null> | null = null;
+  startTime: Date | null = null;
   messageLog: Message[] = [];
   exitCode: number | null = null;
-  transformedSrc: string = undefined as any;  // TODO: don't care
-  // sh2frHandle: fs.FileHandle = undefined as any;  // TODO: don't care
-  // sh2frSocket: net.Socket = undefined as any;  // TODO: don't care
+  transformedSrc: string | null = null;
   sh2frServer: Server | null = null;
   execInfos: Record<string, ExecInfo> = {};
   allStmts: { [nodeId: string]: {stmt: sh.Stmt, src: string} } = {};
@@ -453,12 +453,12 @@ export class Run {
 
   async stop() {
     console.log("stopping");
-    if (this.exitCode === null) {
+    if (this.exitCode === null && this.childProcess) {
       this.childProcess.kill();
     }
-    removeSandbox(this.sandbox);
-    return new Promise((resolve) => {
-      this.sh2frServer?.close((err) => {
+    this.sandbox && removeSandbox(this.sandbox);
+    this.sh2frServer && await new Promise((resolve) => {
+      this.sh2frServer!.close((err) => {
         if (err) {
           console.error("error closing sh2frServer", err);
         } else {
@@ -553,7 +553,7 @@ export class Run {
       <div>
         <h1>transformed</h1>
         {/* prepend each line with a line number */}
-        <pre>{this.transformedSrc.split('\n').map((line, i) => `${String(i + 1).padStart(3)} ${line}`).join('\n')}</pre>
+        <pre>{this.transformedSrc?.split('\n').map((line, i) => `${String(i + 1).padStart(3)} ${line}`).join('\n')}</pre>
       </div>
     </div>;
 
@@ -569,8 +569,6 @@ export class Run {
     const partMessages = <div className="row">
       <div>
         <h1>messages</h1>
-        <div>started @ {this.startTime.toLocaleTimeString()}</div>
-        <div>updated @ {new Date().toLocaleTimeString()}</div>
         <ul>
           {this.messageLog.map((entry, i) =>
             <li key={i}>
@@ -613,6 +611,11 @@ export class Run {
         __html: live
       }} /> */}
       <style>{styleCss}</style>
+
+      <div style={{fontSize: "80%", marginBottom: 10}}>
+        <div>started @ {this.startTime?.toLocaleTimeString()}</div>
+        <div>updated @ {new Date().toLocaleTimeString()}</div>
+      </div>
 
       {true && partMain}
 
