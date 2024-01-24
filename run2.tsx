@@ -8,8 +8,11 @@ import * as os from "os";
 import * as path from "node:path";
 import * as net from "node:net";
 import * as fs from "node:fs/promises";
+import * as fsOld from "node:fs";
 import { renderToString } from "react-dom/server";
 import { Fragment } from "react";
+
+const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
 
 function FATAL(...args: any[]): never {
   console.error("FATAL", ...args);
@@ -363,154 +366,89 @@ export class Run {
   }
 
   _writeHtml() {
-    const outputPerLine: { [line: number]: string } = {};
-    // let currentLine = null;
-    // for (const { type, data } of this.log) {
-    //   if (type === 'message') {
-    //     const message = data as Message;
-    //     if (message.type === 'stmt-enter') {
-    //       currentLine = message.stmtLine;
-    //     } else if (message.type === 'stmt-exit') {
-    //       currentLine = null;
-    //     }
-    //   } else if (type === 'stdout') {
-    //     if (currentLine === null) {
-    //       console.error("got stdout without a current line", data);
-    //     } else {
-    //       outputPerLine[currentLine] = (outputPerLine[currentLine] || '') + data;
-    //     }
-    //   }
-    // }
+    const partMain = <div>
+      {this.scriptSrc.split('\n').map((line, i) => {
+        const lineIndent = line.match(/^\s*/)?.[0] || '';
+        return <div key={i} className="code-line">
+          <div className="code-linenum">{i + 1}</div>
+          <div className="code-linecode">
+            <div className="code-command">{line}</div>
+            {/* { outputPerLine[i + 1] &&
+              <div className="row">
+                <div>{lineIndent}</div>
+                <div className="code-stdout" dangerouslySetInnerHTML={{__html: ansiToHtml.toHtml(outputPerLine[i + 1])}}/>
+              </div>
+            } */}
+          </div>
+        </div>;
+      })}
+    </div>;
+
+
+    const partTransformed = <div>
+      <div>
+        <h1>transformed</h1>
+        {/* prepend each line with a line number */}
+        <pre>{this.transformedSrc.split('\n').map((line, i) => `${String(i + 1).padStart(3)} ${line}`).join('\n')}</pre>
+      </div>
+    </div>;
+
+    const partAST = <div>
+      <h1>ast</h1>
+      <details open={false}>
+        {inspectHtml(expandObject(
+          parser.Parse(this.scriptSrc)
+        ))}
+      </details>
+    </div>;
+
+    const partMessages = <div className="row">
+      <div>
+        <h1>messages</h1>
+        <div>started @ {this.startTime.toLocaleTimeString()}</div>
+        <div>updated @ {new Date().toLocaleTimeString()}</div>
+        <ul>
+          {this.messageLog.map((entry, i) =>
+            <li key={i}>
+              { inspectHtml(entry) }
+            </li>
+          )}
+        </ul>
+        {this.exitCode !== null && <div>exit code: {this.exitCode}</div>}
+      </div>
+    </div>;
+
+    const partExecOutput = <div>
+      <h1>exec output</h1>
+      <dl>
+        {Object.entries(this.execOutputs).map(([execId, { stdout, stderr }]) =>
+          <Fragment key={execId}>
+            <dt>{execId}</dt>
+            <dd>
+              <div><b>stdout</b> {stdout.done && <small>✓</small>}</div>
+              <pre>{stdout.data}</pre>
+              <div><b>stderr</b> {stderr.done && <small>✓</small>}</div>
+              <pre>{stderr.data}</pre>
+            </dd>
+          </Fragment>
+        )}
+      </dl>
+    </div>;
 
     const jsx = <>
       {/* <script dangerouslySetInnerHTML={{
         __html: live
       }} /> */}
-      <style>{`
-        body {
-          background-color: #333;
-          color: white;
-          margin: 0px;
-        }
+      <style>{styleCss}</style>
 
-        .output-stderr {
-          color: red;
-        }
-        pre {
-          white-space: pre-wrap;
-        }
-
-        .row {
-          display: flex;
-          flex-direction: row;
-        }
-
-        .row > * {
-          flex-grow: 1;
-          flex-basis: 0;
-        }
-
-        .code-line {
-          display: flex;
-          flex-direction: row;
-          font-size: 16px;
-          margin-top: 0px;
-        }
-
-        .code-linenum {
-          color: #999;
-          margin-right: 20px;
-          text-align: right;
-          min-width: 30px;
-          font-family: monospace;
-        }
-
-        .code-linecode {
-          flex-grow: 1;
-          flex-basis: 0;
-          white-space: pre;
-          font-family: monospace;
-        }
-
-        .code-stdout {
-          color: #999;
-        }
-
-        .code-command {
-          margin-bottom: 0px;
-        }
-      `}</style>
-
-      {true && <div>
-        <h1>script</h1>
-        <pre>{this.scriptSrc}</pre>
-      </div>}
-      {true && <div>
-        <div>
-          <h1>transformed</h1>
-          {/* prepend each line with a line number */}
-          <pre>{this.transformedSrc.split('\n').map((line, i) => `${String(i + 1).padStart(3)} ${line}`).join('\n')}</pre>
-        </div>
-      </div>}
-      {true && <div>
-        <h1>ast</h1>
-        <details open={false}>
-          {inspectHtml(expandObject(
-            parser.Parse(this.scriptSrc)
-          ))}
-        </details>
-      </div>}
-      {true && <div className="row">
-        <div>
-          <h1>messages</h1>
-          <div>started @ {this.startTime.toLocaleTimeString()}</div>
-          <div>updated @ {new Date().toLocaleTimeString()}</div>
-          <ul>
-            {this.messageLog.map((entry, i) =>
-              <li key={i}>
-                { inspectHtml(entry) }
-              </li>
-            )}
-          </ul>
-          {this.exitCode !== null && <div>exit code: {this.exitCode}</div>}
-        </div>
-      </div>}
-      {true && <div>
-        <h1>exec output</h1>
-        <dl>
-          {Object.entries(this.execOutputs).map(([execId, { stdout, stderr }]) =>
-            <Fragment key={execId}>
-              <dt>{execId}</dt>
-              <dd>
-                <div><b>stdout</b> {stdout.done && <small>✓</small>}</div>
-                <pre>{stdout.data}</pre>
-                <div><b>stderr</b> {stderr.done && <small>✓</small>}</div>
-                <pre>{stderr.data}</pre>
-              </dd>
-            </Fragment>
-          )}
-        </dl>
-      </div>}
+      {true && partMain}
 
       <div className="row" style={{marginTop: 1000}}></div>
 
-      <div>
-        {this.scriptSrc.split('\n').map((line, i) => {
-          const lineIndent = line.match(/^\s*/)?.[0] || '';
-          return <div key={i} className="code-line">
-            <div className="code-linenum">{i + 1}</div>
-            <div className="code-linecode">
-              <div className="code-command">{line}</div>
-              { outputPerLine[i + 1] &&
-                <div className="row">
-                  <div>{lineIndent}</div>
-                  <div className="code-stdout" dangerouslySetInnerHTML={{__html: ansiToHtml.toHtml(outputPerLine[i + 1])}}/>
-                </div>
-              }
-            </div>
-          </div>;
-        })}
-      </div>
+      {true && partTransformed}
+      {true && partAST}
+      {true && partMessages}
+      {true && partExecOutput}
     </>;
 
     const html = renderToString(jsx);

@@ -1,0 +1,52 @@
+body {
+  background-color: #333;
+  color: white;
+  margin: 0px;
+}
+
+.output-stderr {
+  color: red;
+}
+pre {
+  white-space: pre-wrap;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+}
+
+.row > * {
+  flex-grow: 1;
+  flex-basis: 0;
+}
+
+.code-line {
+  display: flex;
+  flex-direction: row;
+  font-size: 16px;
+  margin-top: 0px;
+}
+
+.code-linenum {
+  color: #999;
+  margin-right: 20px;
+  text-align: right;
+  min-width: 30px;
+  font-family: monospace;
+}
+
+.code-linecode {
+  flex-grow: 1;
+  flex-basis: 0;
+  white-space: pre;
+  font-family: monospace;
+}
+
+.code-stdout {
+  color: #999;
+}
+
+.code-command {
+  margin-bottom: 0px;
+}
