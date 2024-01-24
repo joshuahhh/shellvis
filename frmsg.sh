@@ -23,6 +23,7 @@ frmsg_call () {
     # TODO: noooo
     flock -x 9
     local -r fr_tmpfifo=$(fr_mktmpfifo)
+    local fr_tmpfifoFD
     echo "sh: sending message at $fr_tmpfifo" >&${my_stderr}
     frmsg_send "$fr_tmpfifo,$1"
     # echo "sh: waiting for response at $fr_tmpfifo" >&${my_stderr}

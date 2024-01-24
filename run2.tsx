@@ -258,6 +258,7 @@ export class Run {
           const cmdType = sh.syntax.NodeType(cmd);
           if (cmdType === "CallExpr") {
             wrapStmt(parser, stmt, `{
+              local fr_stdout fr_stderr fr_ret
               ${callStmtStr({
                 type: "stmt-enter",
                 nodeId,
@@ -488,12 +489,12 @@ export class Run {
           return callExpr.Pos().Line() === i + 1;
         });
         const decorations: Decoration[] = callExprsOnLine.map(({callExpr, stmtNodeId}) => {
-          const execOutput = this.execOutputs['//' + stmtNodeId];
+          const execOutput = this.execOutputs['//' + stmtNodeId] as {stdout: PipeProgress, stderr: PipeProgress} | undefined;
           return {
             start: callExpr.Pos().Col() - 1,
             end: callExpr.End().Col() - 1,
             decorator: (contents) =>
-              <div key={stmtNodeId} className="call">
+              <div key={stmtNodeId} className={`call ${execOutput?.stdout.done ? 'call-done' : ''}`}>
                 <span style={{textDecoration: 'none'}}>{contents}</span>
                 { execOutput &&
                   <div style={{fontSize: '80%'}}>
