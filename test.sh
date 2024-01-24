@@ -1,11 +1,15 @@
 # set -eu
 
-sleep 1
-
 true && echo "true"
 false && echo "false"
 
 fr_exitcode 10
+
+for i in {1..10}; do
+  echo "i=$i"
+done | cat
+
+sleep 1
 
 x=$(ls)
 

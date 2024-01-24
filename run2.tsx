@@ -574,6 +574,11 @@ export class Run {
         <ul>
           {this.messageLog.map((entry, i) =>
             <li key={i}>
+              { entry.nodeId && this.allStmts[entry.nodeId] &&
+                <div style={{display: 'inline-block', border: '1px solid gray', padding: 4}}>
+                  <pre>{this.allStmts[entry.nodeId].src}</pre>
+                </div>
+              }
               { inspectHtml(entry) }
             </li>
           )}
