@@ -216,6 +216,10 @@ function addDecorationsToLine(line: string, decorations: Decoration[]): React.Re
 //   }
 // ])}
 
+function mkExecId(context: string, nodeId: string): string {
+  return `${context}-${nodeId}`;
+}
+
 type ExecInfo = {
   stdout: PipeProgress,
   stderr: PipeProgress,
@@ -387,7 +391,7 @@ export class Run {
         const stderrPath = tmp.tmpNameSync();
         mkfifo(stderrPath);
 
-        const execId = `${message.context}//${message.nodeId}`;
+        const execId = mkExecId(message.context, message.nodeId);
         const execOutput: ExecInfo = this.execInfos[execId] = {
           stdout: { data: "", done: false },
           stderr: { data: "", done: false },
@@ -407,7 +411,7 @@ export class Run {
 
         return `${stdoutPath} ${stderrPath}\n`;
       } else if (message.type === "stmt-exit") {
-        const execId = `${message.context}//${message.nodeId}`;
+        const execId = mkExecId(message.context, message.nodeId);
         this.execInfos[execId].exitInfo = {
           exitCode: message.exitCode,
           pwd: message.pwd,
@@ -422,8 +426,7 @@ export class Run {
     const port = 1234
 
     // app.use(express.json())
-    app.use(express.raw({ type: "*/*" }))
-
+    app.use('/', express.raw({ type: "*/*" }))
 
     app.post('/', (req, res) => {
       const dataString = req.body.toString();
@@ -443,6 +446,8 @@ export class Run {
         }
       }
     })
+
+
 
     this.sh2frServer = app.listen(port, () => {
       console.log(`Example app listening on port ${port}`)
@@ -491,7 +496,8 @@ export class Run {
           return callExpr.Pos().Line() === i + 1;
         });
         const decorations: Decoration[] = callExprsOnLine.map(({callExpr, stmtNodeId}) => {
-          const execInfo = this.execInfos['//' + stmtNodeId] as ExecInfo | undefined;
+          const execId = mkExecId('', stmtNodeId);
+          const execInfo = this.execInfos[execId] as ExecInfo | undefined;
           const execExitInfo = execInfo?.exitInfo;
           const statusClass =
             execInfo
