@@ -1,3 +1,7 @@
+// must come first
+import { dump } from "wtfnode";
+(global as any).dump = dump;
+
 import sh from "mvdan-sh";
 import AnsiToHtml from "ansi-to-html";
 import { ParseError, expandObject, myWalk, getNodeId, wrapStmt } from "./mvdan-sh-helpers";
@@ -210,7 +214,7 @@ function addDecorationsToLine(line: string, decorations: Decoration[]): React.Re
 
 export class Run {
   sandbox: Sandbox = undefined as any;  // TODO: don't care
-  childProcess: child_process.ChildProcessWithoutNullStreams = undefined as any;  // TODO: don't care
+  childProcess: child_process.ChildProcessByStdio<null, null, null> = undefined as any;  // TODO: don't care
   startTime: Date = undefined as any;  // TODO: don't care
   messageLog: Message[] = [];
   exitCode: number | null = null;
@@ -218,6 +222,7 @@ export class Run {
   sh2frHandle: fs.FileHandle = undefined as any;  // TODO: don't care
   sh2frSocket: net.Socket = undefined as any;  // TODO: don't care
   execOutputs: { [execId: string]: { stdout: PipeProgress, stderr: PipeProgress } } = {};
+  allStmts: { [nodeId: string]: {stmt: sh.Stmt, src: string} } = {};
   callExprs: {callExpr: sh.CallExpr, stmtNodeId: string}[] = [];
 
   constructor(public scriptSrc: string, public broadcast: (data: string) => void) { }
@@ -245,25 +250,31 @@ export class Run {
 
         if (nodeType === "Stmt") {
           const stmt = node as sh.Stmt;
+          const nodeId = getNodeId(stmt);
+
+          this.allStmts[nodeId] = { stmt, src: this._stmtSrc(stmt) };
+
           const cmd = stmt.Cmd;
           const cmdType = sh.syntax.NodeType(cmd);
           if (cmdType === "CallExpr") {
-            const nodeId = getNodeId(stmt);
-            const enterStmt = callStmtStr({
-              type: "stmt-enter",
-              nodeId,
-              context: '$(fr_join / ${frctx[@]})',
-              pwd: "$PWD"
-            }, "fr_stdout fr_stderr");
-            // const debugStmt = callStmtStr({type: "debug", data: "$fr_stdout"});
-            const exitStmt = callStmtStr({
-              type: "stmt-exit",
-              nodeId,
-              context: '$(fr_join / ${frctx[@]})',
-              pwd: "$PWD",
-              exitCode: RAW("$fr_ret")
-            });
-            wrapStmt(parser, stmt, `{ ${enterStmt}; ___ 1>&1 1>$fr_stdout 2>&2 2>$fr_stderr; fr_ret=$?; ${exitStmt}; fr_exitcode $fr_ret; }`);
+            wrapStmt(parser, stmt, `{
+              ${callStmtStr({
+                type: "stmt-enter",
+                nodeId,
+                context: '$(fr_join / ${frctx[@]})',
+                pwd: "$PWD"
+              }, "fr_stdout fr_stderr")};
+              ___ 1>&1 1>$fr_stdout 2>&2 2>$fr_stderr;
+              fr_ret=$?;
+              ${callStmtStr({
+                type: "stmt-exit",
+                nodeId,
+                context: '$(fr_join / ${frctx[@]})',
+                pwd: "$PWD",
+                exitCode: RAW("$fr_ret")
+              })};
+              fr_exitcode $fr_ret;
+            }`);
             this.callExprs.push({callExpr: cmd as sh.CallExpr, stmtNodeId: nodeId});
           }
           if (cmdType === "ForClause") {
@@ -291,6 +302,13 @@ export class Run {
 
     await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
 
+    try {
+      this.transformedSrc = fsOld.readFileSync("transformedOverride.sh", { encoding: 'utf-8' });
+      console.log("USING TRANSFORMED OVERRIDE");
+    } catch {
+      // ignore
+    }
+
     // run
 
     const tmpFile = tmp.fileSync();
@@ -317,19 +335,28 @@ export class Run {
         env: {
           ...process.env,
           sh2fr: sh2frPath,
-        }
+        },
+        stdio: ['ignore', 'inherit', 'inherit'],
       }
     );
+    console.log("fr: spawned child process at", this.childProcess.pid);
+
 
     // collect output
 
-    this.childProcess.stdout.on('data', (data: string) => {
-      console.error("childProcess stdout", data.toString());
-    });
+    // this.childProcess.stdout.on('data', (data: string) => {
+    //   console.log("childProcess stdout");
+    //   data.toString().trimEnd().split("\n").forEach((line) => {
+    //     console.log("  ", line);
+    //   });
+    // });
 
-    this.childProcess.stderr.on('data', (data: string) => {
-      console.error("childProcess stderr", data.toString());
-    });
+    // this.childProcess.stderr.on('data', (data: string) => {
+    //   console.error("childProcess stderr");
+    //   data.toString().trimEnd().split("\n").forEach((line) => {
+    //     console.error("  ", line);
+    //   });
+    // });
 
     this.childProcess.on('close', (exitCodeIn: number) => {
       console.log("child process exited with code", exitCodeIn);
@@ -368,12 +395,31 @@ export class Run {
       return "\n";
     }
 
-    this.sh2frSocket.on("data", (data) => {
+    const jobs: (() => Promise<void>)[] = [];
+    let jobsAreRunning: boolean = false;
+    function submitJob(job: () => Promise<void>): void  {
+      jobs.push(job);
+      if (!jobsAreRunning) {
+        setImmediate(() => runJobs());
+        // setTimeout(() => runJobs(), 300);
+      }
+    }
+    async function runJobs() {
+      if (jobsAreRunning) { return; }
+      jobsAreRunning = true;
+      while (jobs.length > 0) {
+        const job = jobs.shift()!;
+        await job();
+      }
+      jobsAreRunning = false;
+    }
+
+    this.sh2frSocket.on("data", async (data) => {
       const dataString = data.toString();
       // TODO: this might be naive; a message might be split across events?
-      const lines = dataString.split("\n");
+      const lines = dataString.trim().split("\n");
+      console.log(`fr: ${lines.length} messages received`);
       for (const line of lines) {
-        if (line === "") { continue; }
         try {
           // find first comma and separate
           const firstCommaIndex = line.indexOf(",");
@@ -384,9 +430,17 @@ export class Run {
           const contents = line.slice(firstCommaIndex + 1);
           const dataParsed = JSON.parse(contents);
           this.messageLog.push(dataParsed);
-          fs.writeFile(returnAddress, onMessage(dataParsed));
+          const response = onMessage(dataParsed);
+          submitJob(async () => {
+            console.log("fr: opening", dataParsed.type, dataParsed.nodeId, returnAddress, this.allStmts[dataParsed.nodeId].src);
+            const returnHandle = await fs.open(returnAddress, fs.constants.O_WRONLY);
+            console.log("fr: opened! writing to", dataParsed.type, dataParsed.nodeId, returnAddress, this.allStmts[dataParsed.nodeId].src);
+            await returnHandle.writeFile(response)
+            console.log("fr: wrote message to", dataParsed.type, dataParsed.nodeId, returnAddress, this.allStmts[dataParsed.nodeId].src);
+            returnHandle.close();
+          });
           this._scheduleWriteHtml();
-          // console.log("node pipe data", dataParsed)
+          // console.log("sh2fr pipe data parsed", dataParsed)
         } catch (err) {
           FATAL("node error parsing data", err, dataString);
         }
@@ -542,4 +596,12 @@ export class Run {
 
     this.broadcast(html);
   }
+
+  _stmtSrc(stmt: sh.Stmt): string {
+    return this.scriptSrc.slice(stmt.Pos().Offset(), stmt.End().Offset());
+  }
 }
+
+// setInterval(() => {
+//   console.log('alive');
+// }, 3000);

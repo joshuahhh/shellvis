@@ -6,6 +6,9 @@
 # echo "frmsg.sh: fr2sh=$fr2sh"
 # echo "frmsg.sh: sh2fr=$sh2fr"
 
+# open duplicate of stderr for logging
+exec {my_stderr}>&2
+
 frmsg_init () {
   exec {sh2frFD}>$sh2fr
 }
@@ -16,9 +19,22 @@ frmsg_send () {
 }
 
 frmsg_call () {
-  fr_tmpfifo=$(fr_mktmpfifo)
-  frmsg_send "$fr_tmpfifo,$1"
-  cat $fr_tmpfifo
+  (
+    # TODO: noooo
+    flock -x 9
+    local -r fr_tmpfifo=$(fr_mktmpfifo)
+    echo "sh: sending message at $fr_tmpfifo" >&${my_stderr}
+    frmsg_send "$fr_tmpfifo,$1"
+    # echo "sh: waiting for response at $fr_tmpfifo" >&${my_stderr}
+    echo "sh: opening $fr_tmpfifo" >&${my_stderr}
+    exec {fr_tmpfifoFD}< $fr_tmpfifo
+    echo "sh: opened! reading from $fr_tmpfifo" >&${my_stderr}
+    cat <&${fr_tmpfifoFD}
+    echo "sh: done reading" >&${my_stderr}
+    exec {fr_tmpfifoFD}<&-
+    # cat $fr_tmpfifo
+    echo "sh: response complete at $fr_tmpfifo" >&${my_stderr}
+  ) 9>/tmp/frmsg.lock
 }
 
 frctx_init () {

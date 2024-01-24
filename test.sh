@@ -1,7 +1,26 @@
-echo "hei"
-echo "yay"
-echo "error" 1>&2
-false
+ls
+
+echo "hello" | rev
+
+echo "#1" | echo "#2"
+
+echo "#1" | echo "#2" | echo "#3"
+
+echo "#1"
+
+echo "#2A" | echo "#2B" | echo "2C"
+
+echo "#3"
+
+ls
+
+
+ls | rev
+
+
+# echo "#2" | rev
+
+echo "#3"
 
 # for i in {1..3}; do
 #   echo "i=$i"
