@@ -1,9 +1,19 @@
 # set -eu
 
+sleep 1
+
 true && echo "true"
 false && echo "false"
 
+fr_exitcode 10
+
 x=$(ls)
+
+cd ..
+
+diff <(ls) <(echo $x)
+
+ls
 
 sleep 2
 

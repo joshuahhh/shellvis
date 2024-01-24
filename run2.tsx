@@ -518,6 +518,16 @@ export class Run {
                     </pre>
                   </div>
                 }
+                { execExitInfo && execExitInfo.exitCode !== 0 &&
+                  <div style={{alignSelf: 'flex-end', fontSize: '80%', fontStyle: 'italic'}}>
+                    exit {execExitInfo?.exitCode}
+                  </div>
+                }
+                { execExitInfo && execExitInfo.pwd !== execInfo.enterPwd &&
+                  <div style={{fontSize: '80%', fontStyle: 'italic'}} title={execExitInfo.pwd}>
+                    pwd {path.relative(execInfo.enterPwd, execExitInfo.pwd)}
+                  </div>
+                }
                 {false && <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>}
               </div>
           };
