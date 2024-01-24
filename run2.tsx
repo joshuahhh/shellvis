@@ -15,6 +15,8 @@ import * as fs from "node:fs/promises";
 import * as fsOld from "node:fs";
 import { renderToString } from "react-dom/server";
 import React, { Fragment } from "react";
+import express from "express";
+import { Server } from "node:http";
 
 const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
 
@@ -219,8 +221,9 @@ export class Run {
   messageLog: Message[] = [];
   exitCode: number | null = null;
   transformedSrc: string = undefined as any;  // TODO: don't care
-  sh2frHandle: fs.FileHandle = undefined as any;  // TODO: don't care
-  sh2frSocket: net.Socket = undefined as any;  // TODO: don't care
+  // sh2frHandle: fs.FileHandle = undefined as any;  // TODO: don't care
+  // sh2frSocket: net.Socket = undefined as any;  // TODO: don't care
+  sh2frServer: Server | null = null;
   execOutputs: { [execId: string]: { stdout: PipeProgress, stderr: PipeProgress } } = {};
   allStmts: { [nodeId: string]: {stmt: sh.Stmt, src: string} } = {};
   callExprs: {callExpr: sh.CallExpr, stmtNodeId: string}[] = [];
@@ -258,7 +261,7 @@ export class Run {
           const cmdType = sh.syntax.NodeType(cmd);
           if (cmdType === "CallExpr") {
             wrapStmt(parser, stmt, `{
-              local fr_stdout fr_stderr fr_ret
+              local fr_stdout fr_stderr fr_ret >/dev/null;
               ${callStmtStr({
                 type: "stmt-enter",
                 nodeId,
@@ -317,16 +320,16 @@ export class Run {
 
     this.startTime = new Date();
 
-    const sh2frPath = tmp.tmpNameSync();
-    mkfifo(sh2frPath);
+    // const sh2frPath = tmp.tmpNameSync();
+    // mkfifo(sh2frPath);
 
     // console.log("sh2frPath", sh2frPath)
 
-    this.sh2frHandle = await fs.open(sh2frPath, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
+    // this.sh2frHandle = await fs.open(sh2frPath, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
     // PITFALL NOTICE:
     //   createReadStream is inappropriate here. Per https://nodejs.org/dist/latest-v11.x/docs/api/fs.html#fs_fs_createreadstream_path_options,
     //   "fd should be blocking; non-blocking fds should be passed to net.Socket". See also: https://stackoverflow.com/a/52622889/.
-    this.sh2frSocket = new net.Socket({ fd: this.sh2frHandle.fd });
+    // this.sh2frSocket = new net.Socket({ fd: this.sh2frHandle.fd });
 
     this.childProcess = child_process.spawn(
       'zsh',
@@ -335,7 +338,6 @@ export class Run {
         cwd: path.join(this.sandbox.deltaDir, 'union', process.cwd()),
         env: {
           ...process.env,
-          sh2fr: sh2frPath,
         },
         stdio: ['ignore', 'inherit', 'inherit'],
       }
@@ -396,65 +398,35 @@ export class Run {
       return "\n";
     }
 
-    const jobs: (() => Promise<void>)[] = [];
-    let jobsAreRunning: boolean = false;
-    function submitJob(job: () => Promise<void>): void  {
-      jobs.push(job);
-      if (!jobsAreRunning) {
-        setImmediate(() => runJobs());
-        // setTimeout(() => runJobs(), 300);
-      }
-    }
-    async function runJobs() {
-      if (jobsAreRunning) { return; }
-      jobsAreRunning = true;
-      while (jobs.length > 0) {
-        const job = jobs.shift()!;
-        await job();
-      }
-      jobsAreRunning = false;
-    }
+    const app = express()
+    const port = 1234
 
-    this.sh2frSocket.on("data", async (data) => {
-      const dataString = data.toString();
+    // app.use(express.json())
+    app.use(express.raw({ type: "*/*" }))
+
+
+    app.post('/', (req, res) => {
+      const dataString = req.body.toString();
       // TODO: this might be naive; a message might be split across events?
       const lines = dataString.trim().split("\n");
       console.log(`fr: ${lines.length} messages received`);
       for (const line of lines) {
         try {
-          // find first comma and separate
-          const firstCommaIndex = line.indexOf(",");
-          if (firstCommaIndex === -1) {
-            FATAL("node pipe data missing comma", line);
-          }
-          const returnAddress = line.slice(0, firstCommaIndex);
-          const contents = line.slice(firstCommaIndex + 1);
-          const dataParsed = JSON.parse(contents);
+          const dataParsed = JSON.parse(line);
           this.messageLog.push(dataParsed);
           const response = onMessage(dataParsed);
-          submitJob(async () => {
-            console.log("fr: opening", dataParsed.type, dataParsed.nodeId, returnAddress, this.allStmts[dataParsed.nodeId].src);
-            const returnHandle = await fs.open(returnAddress, fs.constants.O_WRONLY);
-            console.log("fr: opened! writing to", dataParsed.type, dataParsed.nodeId, returnAddress, this.allStmts[dataParsed.nodeId].src);
-            await returnHandle.writeFile(response)
-            console.log("fr: wrote message to", dataParsed.type, dataParsed.nodeId, returnAddress, this.allStmts[dataParsed.nodeId].src);
-            returnHandle.close();
-          });
+          res.send(response);
           this._scheduleWriteHtml();
           // console.log("sh2fr pipe data parsed", dataParsed)
         } catch (err) {
           FATAL("node error parsing data", err, dataString);
         }
       }
-    });
+    })
 
-    this.sh2frSocket.on("error", (err) => {
-      console.log("sh2fr pipe error", err);
-    });
-
-    this.sh2frSocket.on("end", () => {
-      console.log("sh2fr pipe end");
-    });
+    this.sh2frServer = app.listen(port, () => {
+      console.log(`Example app listening on port ${port}`)
+    })
 
     this._scheduleWriteHtml();
   }
@@ -465,8 +437,18 @@ export class Run {
       this.childProcess.kill();
     }
     removeSandbox(this.sandbox);
-    await this.sh2frHandle.close();
-    this.sh2frSocket.destroy();
+    return new Promise((resolve) => {
+      this.sh2frServer?.close((err) => {
+        if (err) {
+          console.error("error closing sh2frServer", err);
+        } else {
+          console.log("sh2frServer closed");
+        }
+        resolve(undefined);
+      })
+    });
+    // await this.sh2frHandle.close();
+    // this.sh2frSocket.destroy();
     // dump();
   }
 

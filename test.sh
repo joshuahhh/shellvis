@@ -1,10 +1,14 @@
+set -eu
+
 x=$(ls)
 
-# ls | rev
+sleep 10
 
-# sleep 1
+echo $x
 
-# echo "hello" | rev
+ls | rev
+
+echo "hello" | rev
 
 # sleep 1
 

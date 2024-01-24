@@ -1,41 +1,14 @@
-# for now, there's only one "return address"
-# this means no parallelism
-# (then again, how will our file-tracking work with parallelism?)
-
-# echo "frmsg.sh: loading"
-# echo "frmsg.sh: fr2sh=$fr2sh"
-# echo "frmsg.sh: sh2fr=$sh2fr"
+# set -x
 
 # open duplicate of stderr for logging
 exec {my_stderr}>&2
 
 frmsg_init () {
-  exec {sh2frFD}>$sh2fr
-}
-
-frmsg_send () {
-  local -r MSG="$1"
-  echo "$MSG" >&${sh2frFD}
 }
 
 frmsg_call () {
-  (
-    # TODO: noooo
-    flock -x 9
-    local -r fr_tmpfifo=$(fr_mktmpfifo)
-    local fr_tmpfifoFD
-    echo "sh: sending message at $fr_tmpfifo" >&${my_stderr}
-    frmsg_send "$fr_tmpfifo,$1"
-    # echo "sh: waiting for response at $fr_tmpfifo" >&${my_stderr}
-    echo "sh: opening $fr_tmpfifo" >&${my_stderr}
-    exec {fr_tmpfifoFD}< $fr_tmpfifo
-    echo "sh: opened! reading from $fr_tmpfifo" >&${my_stderr}
-    cat <&${fr_tmpfifoFD}
-    echo "sh: done reading" >&${my_stderr}
-    exec {fr_tmpfifoFD}<&-
-    # cat $fr_tmpfifo
-    echo "sh: response complete at $fr_tmpfifo" >&${my_stderr}
-  ) 9>/tmp/frmsg.lock
+  # echo "sh: gonna curl $1" >&$my_stderr;
+  curl -s -d $1 -H "Content-Type: text/plain" -X POST http://localhost:1234
 }
 
 frctx_init () {

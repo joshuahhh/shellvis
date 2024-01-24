@@ -35,9 +35,9 @@ wss.on('connection', (ws) => {
 
 let run: Run | null = null;
 
-function onFile() {
+async function onFile() {
   if (run) {
-    run.stop();
+    await run.stop();
   }
 
   const scriptStr = fs.readFileSync(argv.script, { encoding: 'utf-8' });
