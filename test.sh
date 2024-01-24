@@ -1,8 +1,11 @@
-set -eu
+# set -eu
+
+true && echo "true"
+false && echo "false"
 
 x=$(ls)
 
-sleep 10
+sleep 2
 
 echo $x
 
@@ -42,8 +45,6 @@ echo "hello" | rev
 # done | rev
 
 
-# true && echo "true" 1>&2
-# false && echo "false" 1>&2
 
 # for f in *.sh; do
 #   # copy each $f from .sh to .txt

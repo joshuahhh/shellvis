@@ -58,6 +58,15 @@ pre {
   border-radius: 5px;
 }
 
-.call.call-done {
+.call.call-done-success {
   background-color: rgba(0, 255, 0, 0.1);
+}
+
+.call.call-done-failure {
+  background-color: rgba(255, 0, 0, 0.4);
+}
+
+.call.call-running {
+  margin-top: -3px;
+  border-top: 3px solid white;
 }

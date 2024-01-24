@@ -496,7 +496,9 @@ export class Run {
           const statusClass =
             execInfo
             ? execExitInfo
-              ? execExitInfo.exitCode === 0 ? 'call-done-success' : 'call-done-failure'
+              ? execExitInfo.exitCode === 0
+                ? 'call-done-success'
+                : 'call-done-failure'
               : 'call-running'
             : 'call-not-started';
 
@@ -582,7 +584,7 @@ export class Run {
               <pre>{stdout.data}</pre>
               <div><b>stderr</b> {stderr.done && <small>✓</small>}</div>
               <pre>{stderr.data}</pre>
-              <div><b>other</b>
+              <div><b>rest</b>
                 {inspectHtml(rest)}
               </div>
             </dd>
