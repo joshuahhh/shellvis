@@ -18,15 +18,53 @@ const argv = yargs(process.argv.slice(2))
 
 const wss = new WebSocketServer({ port: 8080 });
 
+function wsSend(ws: WebSocket, data: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    ws.send(data, (err) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
 let output = "";
-function broadcast(data: string) {
+async function actuallyBroadcast(data: string): Promise<void> {
   // console.log('broadcast', +new Date());
-  output = data;
+  let sends: Promise<void>[] = [];
   wss.clients.forEach(function each(client) {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(data);
+      sends.push(wsSend(client, data));
     }
   });
+  await Promise.all(sends);
+}
+
+let latestJob: (() => Promise<void>) | null = null;
+let jobsAreRunning: boolean = false;
+function submitJob(job: () => Promise<void>): void  {
+  latestJob = job;
+  if (!jobsAreRunning) {
+    setImmediate(() => runJobs());
+    // setTimeout(() => runJobs(), 300);
+  }
+}
+async function runJobs() {
+  if (jobsAreRunning) { return; }
+  jobsAreRunning = true;
+  while (latestJob) {
+    const job = latestJob;
+    latestJob = null;
+    await job();
+  }
+  jobsAreRunning = false;
+}
+
+function broadcast(data: string): void {
+  output = data;
+  submitJob(() => actuallyBroadcast(data));
 }
 
 wss.on('connection', (ws) => {
