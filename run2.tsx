@@ -34,13 +34,13 @@ type Message =
       type: 'stmt-enter',
       nodeId: string,
       context: string,
-      pwd: string,
+      cwd: string,
     }
   | {
       type: 'stmt-exit',
       nodeId: string,
       context: string,
-      pwd: string,
+      cwd: string,
       exitCode: number,
     }
   | {
@@ -227,10 +227,10 @@ function mkExecId(context: string, nodeId: string): string {
 type ExecInfo = {
   stdout: PipeProgress,
   stderr: PipeProgress,
-  enterPwd: string,
+  enterCwd: string,
   exitInfo: {
     exitCode: number,
-    pwd: string,
+    cwd: string,
   } | null,
 }
 
@@ -287,7 +287,7 @@ export class Run {
                 type: "stmt-enter",
                 nodeId,
                 context: '$(fr_join / ${frctx[@]})',
-                pwd: "$PWD"
+                cwd: "$PWD"
               }, "fr_stdout fr_stderr")};
               echo "sh: got upload ids $fr_stdout $fr_stderr" 1>&2;
               ___ 1>&1 1> >(${uploadCmdStr('$fr_stdout')}) 2>&2 2> >(${uploadCmdStr('$fr_stderr')});
@@ -296,7 +296,7 @@ export class Run {
                 type: "stmt-exit",
                 nodeId,
                 context: '$(fr_join / ${frctx[@]})',
-                pwd: "$PWD",
+                cwd: "$PWD",
                 exitCode: RAW("$fr_ret")
               })};
               fr_exitcode $fr_ret;
@@ -392,7 +392,7 @@ export class Run {
         const execOutput: ExecInfo = this.execInfos[execId] = {
           stdout: { data: "", done: false },
           stderr: { data: "", done: false },
-          enterPwd: message.pwd,
+          enterCwd: message.cwd,
           exitInfo: null,
         };
 
@@ -433,7 +433,7 @@ export class Run {
         const execId = mkExecId(message.context, message.nodeId);
         this.execInfos[execId].exitInfo = {
           exitCode: message.exitCode,
-          pwd: message.pwd,
+          cwd: message.cwd,
         };
         this._scheduleWriteHtml();
         return "\n";
@@ -568,9 +568,9 @@ export class Run {
                     exit {execExitInfo?.exitCode}
                   </div>
                 }
-                { execExitInfo && execExitInfo.pwd !== execInfo.enterPwd &&
-                  <div style={{fontSize: '80%', fontStyle: 'italic'}} title={execExitInfo.pwd}>
-                    pwd {path.relative(execInfo.enterPwd, execExitInfo.pwd)}
+                { execExitInfo && execExitInfo.cwd !== execInfo.enterCwd &&
+                  <div style={{fontSize: '80%', fontStyle: 'italic'}} title={execExitInfo.cwd}>
+                    cwd {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
                   </div>
                 }
                 {false && <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>}
