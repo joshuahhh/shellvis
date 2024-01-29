@@ -1,45 +1,57 @@
+// must come first
+import { dump } from "wtfnode";
+(global as any).dump = dump;
+
 import sh from "mvdan-sh";
 import AnsiToHtml from "ansi-to-html";
-import { ParseError, expandObject, nodeSpan } from "./mvdan-sh-helpers";
+import { ParseError, expandObject, myWalk, getNodeId, wrapStmt } from "./mvdan-sh-helpers";
 import * as child_process from "node:child_process";
 import * as util from "node:util";
-import * as repl from "node:repl";
 import * as tmp from "tmp";
 import * as os from "os";
 import * as path from "node:path";
-import * as fs from "node:fs";
+import * as net from "node:net";
+import * as fs from "node:fs/promises";
+import * as fsOld from "node:fs";
 import { renderToString } from "react-dom/server";
+import React, { Fragment } from "react";
+import express from "express";
+import { Server } from "node:http";
+
+const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
+
+function FATAL(...args: any[]): never {
+  console.error("FATAL", ...args);
+  process.exit(1);
+}
 
 type Message =
   | {
-    type: 'stmt-start',
-    stmtLine: number,
-    pwd: string,
+      type: 'debug',
+      [key: string]: any,
     }
   | {
-    type: 'stmt-done',
-    stmtLine: number,
-    pwd: string,
+      type: 'stmt-enter',
+      nodeId: string,
+      context: string,
+      cwd: string,
     }
   | {
-      type: 'for-body-start',
-      forLine: number,
-      counter: string,
+      type: 'stmt-exit',
+      nodeId: string,
+      context: string,
+      cwd: string,
+      exitCode: number,
     }
   | {
-      type: 'for-body-done',
-      forLine: number
+      type: 'for-body-enter',
+      nodeId: string,
+      counter: number,
+    }
+  | {
+      type: 'for-body-exit',
+      nodeId: string
     };
-
-type LogEntry =
-  | {
-    type: 'stdout',
-    data: string,
-  }
-  | {
-    type: 'message',
-    data: Message,
-  };
 
 type Sandbox = {
   sandboxDir: string,
@@ -48,10 +60,10 @@ type Sandbox = {
   deltaLogFile: string,
 }
 
-function makeSandbox(): Sandbox {
-  const sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sandbox-'));
+async function makeSandbox(): Promise<Sandbox> {
+  const sandboxDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sandbox-'));
   const sandboxUnionDir = path.join(sandboxDir, 'union');
-  const deltaDir = fs.mkdtempSync(path.join(os.tmpdir(), 'delta-'));
+  const deltaDir = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-'));
   const deltaLogFile = tmp.tmpNameSync();
 
   child_process.execSync(`fr-sandbox make ${sandboxDir} /`);
@@ -78,11 +90,6 @@ function removeSandbox(sandbox: Sandbox) {
   child_process.exec(`fr-sandbox remove ${sandbox.sandboxDir}`, execHandler);
 }
 
-// TODO: multi-char delimiter would take different logic
-const delimiterCode = 31;
-const delimiterChar = String.fromCharCode(delimiterCode);
-const delimiterOctal = `\\${delimiterCode.toString(8).padStart(3, '0')}`;
-
 const ansiToHtml = new AnsiToHtml({});
 
 const parser = sh.syntax.NewParser(sh.syntax.KeepComments(true));
@@ -96,11 +103,24 @@ function parseStmt(s: string): sh.Stmt {
   return stmts[0];
 }
 
-function messageStmt(message: Message): sh.Stmt {
-  const messageStr = JSON.stringify(message).replaceAll('"', '\\"');
-  return parseStmt(`echo -e -n "${delimiterOctal}${messageStr}${delimiterOctal}"`);
+function callStmtStr(message: Message, returnVars: string = "fr_dummy") {
+  const messageStr = JSON.stringify(message)
+    .replaceAll(new RegExp('"RAW<<<(.*)>>>RAW"', "g"), (_, p1) => p1)
+    .replaceAll('"', '\\"');
+  return `frmsg_call "${messageStr}" | read -r ${returnVars}`;
 }
 
+function RAW(str: string): any {
+  return `RAW<<<${str}>>>RAW`;
+}
+
+function callStmt(message: Message, returnVars?: string): sh.Stmt {
+  return parseStmt(callStmtStr(message, returnVars))
+}
+
+function uploadCmdStr(uploadId: string) {
+  return `curl -s -X POST -T - http://localhost:1234/upload/${uploadId}`;
+}
 
 function inspectHtml(value: any) {
   return <pre dangerouslySetInnerHTML={{ __html:
@@ -108,18 +128,131 @@ function inspectHtml(value: any) {
   }} />;
 }
 
+function mkfifo(path: string): void {
+  const mkfifoCommand = `mkfifo ${path}`;
+  // console.log("node make pipe", mkfifoCommand);
+  child_process.execSync(mkfifoCommand);
+}
+
+async function readPipe(path: string): Promise<Buffer> {
+  const handle = await fs.open(path, fs.constants.O_RDONLY);
+  const result = await handle.readFile();
+  await handle.close();
+  return result;
+}
+
+type PipeProgress = {
+  data: string,
+  done: boolean,
+}
+
+async function readPipeWithProgress(path: string, onProgress: (progress: PipeProgress) => void): Promise<void> {
+  console.log("fr: readPipeWithProgress is opening", path)
+  const handle = await fs.open(path, fs.constants.O_RDONLY);
+  console.log("fr: readPipeWithProgress opened", path)
+  const buffers: Buffer[] = [];
+  const stream = handle.createReadStream()
+  stream.on('data', (data: Buffer) => {
+    buffers.push(data);
+    onProgress({ data: buffers.concat().toString(), done: false });
+  });
+  stream.on('end', () => {
+    onProgress({ data: buffers.concat().toString(), done: true });
+    handle.close();
+  });
+}
+
+const rangeIncl = (start: number, stop: number, step = 1) =>
+  Array.from({ length: (stop - start) / step + 1}, (_, i) => start + (i * step));
+
+type Decoration = {
+  start: number,
+  end: number,
+  decorator: (contents: React.ReactNode) => React.ReactNode,
+}
+function addDecorationsToLine(line: string, decorations: Decoration[]): React.ReactNode {
+  // apply smaller decorations first
+  decorations.sort((a, b) => (a.end - a.start) - (b.end - a.start));
+
+  let nodes: React.ReactNode[] = Array.from(line);
+  let starts: number[] = rangeIncl(0, line.length - 1);
+  let ends: number[] = rangeIncl(1, line.length);
+  for (const decoration of decorations) {
+    // find a node with start = decoration.start
+    const i = starts.indexOf(decoration.start);
+    if (i === -1) {
+      throw new Error("decoration starts in the middle of a node");
+    }
+
+    // find a node with end = decoration.end
+    const j = ends.indexOf(decoration.end);
+    if (j === -1) {
+      throw new Error("decoration ends in the middle of a node");
+    }
+
+    // replace range of nodes with decorated version
+    nodes.splice(i, j - i + 1, decoration.decorator(nodes.slice(i, j + 1)));
+
+    // update starts and ends
+    starts.splice(i + 1, j - i);
+    ends.splice(i, j - i);
+  }
+  return nodes;
+}
+
+// example use / test:
+
+// {addDecorationsToLine("hello world", [
+//   {
+//     start: 0,
+//     end: 5,
+//     decorator: (contents) => <span style={{color: "red"}}>{contents}</span>
+//   },
+//   {
+//     start: 6,
+//     end: 11,
+//     decorator: (contents) => <span style={{textDecoration: "underline"}}>{contents}</span>
+//   },
+//   {
+//     start: 7,
+//     end: 8,
+//     decorator: (contents) => <span style={{fontSize: '200%'}}>{contents}</span>
+//   }
+// ])}
+
+function mkExecId(context: string, nodeId: string): string {
+  return `${context}-${nodeId}`;
+}
+
+type ExecInfo = {
+  stdout: PipeProgress,
+  stderr: PipeProgress,
+  enterCwd: string,
+  exitInfo: {
+    exitCode: number,
+    cwd: string,
+  } | null,
+}
+
 export class Run {
-  sandbox: Sandbox = undefined as any;  // TODO: don't care
-  childProcess: child_process.ChildProcessWithoutNullStreams = undefined as any;  // TODO: don't care
-  startTime: Date = undefined as any;  // TODO: don't care
-  log: LogEntry[] = [];
+  sandbox: Sandbox | null = null;
+  childProcess: child_process.ChildProcessByStdio<null, null, null> | null = null;
+  startTime: Date | null = null;
+  messageLog: Message[] = [];
   exitCode: number | null = null;
-  transformedSrc: string = undefined as any;  // TODO: don't care
+  transformedSrc: string | null = null;
+  sh2frPort: number | null = null;
+  sh2frExpress: express.Express | null = null;
+  sh2frServer: Server | null = null;
+  sh2frUploadHandlers: Record<string, (req: express.Request, res: express.Response) => void> = {};
+  execInfos: Record<string, ExecInfo> = {};
+  allStmts: { [nodeId: string]: {stmt: sh.Stmt, src: string} } = {};
+  callExprs: {callExpr: sh.CallExpr, stmtNodeId: string}[] = [];
 
   constructor(public scriptSrc: string, public broadcast: (data: string) => void) { }
 
-  start() {
-    console.log("starting");
+  async start() {
+    console.log("\n\n\nstarting");
 
     // parse
 
@@ -133,275 +266,422 @@ export class Run {
 
     // transform
 
-    this.sandbox = makeSandbox();
+    this.sandbox = await makeSandbox();
 
-    sh.syntax.Walk(ast, (node) => {
-      if (!node) { return true; }
-      if (sh.syntax.NodeType(node) === 'Stmt') {
-        console.log(nodeSpan(node), sh.syntax.NodeType(node));
-      }
-      return true;
-    });
+    myWalk(ast, {
+      exit: (node) => {
+        const nodeType = sh.syntax.NodeType(node);
 
-    sh.syntax.Walk(ast, (node) => {
-      if (sh.syntax.NodeType(node) == "File") {
-        const file = node as sh.File;
-        file.Stmts = this._augmentStmts(file.Stmts);
-        file.Stmts = [
-          // parseStmt(`exec 3>${pipe}`),
-          ...file.Stmts,
-          // parseStmt(`exec 3>&-`),
-        ]
-      }
-      if (sh.syntax.NodeType(node) == "ForClause") {
-        const forClause = node as sh.ForClause;
-        forClause.Do = this._augmentStmts(forClause.Do);
+        if (nodeType === "Stmt") {
+          const stmt = node as sh.Stmt;
+          const nodeId = getNodeId(stmt);
 
-        const loop = forClause.Loop;
-        if (sh.syntax.NodeType(loop) == "WordIter") {
-          const wordIter = loop as sh.WordIter;
-          const name = wordIter.Name;
-          if (name) {
-            const forLine = forClause.Pos().Line();
-            const value = name.Value;
-            const counterName = `__fun_run_loop_counter_${forLine}__`;
+          this.allStmts[nodeId] = { stmt, src: this._stmtSrc(stmt) };
+
+          const cmd = stmt.Cmd;
+          const cmdType = sh.syntax.NodeType(cmd);
+          if (cmdType === "CallExpr") {
+            wrapStmt(parser, stmt, `{
+              local fr_stdout fr_stderr fr_ret >/dev/null;
+              ${callStmtStr({
+                type: "stmt-enter",
+                nodeId,
+                context: '$(fr_join / ${frctx[@]})',
+                cwd: "$PWD"
+              }, "fr_stdout fr_stderr")};
+              echo "sh: got upload ids $fr_stdout $fr_stderr" 1>&2;
+              ___ 1>&1 1> >(${uploadCmdStr('$fr_stdout')}) 2>&2 2> >(${uploadCmdStr('$fr_stderr')});
+              fr_ret=$?;
+              ${callStmtStr({
+                type: "stmt-exit",
+                nodeId,
+                context: '$(fr_join / ${frctx[@]})',
+                cwd: "$PWD",
+                exitCode: RAW("$fr_ret")
+              })};
+              fr_exitcode $fr_ret;
+            }`);
+            this.callExprs.push({callExpr: cmd as sh.CallExpr, stmtNodeId: nodeId});
+          }
+          if (cmdType === "ForClause") {
+            const forClause = cmd as sh.ForClause;
+            const forNodeId = getNodeId(forClause);
+            const counterVar = `fr_loop_counter_${forNodeId}`;
+            wrapStmt(parser, stmt, `{ ${counterVar}=0; ___; }`);
             forClause.Do = [
-              parseStmt(`let ${counterName}+=1`),
-              messageStmt({type: "for-body-start", forLine, counter: "$" + counterName}),
-              // parseStmt(`echo "for loop; ${value} = \$${value}" >&3`),
+              parseStmt(`frctx_push "${forNodeId}-$${counterVar}"`),
+              callStmt({type: "for-body-enter", nodeId: forNodeId, counter: RAW(`$${counterVar}`)}),
               ...forClause.Do,
-              messageStmt({type: "for-body-done", forLine}),
-            ]
+              callStmt({type: "for-body-exit", nodeId: forNodeId}),
+              parseStmt(`frctx_pop`),
+              parseStmt(`${counterVar}=$(($${counterVar} + 1))`),
+            ];
           }
         }
       }
-      return true
     });
 
-    this.transformedSrc = printer.Print(ast);
+    const frmsgHeaderSrc = await fs.readFile(path.join(__dirname, 'frmsg.sh'), { encoding: 'utf-8' });
+
+    const initSrc = ['frmsg_init', 'frctx_init'].join("\n");
+    this.transformedSrc = [frmsgHeaderSrc, initSrc, printer.Print(ast)].join("\n\n");
+
+    await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
+
+    try {
+      this.transformedSrc = fsOld.readFileSync("transformedOverride.sh", { encoding: 'utf-8' });
+      console.log("USING TRANSFORMED OVERRIDE");
+    } catch {
+      // ignore
+    }
 
     // run
 
     const tmpFile = tmp.fileSync();
-    fs.writeFileSync(tmpFile.name, this.transformedSrc, { encoding: 'utf-8' });
+    await fs.writeFile(tmpFile.name, this.transformedSrc, { encoding: 'utf-8' });
 
     this.startTime = new Date();
 
     this.childProcess = child_process.spawn(
-      'bash',
+      'zsh',
       [ tmpFile.name ],
-      { cwd: path.join(this.sandbox.deltaDir, 'union', process.cwd()) }
+      {
+        cwd: path.join(this.sandbox.deltaDir, 'union', process.cwd()),
+        env: {
+          ...process.env,
+        },
+        stdio: ['ignore', 'inherit', 'inherit'],
+      }
     );
+    console.log("fr: spawned child process at", this.childProcess.pid);
+
 
     // collect output
 
-    let messageInProgress: string | null = null;
-    this.childProcess.stdout.on('data', (data: string) => {
-      data = data.toString();
-      let stdoutInProgress: string = '';
-      for (const char of data) {
-        if (char === delimiterChar) {
-          // we're starting or ending a message
-          if (messageInProgress !== null) {
-            // ending
-            try {
-              this.log.push({ type: 'message', data: JSON.parse(messageInProgress) });
-          } catch (e) {
-              console.error(e);
-            }
-            messageInProgress = null;
-          } else {
-            // starting
-            if (stdoutInProgress) {
-              this.log.push({ type: 'stdout', data: stdoutInProgress });
-              stdoutInProgress = '';
-            }
-            messageInProgress = '';
-          }
-        } else {
-          if (messageInProgress !== null) {
-            messageInProgress += char;
-          } else {
-            stdoutInProgress += char;
-          }
-        }
-      }
-      if (stdoutInProgress) {
-        this.log.push({ type: 'stdout', data: stdoutInProgress });
-      }
-      this._writeHtml();
-    });
+    // this.childProcess.stdout.on('data', (data: string) => {
+    //   console.log("childProcess stdout");
+    //   data.toString().trimEnd().split("\n").forEach((line) => {
+    //     console.log("  ", line);
+    //   });
+    // });
 
-    this.childProcess.stderr.on('data', (data: string) => {
-      // TODO: not implemented
-      console.error("got stderr", data.toString());
-    });
+    // this.childProcess.stderr.on('data', (data: string) => {
+    //   console.error("childProcess stderr");
+    //   data.toString().trimEnd().split("\n").forEach((line) => {
+    //     console.error("  ", line);
+    //   });
+    // });
 
     this.childProcess.on('close', (exitCodeIn: number) => {
+      console.log("child process exited with code", exitCodeIn);
       this.exitCode = exitCodeIn;
-      this._writeHtml();
+      this._scheduleWriteHtml();
       this.stop();
     });
+
+    let uploadId = 0;
+
+    const onMessage = (message: Message): string => {
+      if (message.type === "stmt-enter") {
+        // TODO: use a pipe pool
+
+        const stdoutUploadId = `${uploadId++}`;
+        const stderrUploadId = `${uploadId++}`;
+
+        const execId = mkExecId(message.context, message.nodeId);
+        const execOutput: ExecInfo = this.execInfos[execId] = {
+          stdout: { data: "", done: false },
+          stderr: { data: "", done: false },
+          enterCwd: message.cwd,
+          exitInfo: null,
+        };
+
+        this.sh2frUploadHandlers[stdoutUploadId] = (req, res) => {
+          console.log("fr: stdout upload handler called")
+          // console.log(req);
+          req.setEncoding('utf8');
+          req.on('data', (data) => {
+            console.log("fr: stdout upload handler got data", data)
+            execOutput.stdout.data += data;
+            this._scheduleWriteHtml();
+          });
+          req.on('end', () => {
+            console.log("fr: stdout upload handler got end")
+            execOutput.stdout.done = true;
+            this._scheduleWriteHtml();
+            res.end();
+          });
+        };
+
+        this.sh2frUploadHandlers[stderrUploadId] = (req, res) => {
+          console.log("fr: stderr upload handler called")
+          req.on('data', (data) => {
+            console.log("fr: stderr upload handler got data", data)
+            execOutput.stderr.data += data;
+            this._scheduleWriteHtml();
+          });
+          req.on('end', () => {
+            console.log("fr: stderr upload handler got end")
+            execOutput.stderr.done = true;
+            this._scheduleWriteHtml();
+            res.end();
+          });
+        };
+
+        return `${stdoutUploadId} ${stderrUploadId}\n`;
+      } else if (message.type === "stmt-exit") {
+        const execId = mkExecId(message.context, message.nodeId);
+        this.execInfos[execId].exitInfo = {
+          exitCode: message.exitCode,
+          cwd: message.cwd,
+        };
+        this._scheduleWriteHtml();
+        return "\n";
+      }
+      return "\n";
+    }
+
+    this.sh2frExpress = express()
+
+    // app.use(express.json())
+    this.sh2frExpress.use('/', express.raw({ type: "*/*" }))
+
+    this.sh2frExpress.post('/', (req, res) => {
+      const dataString = req.body.toString();
+      // TODO: this might be naive; a message might be split across events?
+      const lines = dataString.trim().split("\n");
+      console.log(`fr: ${lines.length} messages received`);
+      for (const line of lines) {
+        try {
+          const dataParsed = JSON.parse(line);
+          this.messageLog.push(dataParsed);
+          const response = onMessage(dataParsed);
+          res.send(response);
+          this._scheduleWriteHtml();
+          // console.log("sh2fr pipe data parsed", dataParsed)
+        } catch (err) {
+          FATAL("node error parsing data", err, dataString);
+        }
+      }
+    })
+
+    this.sh2frExpress.post('/upload/:uploadId', (req, res) => {
+      console.log("fr: upload", req.params.uploadId);
+
+      const uploadHandler = this.sh2frUploadHandlers[req.params.uploadId];
+
+      if (!uploadHandler) {
+        res.status(404).send(`upload handler not found for ${req.params.uploadId}`);
+        return;
+      }
+
+      uploadHandler(req, res);
+
+      delete this.sh2frUploadHandlers[req.params.uploadId];
+    });
+
+    this.sh2frExpress.get('*', (req, res) => {
+      // log and 404
+      console.log("fr: 404", req.url);
+      res.status(404).send(`404 not found`);
+    });
+
+
+    this.sh2frPort = 1234;
+    this.sh2frServer = this.sh2frExpress.listen(this.sh2frPort, () => {
+      console.log(`Example app listening on port ${this.sh2frPort}`)
+    })
+
+    this._scheduleWriteHtml();
   }
 
-  stop() {
+  async stop() {
     console.log("stopping");
-    if (this.exitCode === null) {
+    if (this.exitCode === null && this.childProcess) {
       this.childProcess.kill();
     }
-    removeSandbox(this.sandbox);
+    this.sandbox && removeSandbox(this.sandbox);
+    this.sh2frServer && this.sh2frServer.listening && await new Promise((resolve) => {
+      this.sh2frServer!.close((err) => {
+        if (err) {
+          console.error("error closing sh2frServer", err);
+        } else {
+          console.log("sh2frServer closed");
+        }
+        resolve(undefined);
+      })
+    });
+    // await this.sh2frHandle.close();
+    // this.sh2frSocket.destroy();
+    // dump();
   }
 
-  _augmentStmts(stmts: (sh.Stmt | null)[]): sh.Stmt[] {
-    return stmts.flatMap((stmt) => {
-      if (!stmt) { return []; }
-      return [
-        messageStmt({type: "stmt-start", stmtLine: stmt.Pos().Line(), pwd: "$PWD"}),
-        parseStmt(`fr-sandbox before-run ${this.sandbox.deltaDir}`),
-        stmt,
-        parseStmt(`fr-sandbox after-run ${this.sandbox.deltaDir} ${this.sandbox.sandboxDir} ${this.sandbox.deltaLogFile}`),
-        parseStmt(`[ -s ${this.sandbox.deltaLogFile} ] && (echo -e "\\033[3mFile changes:\\033[0m"; cat ${this.sandbox.deltaLogFile} | awk '{ print "  " $0 }')`),
-        messageStmt({type: "stmt-done", stmtLine: stmt.Pos().Line(), pwd: "$PWD"}),
-      ];
+  _writeHtmlScheduled = false;
+  _scheduleWriteHtml() {
+    if (this._writeHtmlScheduled) { return; }
+    setImmediate(() => {
+      this._writeHtmlScheduled = false;
+      this._writeHtml()
     });
+    this._writeHtmlScheduled = true;
   }
 
   _writeHtml() {
-    const outputPerLine: { [line: number]: string } = {};
-    let currentLine = null;
-    for (const { type, data } of this.log) {
-      if (type === 'message') {
-        const message = data as Message;
-        if (message.type === 'stmt-start') {
-          currentLine = message.stmtLine;
-        } else if (message.type === 'stmt-done') {
-          currentLine = null;
-        }
-      } else if (type === 'stdout') {
-        if (currentLine === null) {
-          console.error("got stdout without a current line", data);
-        } else {
-          outputPerLine[currentLine] = (outputPerLine[currentLine] || '') + data;
-        }
-      }
-    }
+    const partMain = <div>
+      {this.scriptSrc.split('\n').map((line, i) => {
+        const lineIndent = line.match(/^\s*/)?.[0] || '';
+        const callExprsOnLine = this.callExprs.filter(({callExpr}) => {
+          // TODO: everything's limited to single lines
+          return callExpr.Pos().Line() === i + 1;
+        });
+        const decorations: Decoration[] = callExprsOnLine.map(({callExpr, stmtNodeId}) => {
+          const execId = mkExecId('', stmtNodeId);
+          const execInfo = this.execInfos[execId] as ExecInfo | undefined;
+          const execExitInfo = execInfo?.exitInfo;
+          const statusClass =
+            execInfo
+            ? execExitInfo
+              ? execExitInfo.exitCode === 0
+                ? 'call-done-success'
+                : 'call-done-failure'
+              : 'call-running'
+            : 'call-not-started';
+
+          return {
+            start: callExpr.Pos().Col() - 1,
+            end: callExpr.End().Col() - 1,
+            decorator: (contents) =>
+              <div key={stmtNodeId} className={`call ${statusClass}`}>
+                <span style={{textDecoration: 'none'}}>{contents}</span>
+                { execInfo &&
+                  <div style={{fontSize: '80%'}}>
+                    <pre>
+                      {execInfo.stdout.data}
+                    </pre>
+                    <pre style={{color: 'rgba(255,200,200)'}}>
+                      {execInfo.stderr.data}
+                    </pre>
+                  </div>
+                }
+                { execExitInfo && execExitInfo.exitCode !== 0 &&
+                  <div style={{alignSelf: 'flex-end', fontSize: '80%', fontStyle: 'italic'}}>
+                    exit {execExitInfo?.exitCode}
+                  </div>
+                }
+                { execExitInfo && execExitInfo.cwd !== execInfo.enterCwd &&
+                  <div style={{fontSize: '80%', fontStyle: 'italic'}} title={execExitInfo.cwd}>
+                    cwd {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
+                  </div>
+                }
+                {false && <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>}
+              </div>
+          };
+        });
+        const decoratedLine = addDecorationsToLine(line, decorations);
+        return <div key={i} className="code-line">
+          <div className="code-linenum">{i + 1}</div>
+          <div className="code-linecode">
+            <div className="code-command">{decoratedLine}</div>
+            {/* { outputPerLine[i + 1] &&
+              <div className="row">
+                <div>{lineIndent}</div>
+                <div className="code-stdout" dangerouslySetInnerHTML={{__html: ansiToHtml.toHtml(outputPerLine[i + 1])}}/>
+              </div>
+            } */}
+          </div>
+        </div>;
+      })}
+    </div>;
+
+
+    const partTransformed = <div>
+      <div>
+        <h1>transformed</h1>
+        {/* prepend each line with a line number */}
+        <pre>{this.transformedSrc?.split('\n').map((line, i) => `${String(i + 1).padStart(3)} ${line}`).join('\n')}</pre>
+      </div>
+    </div>;
+
+    const partAST = <div>
+      <h1>ast</h1>
+      <details open={false}>
+        {inspectHtml(expandObject(
+          parser.Parse(this.scriptSrc)
+        ))}
+      </details>
+    </div>;
+
+    const partMessages = <div className="row">
+      <div>
+        <h1>messages</h1>
+        <ul>
+          {this.messageLog.map((entry, i) =>
+            <li key={i}>
+              { entry.nodeId && this.allStmts[entry.nodeId] &&
+                <div style={{display: 'inline-block', border: '1px solid gray', padding: 4}}>
+                  <pre>{this.allStmts[entry.nodeId].src}</pre>
+                </div>
+              }
+              { inspectHtml(entry) }
+            </li>
+          )}
+        </ul>
+        {this.exitCode !== null && <div>exit code: {this.exitCode}</div>}
+      </div>
+    </div>;
+
+    const partExecOutput = <div>
+      <h1>exec info</h1>
+      <dl>
+        {Object.entries(this.execInfos).map(([execId, execInfo]) => {
+          const { stdout, stderr, ...rest } = execInfo;
+          return <Fragment key={execId}>
+            <dt>{execId}</dt>
+            <dd>
+              <div><b>stdout</b> {stdout.done && <small>✓</small>}</div>
+              <pre>{stdout.data}</pre>
+              <div><b>stderr</b> {stderr.done && <small>✓</small>}</div>
+              <pre>{stderr.data}</pre>
+              <div><b>rest</b>
+                {inspectHtml(rest)}
+              </div>
+            </dd>
+          </Fragment>
+        })}
+      </dl>
+    </div>;
 
     const jsx = <>
       {/* <script dangerouslySetInnerHTML={{
         __html: live
       }} /> */}
-      <style>{`
-        body {
-          background-color: #333;
-          color: white;
-          margin: 0px;
-        }
+      <style>{styleCss}</style>
 
-        .output-stderr {
-          color: red;
-        }
-        pre {
-          white-space: pre-wrap;
-        }
-
-        .row {
-          display: flex;
-          flex-direction: row;
-        }
-
-        .row > * {
-          flex-grow: 1;
-          flex-basis: 0;
-        }
-
-        .code-line {
-          display: flex;
-          flex-direction: row;
-          font-size: 16px;
-          margin-top: 0px;
-        }
-
-        .code-linenum {
-          color: #999;
-          margin-right: 20px;
-          text-align: right;
-          min-width: 30px;
-          font-family: monospace;
-        }
-
-        .code-linecode {
-          flex-grow: 1;
-          flex-basis: 0;
-          white-space: pre;
-          font-family: monospace;
-        }
-
-        .code-stdout {
-          color: #999;
-        }
-
-        .code-command {
-          margin-bottom: 0px;
-        }
-      `}</style>
-      <div>
-        {this.scriptSrc.split('\n').map((line, i) => {
-          const lineIndent = line.match(/^\s*/)?.[0] || '';
-          return <div key={i} className="code-line">
-            <div className="code-linenum">{i + 1}</div>
-            <div className="code-linecode">
-              <div className="code-command">{line}</div>
-              { outputPerLine[i + 1] &&
-                <div className="row">
-                  <div>{lineIndent}</div>
-                  <div className="code-stdout" dangerouslySetInnerHTML={{__html: ansiToHtml.toHtml(outputPerLine[i + 1])}}/>
-                </div>
-              }
-            </div>
-          </div>;
-        })}
+      <div style={{fontSize: "80%", marginBottom: 10}}>
+        <div>started @ {this.startTime?.toLocaleTimeString()}</div>
+        <div>updated @ {new Date().toLocaleTimeString()}</div>
       </div>
+
+      {true && partMain}
+
       <div className="row" style={{marginTop: 1000}}></div>
-      {true &&
-        <div>
-          <h1>script</h1>
-          <pre>{this.scriptSrc}</pre>
-          <h1>ast</h1>
-          <details open={true}>
-            {inspectHtml(expandObject(
-              parser.Parse(this.scriptSrc)
-            ))}
-          </details>
-        </div>
-      }
-      {true && <div>
-        <div>
-          <h1>transformed</h1>
-          <pre>{this.transformedSrc}</pre>
-        </div>
-      </div>}
-      {true && <div className="row">
-        <div>
-          <h1>log</h1>
-          <div>started @ {this.startTime.toLocaleTimeString()}</div>
-          <div>updated @ {new Date().toLocaleTimeString()}</div>
-          <ul>
-            {this.log.map(({ data, type }, i) =>
-              <li key={i}>
-                { type === 'stdout'
-                ? <pre>{data}</pre>
-                : inspectHtml(expandObject(data))
-                }
-              </li>
-            )}
-          </ul>
-          {this.exitCode !== null && <div>exit code: {this.exitCode}</div>}
-        </div>
-      </div>}
+
+      {true && partTransformed}
+      {true && partAST}
+      {true && partMessages}
+      {true && partExecOutput}
     </>;
 
     const html = renderToString(jsx);
 
     this.broadcast(html);
   }
+
+  _stmtSrc(stmt: sh.Stmt): string {
+    return this.scriptSrc.slice(stmt.Pos().Offset(), stmt.End().Offset());
+  }
 }
+
+// setInterval(() => {
+//   console.log('alive');
+// }, 3000);
