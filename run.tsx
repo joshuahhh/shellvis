@@ -296,7 +296,7 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): React.ReactNode
         somePath = path.relative(baseDir, somePath);
       }
       return <div key={somePath} className="delta-log-entry">
-        <div className="delta-log-entry-event">
+        <div className="delta-log-entry-icon">
           {eventIcons[event] || <DiffIgnoredIcon/>}
         </div>
         <div className="delta-log-entry-path">{somePath}</div>
@@ -664,10 +664,10 @@ export class Run {
                     <div style={{fontSize: '80%'}}>
                       <div className="delta-log-entry" style={{}}>
                         <div style={{position: 'relative', width: 16, height: 16}}>
-                          <div style={{position: 'absolute', left: 4}}>
+                          <div style={{position: 'absolute', left: 3}}>
                             <ChevronRightIcon/>
                           </div>
-                          <div style={{position: 'absolute', left: -4}}>
+                          <div style={{position: 'absolute', left: -3}}>
                             <ChevronRightIcon/>
                           </div>
                         </div>

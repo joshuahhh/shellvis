@@ -25,7 +25,6 @@ pre {
   display: flex;
   flex-direction: row;
   font-size: 16px;
-  margin-top: 4px;
 }
 
 .code-linenum {
@@ -56,6 +55,7 @@ pre {
   flex-direction: column;
   background-color: rgba(120, 120, 120);
   border-radius: 5px;
+  margin-bottom: 5px;
 }
 
 .call > .call-code > .call-code-background {
@@ -119,4 +119,8 @@ pre {
   display: flex;
   flex-direction: row;
   gap: 10px;
+}
+
+.delta-log-entry-event {
+  opacity: 50%;
 }

@@ -1,3 +1,8 @@
+for i in {1..10}; do
+  echo "i=$i"
+done | cat
+
+
 # set -eu
 
 # echo "hello"
@@ -8,55 +13,51 @@
 
 # git log -1
 
-pushd node_modules
+# pushd node_modules
 
-diff <(ls) <(ls ..)
+# diff <(ls) <(ls ..)
 
-popd
+# popd
 
-rm doesntexist
+# rm doesntexist
 
-mv test test2
+# mv test test2
 
-rm *.sh
+# rm *.sh
 
-ls
+# ls
 
-cd node_modules
+# cd node_modules
 
 # exit
 
-echo 1
-echo 2
-echo 3
-echo 4
-echo 5
-echo 6
-echo 7
-echo 8
-echo 9
-echo 10
-echo 11
-echo 12
-echo 13
-echo 14
-echo 15
-echo 16
-echo 17
-echo 18
-echo 19
-echo 20
+# echo 1
+# echo 2
+# echo 3
+# echo 4
+# echo 5
+# echo 6
+# echo 7
+# echo 8
+# echo 9
+# echo 10
+# echo 11
+# echo 12
+# echo 13
+# echo 14
+# echo 15
+# echo 16
+# echo 17
+# echo 18
+# echo 19
+# echo 20
 
 # echo "hi" | cat | cat
 
-true && echo "true"
-false && echo "false"
+# true && echo "true"
+# false && echo "false"
 
-fr_exitcode 10
-
-# for i in {1..10}; do
-#   echo "i=$i"
-# done | cat | cat
+# fr_exitcode 10
 
 # sleep 1
 
