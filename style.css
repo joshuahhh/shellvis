@@ -84,3 +84,19 @@ pre {
   margin-top: -3px;
   border-top: 3px solid white;
 }
+
+.call-rest {
+  padding: 10px;
+}
+
+.delta-log {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+}
+
+.delta-log-entry {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}

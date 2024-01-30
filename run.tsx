@@ -17,6 +17,7 @@ import { renderToString } from "react-dom/server";
 import React, { Fragment } from "react";
 import express from "express";
 import { Server } from "node:http";
+import { DiffAddedIcon, DiffModifiedIcon, DiffRemovedIcon, DiffIgnoredIcon } from '@primer/octicons-react'
 
 const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
 
@@ -278,6 +279,31 @@ function stringifyDeltaLog(log: DeltaLogEntry[], baseDir?: string): string {
     }
     return `${somePath} (${event})`;
   }).join("\n");
+}
+
+const eventIcons: Record<string, React.ReactNode> = {
+  'deleted': <DiffRemovedIcon />,
+  'new dir': <DiffAddedIcon />,
+  'modified': <DiffModifiedIcon />,
+  'dir replaced with file': <DiffModifiedIcon />,
+  'new file': <DiffAddedIcon />,
+}
+
+function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): React.ReactNode {
+  return <div className="delta-log">
+    {log.map(({path: somePath, event}) => {
+      if (baseDir) {
+        somePath = path.relative(baseDir, somePath);
+      }
+      return <div key={somePath} className="delta-log-entry">
+        <div className="delta-log-entry-event">
+          {eventIcons[event] || <DiffIgnoredIcon/>}
+        </div>
+        <div className="delta-log-entry-path">{somePath}</div>
+        <div className="delta-log-entry-event">({event})</div>
+      </div>
+    })}
+  </div>
 }
 
 function pathInSandbox(path: string, sandbox: Sandbox): string {
@@ -622,32 +648,34 @@ export class Run {
                 <div className="call-code">
                   <span style={{textDecoration: 'none'}}>{contents}</span>
                 </div>
-                { execInfo &&
-                  <div style={{fontSize: '80%'}}>
-                    <pre>
-                      {execInfo.stdout.data}
-                    </pre>
-                    <pre style={{color: 'rgba(255,200,200)'}}>
-                      {execInfo.stderr.data}
-                    </pre>
-                  </div>
-                }
-                { execExitInfo && execExitInfo.deltaLog &&
-                  <div style={{fontSize: '80%', fontStyle: 'italic'}} title={execExitInfo.cwd}>
-                    {stringifyDeltaLog(execExitInfo.deltaLog, execInfo.enterCwd)}
-                  </div>
-                }
-                { execExitInfo && execExitInfo.exitCode !== 0 &&
-                  <div style={{alignSelf: 'flex-end', fontSize: '80%', fontStyle: 'italic'}}>
-                    exit {execExitInfo?.exitCode}
-                  </div>
-                }
-                { execExitInfo && execExitInfo.cwd !== execInfo.enterCwd &&
-                  <div style={{fontSize: '80%', fontStyle: 'italic'}} title={execExitInfo.cwd}>
-                    cwd {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
-                  </div>
-                }
-                {false && <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>}
+                <div className="call-rest">
+                  { execInfo &&
+                    <div style={{fontSize: '80%'}}>
+                      <pre>
+                        {execInfo.stdout.data}
+                      </pre>
+                      <pre style={{color: 'rgba(255,200,200)'}}>
+                        {execInfo.stderr.data}
+                      </pre>
+                    </div>
+                  }
+                  { execExitInfo && execExitInfo.deltaLog.length > 0 &&
+                    <div style={{fontSize: '80%'}}>
+                      {renderDeltaLog(execExitInfo.deltaLog, execInfo.enterCwd)}
+                    </div>
+                  }
+                  { execExitInfo && execExitInfo.exitCode !== 0 &&
+                    <div style={{alignSelf: 'flex-end', fontSize: '80%', fontStyle: 'italic'}}>
+                      exit {execExitInfo?.exitCode}
+                    </div>
+                  }
+                  { execExitInfo && execExitInfo.cwd !== execInfo.enterCwd &&
+                    <div style={{fontSize: '80%', fontStyle: 'italic'}} title={execExitInfo.cwd}>
+                      cwd {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
+                    </div>
+                  }
+                  {false && <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>}
+                </div>
               </div>
           };
         });
