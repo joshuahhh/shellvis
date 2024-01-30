@@ -649,7 +649,7 @@ export class Run {
                   <span style={{textDecoration: 'none'}}>{contents}</span>
                 </div>
                 <div className="call-rest">
-                  { execInfo &&
+                  { execInfo && (execInfo.stdout.data.length > 0 || execInfo.stderr.data.length > 0) &&
                     <div style={{fontSize: '80%'}}>
                       <pre>
                         {execInfo.stdout.data}
@@ -696,7 +696,7 @@ export class Run {
     </div>;
 
 
-    const partTransformed = <div>
+    const partTransformed = () => <div>
       <div>
         <h1>transformed</h1>
         {/* prepend each line with a line number */}
@@ -704,7 +704,7 @@ export class Run {
       </div>
     </div>;
 
-    const partAST = <div>
+    const partAST = () => <div>
       <h1>ast</h1>
       <details open={false}>
         {inspectHtml(expandObject(
@@ -713,7 +713,7 @@ export class Run {
       </details>
     </div>;
 
-    const partMessages = <div className="row">
+    const partMessages = () => <div className="row">
       <div>
         <h1>messages</h1>
         <ul>
@@ -732,7 +732,7 @@ export class Run {
       </div>
     </div>;
 
-    const partExecOutput = <div>
+    const partExecOutput = () => <div>
       <h1>exec info</h1>
       <dl>
         {Object.entries(this.execInfos).map(([execId, execInfo]) => {
@@ -768,10 +768,10 @@ export class Run {
 
       <div className="row" style={{marginTop: 1000}}></div>
 
-      {true && partTransformed}
-      {true && partAST}
-      {true && partMessages}
-      {true && partExecOutput}
+      {false && partTransformed()}
+      {false && partAST()}
+      {false && partMessages()}
+      {false && partExecOutput()}
     </>;
 
     const html = renderToString(jsx);

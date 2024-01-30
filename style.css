@@ -65,34 +65,39 @@ pre {
 }
 
 .call.call-done-success > .call-code {
-  background-color: rgba(40, 90, 40);
-}
-
-.call.call-done-success {
   background-color: rgba(60, 110, 60);
 }
 
-.call.call-done-failure > .call-code {
-  background-color: rgba(200, 40, 40);
-}
+/* .call.call-done-success {
+  background-color: rgba(60, 110, 60);
+} */
 
-.call.call-done-failure {
+.call.call-done-failure > .call-code {
   background-color: rgba(220, 60, 60);
 }
+
+/* .call.call-done-failure {
+  background-color: rgba(220, 60, 60);
+} */
 
 .call.call-running {
   margin-top: -3px;
   border-top: 3px solid white;
 }
 
+.call-code {
+  padding: 0px 10px;
+}
+
 .call-rest {
   padding: 10px;
+  display: flex;
+  flex-direction: column;
 }
 
 .delta-log {
   display: flex;
   flex-direction: column;
-  margin-top: 10px;
 }
 
 .delta-log-entry {

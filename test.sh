@@ -2,13 +2,15 @@
 
 # echo "hello"
 
-git st
+# git st
 
-git ci -am "yoooo"
+# git ci -am "yoooo"
 
-git log -1
+# git log -1
 
-ls
+rm doesntexist
+
+mv test test2
 
 rm *.sh
 
@@ -16,7 +18,7 @@ ls
 
 cd node_modules
 
-exit
+# exit
 
 echo 1
 echo 2
