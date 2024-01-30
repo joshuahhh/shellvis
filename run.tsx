@@ -57,17 +57,21 @@ type Sandbox = {
   sandboxDir: string,
   sandboxUnionDir: string,
   deltaDir: string,
+  deltaUnionDir: string,
 }
 
 async function makeSandbox(): Promise<Sandbox> {
-  const sandboxDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sandbox-'));
+  const sandboxDirUnreal = await fs.mkdtemp(path.join(os.tmpdir(), 'sandbox-'));
+  const sandboxDir = await fs.realpath(sandboxDirUnreal);
   const sandboxUnionDir = path.join(sandboxDir, 'union');
-  const deltaDir = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-'));
+  const deltaDirUnreal = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-'));
+  const deltaDir = await fs.realpath(deltaDirUnreal);
+  const deltaUnionDir = path.join(deltaDir, 'union');
 
   child_process.execSync(`fr-sandbox make ${sandboxDir} /`);
   child_process.execSync(`fr-sandbox make ${deltaDir} ${sandboxUnionDir}`);
 
-  return { sandboxDir, sandboxUnionDir, deltaDir };
+  return { sandboxDir, sandboxUnionDir, deltaDir, deltaUnionDir };
 }
 
 function execHandler(error: child_process.ExecException | null, stdout: string, stderr: string) {
@@ -237,6 +241,11 @@ function mkExecId(context: string, nodeId: string): string {
   return `${context}-${nodeId}`;
 }
 
+type DeltaLogEntry = {
+  path: string,
+  event: string,
+}
+
 type ExecInfo = {
   stdout: PipeProgress,
   stderr: PipeProgress,
@@ -244,13 +253,43 @@ type ExecInfo = {
   exitInfo: {
     exitCode: number,
     cwd: string,
-    deltaLog: string,
+    deltaLog: DeltaLogEntry[],
   } | null,
+}
+
+function parseDeltaLog(log: string): DeltaLogEntry[] {
+  const lines = log.split("\n");
+  lines.pop();  // last line is empty
+  return lines.map((line) => {
+    // pattern is "path (event)"
+    const match = line.match(/^(.*) \((.*)\)$/);
+    if (!match) {
+      throw new Error(`invalid delta log line: ${line}`);
+    }
+    const [, path, event] = match;
+    return { path: '/' + path, event };
+  });
+}
+
+function stringifyDeltaLog(log: DeltaLogEntry[], baseDir?: string): string {
+  return log.map(({path: somePath, event}) => {
+    if (baseDir) {
+      somePath = path.relative(baseDir, somePath);
+    }
+    return `${somePath} (${event})`;
+  }).join("\n");
+}
+
+function pathInSandbox(path: string, sandbox: Sandbox): string {
+  if (!path.startsWith(sandbox.deltaUnionDir)) {
+    throw new Error(`path ${path} is not in sandbox`);
+  }
+  return path.slice(sandbox.deltaUnionDir.length);
 }
 
 export class Run {
   sandbox: Sandbox | null = null;
-  childProcess: child_process.ChildProcessByStdio<null, null, null> | null = null;
+  childProcess: child_process.ChildProcess | null = null;
   startTime: Date | null = null;
   messageLog: Message[] = [];
   exitCode: number | null = null;
@@ -281,6 +320,7 @@ export class Run {
     // transform
 
     this.sandbox = await makeSandbox();
+    console.log(util.inspect(this.sandbox));
 
     myWalk(ast, {
       exit: (node) => {
@@ -362,11 +402,12 @@ export class Run {
       'zsh',
       [ tmpFile.name ],
       {
-        cwd: path.join(this.sandbox.deltaDir, 'union', process.cwd()),
+        cwd: path.join(this.sandbox.deltaUnionDir, process.cwd()),
         env: {
           ...process.env,
         },
-        stdio: ['ignore', 'inherit', 'inherit'],
+        // stdio: ['ignore', 'inherit', 'inherit'],
+        stdio: 'ignore',
       }
     );
     console.log("fr: spawned child process at", this.childProcess.pid);
@@ -399,8 +440,6 @@ export class Run {
 
     const onMessage = (message: Message): string => {
       if (message.type === "stmt-enter") {
-        // TODO: use a pipe pool
-
         const stdoutUploadId = `${uploadId++}`;
         const stderrUploadId = `${uploadId++}`;
 
@@ -408,21 +447,21 @@ export class Run {
         const execOutput: ExecInfo = this.execInfos[execId] = {
           stdout: { data: "", done: false },
           stderr: { data: "", done: false },
-          enterCwd: message.cwd,
+          enterCwd: pathInSandbox(message.cwd, this.sandbox!),
           exitInfo: null,
         };
 
         this.sh2frUploadHandlers[stdoutUploadId] = (req, res) => {
-          console.log("fr: stdout upload handler called")
+          // console.log("fr: stdout upload handler called")
           // console.log(req);
           req.setEncoding('utf8');
           req.on('data', (data) => {
-            console.log("fr: stdout upload handler got data", data)
+            // console.log("fr: stdout upload handler got data", data)
             execOutput.stdout.data += data;
             this._scheduleWriteHtml();
           });
           req.on('end', () => {
-            console.log("fr: stdout upload handler got end")
+            // console.log("fr: stdout upload handler got end")
             execOutput.stdout.done = true;
             this._scheduleWriteHtml();
             res.end();
@@ -430,14 +469,14 @@ export class Run {
         };
 
         this.sh2frUploadHandlers[stderrUploadId] = (req, res) => {
-          console.log("fr: stderr upload handler called")
+          // console.log("fr: stderr upload handler called")
           req.on('data', (data) => {
-            console.log("fr: stderr upload handler got data", data)
+            // console.log("fr: stderr upload handler got data", data)
             execOutput.stderr.data += data;
             this._scheduleWriteHtml();
           });
           req.on('end', () => {
-            console.log("fr: stderr upload handler got end")
+            // console.log("fr: stderr upload handler got end")
             execOutput.stderr.done = true;
             this._scheduleWriteHtml();
             res.end();
@@ -453,13 +492,13 @@ export class Run {
         const deltaLogId = `${uploadId++}`;
 
         this.sh2frUploadHandlers[deltaLogId] = async (req, res) => {
-          console.log("fr: deltaLog upload handler called; reading stream");
+          // console.log("fr: deltaLog upload handler called");
           const deltaLog = (await readWholeStream(req)).toString();
-          console.log("fr: deltaLog upload handler called; read", deltaLog);
+          // console.log("fr: deltaLog upload handler got data", deltaLog);
           this.execInfos[execId].exitInfo = {
             exitCode: message.exitCode,
-            cwd: message.cwd,
-            deltaLog: deltaLog,
+            cwd: pathInSandbox(message.cwd, this.sandbox!),
+            deltaLog: parseDeltaLog(deltaLog),
           };
           this._scheduleWriteHtml();
           res.end();
@@ -595,7 +634,7 @@ export class Run {
                 }
                 { execExitInfo && execExitInfo.deltaLog &&
                   <div style={{fontSize: '80%', fontStyle: 'italic'}} title={execExitInfo.cwd}>
-                    {execExitInfo.deltaLog}
+                    {stringifyDeltaLog(execExitInfo.deltaLog, execInfo.enterCwd)}
                   </div>
                 }
                 { execExitInfo && execExitInfo.exitCode !== 0 &&
