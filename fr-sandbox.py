@@ -121,7 +121,7 @@ def main_after_run(args):
   sandbox_union_dir = get_union_dir(sandbox_dir)
 
   commands = []
-  with open(log_file, 'w') as f:
+  def body(f):
     for file in deleted_dirs:
       commands.append(['rm', '-rf', os.path.join(sandbox_union_dir, file)])
       print(file, '(deleted)', file=f)
@@ -143,6 +143,12 @@ def main_after_run(args):
       else:
         commands.append(['cp', '-fa', os.path.join(upper_dir, file), os.path.join(sandbox_union_dir, file)])
         print(file, '(new file)', file=f)
+
+  if log_file == '-':
+    body(sys.stdout)
+  else:
+    with open(log_file, 'w') as f:
+      body(f)
 
   # print()
   # for command in commands:

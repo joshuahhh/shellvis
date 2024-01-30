@@ -1,41 +1,68 @@
 # set -eu
 
-echo "hello"
+# echo "hello"
 
-echo "hi" | cat | cat
+ls
+
+rm *.sh
+
+ls
+
+# echo 1
+# echo 2
+# echo 3
+# echo 4
+# echo 5
+# echo 6
+# echo 7
+# echo 8
+# echo 9
+# echo 10
+# echo 11
+# echo 12
+# echo 13
+# echo 14
+# echo 15
+# echo 16
+# echo 17
+# echo 18
+# echo 19
+# echo 20
+
+# echo "hi" | cat | cat
 
 true && echo "true"
 false && echo "false"
 
 fr_exitcode 10
 
-for i in {1..10}; do
-  echo "i=$i"
-done | cat | cat
+# for i in {1..10}; do
+#   echo "i=$i"
+# done | cat | cat
 
-sleep 1
+# sleep 1
 
-x=$(ls)
+# x=$(ls)
 
-cd ..
+# cd ..
 
 diff <(ls) <(echo $x)
 
-ls
+# ls
 
-sleep 2
+# sleep 2
 
-echo $x
+# echo $x
 
-ls | rev
+# ls | rev
 
-echo "hello" | rev
+# echo "hello" | rev
 
-sleep 1
+# sleep 1
 
-echo "#1" | echo "#2"
+# echo "#1" | echo "#2"
 
-echo "#1" | echo "#2" | echo "#3"
+# echo "#1" | echo "#2" | echo "#3"
 
 # false
 

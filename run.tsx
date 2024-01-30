@@ -57,19 +57,17 @@ type Sandbox = {
   sandboxDir: string,
   sandboxUnionDir: string,
   deltaDir: string,
-  deltaLogFile: string,
 }
 
 async function makeSandbox(): Promise<Sandbox> {
   const sandboxDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sandbox-'));
   const sandboxUnionDir = path.join(sandboxDir, 'union');
   const deltaDir = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-'));
-  const deltaLogFile = tmp.tmpNameSync();
 
   child_process.execSync(`fr-sandbox make ${sandboxDir} /`);
   child_process.execSync(`fr-sandbox make ${deltaDir} ${sandboxUnionDir}`);
 
-  return { sandboxDir, sandboxUnionDir, deltaDir, deltaLogFile };
+  return { sandboxDir, sandboxUnionDir, deltaDir };
 }
 
 function execHandler(error: child_process.ExecException | null, stdout: string, stderr: string) {
@@ -162,6 +160,21 @@ async function readPipeWithProgress(path: string, onProgress: (progress: PipePro
   });
 }
 
+async function readWholeStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const buffers: Buffer[] = [];
+    stream.on('data', (data: Buffer) => {
+      buffers.push(data);
+    });
+    stream.on('end', () => {
+      resolve(Buffer.concat(buffers));
+    });
+    stream.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
 const rangeIncl = (start: number, stop: number, step = 1) =>
   Array.from({ length: (stop - start) / step + 1}, (_, i) => start + (i * step));
 
@@ -231,6 +244,7 @@ type ExecInfo = {
   exitInfo: {
     exitCode: number,
     cwd: string,
+    deltaLog: string,
   } | null,
 }
 
@@ -289,7 +303,8 @@ export class Run {
                 context: '$(fr_join / ${frctx[@]})',
                 cwd: "$PWD"
               }, "fr_stdout fr_stderr")};
-              echo "sh: got upload ids $fr_stdout $fr_stderr" 1>&2;
+              # echo "sh: got upload ids $fr_stdout $fr_stderr" 1>&2;
+              fr-sandbox before-run ${this.sandbox!.deltaDir}
               ___ 1>&1 1> >(${uploadCmdStr('$fr_stdout')}) 2>&2 2> >(${uploadCmdStr('$fr_stderr')});
               fr_ret=$?;
               ${callStmtStr({
@@ -298,7 +313,8 @@ export class Run {
                 context: '$(fr_join / ${frctx[@]})',
                 cwd: "$PWD",
                 exitCode: RAW("$fr_ret")
-              })};
+              }, "fr_delta_log")};
+              fr-sandbox after-run ${this.sandbox!.deltaDir} ${this.sandbox!.sandboxDir} - | ${uploadCmdStr('$fr_delta_log')};
               fr_exitcode $fr_ret;
             }`);
             this.callExprs.push({callExpr: cmd as sh.CallExpr, stmtNodeId: nodeId});
@@ -431,19 +447,31 @@ export class Run {
         return `${stdoutUploadId} ${stderrUploadId}\n`;
       } else if (message.type === "stmt-exit") {
         const execId = mkExecId(message.context, message.nodeId);
-        this.execInfos[execId].exitInfo = {
-          exitCode: message.exitCode,
-          cwd: message.cwd,
+
+        console.log("fr: stmt-exit", execId);
+
+        const deltaLogId = `${uploadId++}`;
+
+        this.sh2frUploadHandlers[deltaLogId] = async (req, res) => {
+          console.log("fr: deltaLog upload handler called; reading stream");
+          const deltaLog = (await readWholeStream(req)).toString();
+          console.log("fr: deltaLog upload handler called; read", deltaLog);
+          this.execInfos[execId].exitInfo = {
+            exitCode: message.exitCode,
+            cwd: message.cwd,
+            deltaLog: deltaLog,
+          };
+          this._scheduleWriteHtml();
+          res.end();
         };
-        this._scheduleWriteHtml();
-        return "\n";
+
+        return `${deltaLogId}\n`;
       }
       return "\n";
     }
 
     this.sh2frExpress = express()
 
-    // app.use(express.json())
     this.sh2frExpress.use('/', express.raw({ type: "*/*" }))
 
     this.sh2frExpress.post('/', (req, res) => {
@@ -552,7 +580,9 @@ export class Run {
             end: callExpr.End().Col() - 1,
             decorator: (contents) =>
               <div key={stmtNodeId} className={`call ${statusClass}`}>
-                <span style={{textDecoration: 'none'}}>{contents}</span>
+                <div className="call-code">
+                  <span style={{textDecoration: 'none'}}>{contents}</span>
+                </div>
                 { execInfo &&
                   <div style={{fontSize: '80%'}}>
                     <pre>
@@ -561,6 +591,11 @@ export class Run {
                     <pre style={{color: 'rgba(255,200,200)'}}>
                       {execInfo.stderr.data}
                     </pre>
+                  </div>
+                }
+                { execExitInfo && execExitInfo.deltaLog &&
+                  <div style={{fontSize: '80%', fontStyle: 'italic'}} title={execExitInfo.cwd}>
+                    {execExitInfo.deltaLog}
                   </div>
                 }
                 { execExitInfo && execExitInfo.exitCode !== 0 &&
@@ -655,7 +690,7 @@ export class Run {
       {/* <script dangerouslySetInnerHTML={{
         __html: live
       }} /> */}
-      <style>{styleCss}</style>
+      <style dangerouslySetInnerHTML={{ __html: styleCss }} />
 
       <div style={{fontSize: "80%", marginBottom: 10}}>
         <div>started @ {this.startTime?.toLocaleTimeString()}</div>
