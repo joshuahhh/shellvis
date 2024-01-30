@@ -17,7 +17,7 @@ import { renderToString } from "react-dom/server";
 import React, { Fragment } from "react";
 import express from "express";
 import { Server } from "node:http";
-import { DiffAddedIcon, DiffModifiedIcon, DiffRemovedIcon, DiffIgnoredIcon } from '@primer/octicons-react'
+import { DiffAddedIcon, DiffModifiedIcon, DiffRemovedIcon, DiffIgnoredIcon, FileSubmoduleIcon, ChevronRightIcon, SignOutIcon } from '@primer/octicons-react'
 
 const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
 
@@ -646,17 +646,35 @@ export class Run {
             decorator: (contents) =>
               <div key={stmtNodeId} className={`call ${statusClass}`}>
                 <div className="call-code">
-                  <span style={{textDecoration: 'none'}}>{contents}</span>
+                  <div className="call-code-background"/>
+                  <div className="call-code-contents">{contents}</div>
                 </div>
                 <div className="call-rest">
-                  { execInfo && (execInfo.stdout.data.length > 0 || execInfo.stderr.data.length > 0) &&
+                  { execInfo && execInfo.stdout.data.length > 0 &&
                     <div style={{fontSize: '80%'}}>
-                      <pre>
-                        {execInfo.stdout.data}
-                      </pre>
-                      <pre style={{color: 'rgba(255,200,200)'}}>
-                        {execInfo.stderr.data}
-                      </pre>
+                      <div className="delta-log-entry">
+                        <ChevronRightIcon/>
+                        <pre>
+                          {execInfo.stdout.data}
+                        </pre>
+                      </div>
+                    </div>
+                  }
+                  { execInfo && execInfo.stderr.data.length > 0 &&
+                    <div style={{fontSize: '80%'}}>
+                      <div className="delta-log-entry" style={{}}>
+                        <div style={{position: 'relative', width: 16, height: 16}}>
+                          <div style={{position: 'absolute', left: 4}}>
+                            <ChevronRightIcon/>
+                          </div>
+                          <div style={{position: 'absolute', left: -4}}>
+                            <ChevronRightIcon/>
+                          </div>
+                        </div>
+                        <pre>
+                          {execInfo.stderr.data}
+                        </pre>
+                      </div>
                     </div>
                   }
                   { execExitInfo && execExitInfo.deltaLog.length > 0 &&
@@ -665,13 +683,19 @@ export class Run {
                     </div>
                   }
                   { execExitInfo && execExitInfo.exitCode !== 0 &&
-                    <div style={{alignSelf: 'flex-end', fontSize: '80%', fontStyle: 'italic'}}>
-                      exit {execExitInfo?.exitCode}
+                    <div className="delta-log-entry" style={{fontSize: '80%'}}>
+                      <SignOutIcon/>
+                      <div>
+                        exit {execExitInfo.exitCode}
+                      </div>
                     </div>
                   }
                   { execExitInfo && execExitInfo.cwd !== execInfo.enterCwd &&
-                    <div style={{fontSize: '80%', fontStyle: 'italic'}} title={execExitInfo.cwd}>
-                      cwd {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
+                    <div style={{fontSize: '80%'}} title={execExitInfo.cwd}>
+                      <div className="delta-log-entry">
+                        <FileSubmoduleIcon/>
+                        {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
+                      </div>
                     </div>
                   }
                   {false && <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>}

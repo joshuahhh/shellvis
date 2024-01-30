@@ -8,6 +8,12 @@
 
 # git log -1
 
+pushd node_modules
+
+diff <(ls) <(ls ..)
+
+popd
+
 rm doesntexist
 
 mv test test2
@@ -57,8 +63,6 @@ fr_exitcode 10
 # x=$(ls)
 
 # cd ..
-
-diff <(ls) <(echo $x)
 
 # ls
 
