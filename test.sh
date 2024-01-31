@@ -1,13 +1,13 @@
-ls | rev
-
-for i in *.sh; do
+for i in {1..2}; do
   echo "i=$i"
-  for j in {1..3}; do
+  for j in {1..2}; do
     echo "i,j=$i,$j"
   done
-done | cat
+done | rev
 
-# set -eu
+ls | rev
+
+set -eu
 
 echo "hello"
 
@@ -33,89 +33,89 @@ ls
 
 cd node_modules
 
-# exit
+exit
 
-# echo 1
-# echo 2
-# echo 3
-# echo 4
-# echo 5
-# echo 6
-# echo 7
-# echo 8
-# echo 9
-# echo 10
-# echo 11
-# echo 12
-# echo 13
-# echo 14
-# echo 15
-# echo 16
-# echo 17
-# echo 18
-# echo 19
-# echo 20
+echo 1
+echo 2
+echo 3
+echo 4
+echo 5
+echo 6
+echo 7
+echo 8
+echo 9
+echo 10
+echo 11
+echo 12
+echo 13
+echo 14
+echo 15
+echo 16
+echo 17
+echo 18
+echo 19
+echo 20
 
-# echo "hi" | cat | cat
+echo "hi" | cat | cat
 
 true && echo "true"
 false && echo "false"
 
-# fr_exitcode 10
+fr_exitcode 10
 
-# sleep 1
+sleep 1
 
-# x=$(ls)
+x=$(ls)
 
-# cd ..
+cd ..
 
-# ls
+ls
 
-# sleep 2
+sleep 2
 
-# echo $x
+echo $x
 
-# ls | rev
+ls | rev
 
-# echo "hello" | rev
+echo "hello" | rev
 
-# sleep 1
+sleep 1
 
-# echo "#1" | echo "#2"
+echo "#1" | echo "#2"
 
-# echo "#1" | echo "#2" | echo "#3"
+echo "#1" | echo "#2" | echo "#3"
 
-# false
+false
 
-# ls
+ls
 
-# ls | rev
-
-
-# echo "#2" | rev
-
-# echo "#3"
-
-# echo "#1"
-
-# echo "#2A" | echo "#2B" | echo "2C"
-
-# echo "#3"
-
-# for i in {1..3}; do
-#   echo "i=$i"
-#   for j in {1..3}; do
-#     echo "i,j=$i,$j"
-#     # sleep 1
-#   done
-# done | rev
+ls | rev
 
 
+echo "#2" | rev
 
-# for f in *.sh; do
-#   # copy each $f from .sh to .txt
-#   cp $f ${f%.sh}.doc
-#   echo $f is cool
-# done
+echo "#3"
 
-# ls
+echo "#1"
+
+echo "#2A" | echo "#2B" | echo "2C"
+
+echo "#3"
+
+for i in {1..3}; do
+  echo "i=$i"
+  for j in {1..3}; do
+    echo "i,j=$i,$j"
+    # sleep 1
+  done
+done | rev
+
+
+
+for f in *.sh; do
+  # copy each $f from .sh to .txt
+  cp $f ${f%.sh}.doc
+  echo $f is cool
+done
+
+ls

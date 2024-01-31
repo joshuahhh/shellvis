@@ -326,6 +326,66 @@ function pathInSandbox(path: string, sandbox: Sandbox): string {
   return path.slice(sandbox.deltaUnionDir.length);
 }
 
+type LineTreeNode =
+  // note: lineNumEnd is exclusive, not inclusive
+  { lineNumStart: number, lineNumEnd: number } & (
+    | { type: 'line', line: string }
+    | { type: 'loop-body', forClause: sh.ForClause, children: LineTreeNode[] }
+  )
+
+function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
+  const result: LineTreeNode[] = [];
+  let stack: LineTreeNode[][] = [result];
+  myWalk(ast, {
+    enter: (node) => {
+      const nodeType = sh.syntax.NodeType(node);
+      if (nodeType === "ForClause") {
+        const forClause = node as sh.ForClause;
+        const lineTreeNode = {
+          type: 'loop-body',
+          forClause,
+          children: [],
+          lineNumStart: forClause.DoPos.Line() + 1,
+          lineNumEnd: forClause.DonePos.Line(),
+        } satisfies LineTreeNode;
+        stack[stack.length - 1].push(lineTreeNode);
+        stack.push(lineTreeNode.children);
+        return () => {
+          stack.pop();
+        }
+      }
+    }
+  });
+  addLinesToNodes(result, 1, lines.length + 1, lines);
+  return result;
+}
+
+function addLinesToNodes(nodes: LineTreeNode[], lineNumStart: number, lineNumEnd: number, lines: string[]) {
+  let newNodes: LineTreeNode[] = [];
+  let lineNum = lineNumStart;
+  function addLinesUpTo(lineNumEnd: number) {
+    rangeIncl(lineNum, lineNumEnd - 1).forEach((i) => {
+      newNodes.push({
+        type: 'line',
+        line: lines[i - 1],
+        lineNumStart: i,
+        lineNumEnd: i + 1,
+      });
+    });
+    lineNum = lineNumEnd;
+  }
+  for (const child of nodes) {
+    addLinesUpTo(child.lineNumStart);
+    if (child.type === 'loop-body') {
+      addLinesToNodes(child.children, child.lineNumStart, child.lineNumEnd, lines);
+    }
+    newNodes.push(child);
+    lineNum = child.lineNumEnd;
+  }
+  addLinesUpTo(lineNumEnd);
+  nodes.splice(0, nodes.length, ...newNodes);
+};
+
 export class Run {
   sandbox: Sandbox | null = null;
   childProcess: child_process.ChildProcess | null = null;
@@ -340,7 +400,10 @@ export class Run {
   execInfos: Record<string, ExecInfo> = {};
   forInfos: Record<string, ForInfo> = {};
   allStmts: { [nodeId: string]: {stmt: sh.Stmt, src: string} } = {};
+  allForClauses: { [nodeId: string]: sh.ForClause } = {};
   callExprs: {callExpr: sh.CallExpr, stmtNodeId: string}[] = [];
+  lineTreeNodes: LineTreeNode[] = [];
+  scriptLines = this.scriptSrc.split("\n");
 
   constructor(public scriptSrc: string, public broadcast: (data: string) => void) { }
 
@@ -361,7 +424,8 @@ export class Run {
     // transform
 
     this.sandbox = await makeSandbox();
-    console.log(util.inspect(this.sandbox));
+
+    this.lineTreeNodes = lineTreeNodesFromAst(ast, this.scriptLines);
 
     myWalk(ast, {
       exit: (node) => {
@@ -381,7 +445,7 @@ export class Run {
               ${callStmtStr({
                 type: "stmt-enter",
                 nodeId,
-                context: '$(fr_join / ${frctx[@]})',
+                context: '$(frctx_str)',
                 cwd: "$PWD"
               }, "fr_stdout fr_stderr")};
               # echo "sh: got upload ids $fr_stdout $fr_stderr" 1>&2;
@@ -391,7 +455,7 @@ export class Run {
               ${callStmtStr({
                 type: "stmt-exit",
                 nodeId,
-                context: '$(fr_join / ${frctx[@]})',
+                context: '$(frctx_str)',
                 cwd: "$PWD",
                 exitCode: RAW("$fr_ret")
               }, "fr_delta_log")};
@@ -403,6 +467,9 @@ export class Run {
           if (cmdType === "ForClause") {
             const forClause = cmd as sh.ForClause;
             const forNodeId = getNodeId(forClause);
+
+            this.allForClauses[nodeId] = forClause;
+
             const counterVar = `fr_loop_counter_${forNodeId}`;
             const loopType = sh.syntax.NodeType(forClause.Loop);
             if (loopType !== "WordIter") {
@@ -418,10 +485,10 @@ export class Run {
               callStmt({
                 type: "for-body-enter",
                 nodeId: forNodeId,
-                context: '$(fr_join / ${frctx[@]})',
+                context: '$(frctx_str)',
                 counter: RAW(`$${counterVar}`),
                 // TODO: $loopVar's really gonna need some escaping
-                loopVarValue: "$loopVar",
+                loopVarValue: `$${loopVar}`,
               }),
               parseStmt(`frctx_push "${forNodeId}-$${counterVar}"`),
               ...forClause.Do,
@@ -429,7 +496,7 @@ export class Run {
               callStmt({
                 type: "for-body-exit",
                 nodeId: forNodeId,
-                context: '$(fr_join / ${frctx[@]})',
+                context: '$(frctx_str)',
               }),
               parseStmt(`${counterVar}=$(($${counterVar} + 1))`),
             ];
@@ -467,8 +534,8 @@ export class Run {
         env: {
           ...process.env,
         },
-        // stdio: ['ignore', 'inherit', 'inherit'],
-        stdio: 'ignore',
+        stdio: ['ignore', 'inherit', 'inherit'],
+        // stdio: 'ignore',
       }
     );
     console.log("fr: spawned child process at", this.childProcess.pid);
@@ -548,7 +615,7 @@ export class Run {
       } else if (message.type === "stmt-exit") {
         const execId = mkExecId(message.context, message.nodeId);
 
-        console.log("fr: stmt-exit", execId);
+        console.log("fr: stmt-exit", execId, util.inspect(message));
 
         const deltaLogId = `${uploadId++}`;
 
@@ -570,7 +637,9 @@ export class Run {
         const execId = mkExecId(message.context, message.nodeId);
         let forInfo = this.forInfos[execId] as ForInfo | undefined;
         if (!forInfo) {
-          forInfo = this.forInfos[execId] = { iterations: [] };
+          forInfo = this.forInfos[execId] = {
+            iterations: []
+          };
         }
         forInfo.iterations.push({
           counter: message.counter,
@@ -662,105 +731,17 @@ export class Run {
   }
 
   _writeHtml() {
+    // const partMain = <div>
+    //   {this.scriptSrc.split('\n').map((line, i) =>
+    //     this._renderLine(line, i, '')
+    //   )}
+    // </div>;
+
     const partMain = <div>
-      {this.scriptSrc.split('\n').map((line, i) => {
-        const lineIndent = line.match(/^\s*/)?.[0] || '';
-        const callExprsOnLine = this.callExprs.filter(({callExpr}) => {
-          // TODO: everything's limited to single lines
-          return callExpr.Pos().Line() === i + 1;
-        });
-        const decorations: Decoration[] = callExprsOnLine.map(({callExpr, stmtNodeId}) => {
-          const execId = mkExecId('', stmtNodeId);
-          const execInfo = this.execInfos[execId] as ExecInfo | undefined;
-          const execExitInfo = execInfo?.exitInfo;
-          const statusClass =
-            execInfo
-            ? execExitInfo
-              ? execExitInfo.exitCode === 0
-                ? 'call-done-success'
-                : 'call-done-failure'
-              : 'call-running'
-            : 'call-not-started';
-
-          return {
-            start: callExpr.Pos().Col() - 1,
-            end: callExpr.End().Col() - 1,
-            decorator: (contents) =>
-              <div key={stmtNodeId} className={`call ${statusClass}`}>
-                <div className="call-code">
-                  <div className="call-code-background"/>
-                  <div className="call-code-contents">{contents}</div>
-                </div>
-                <div className="call-rest">
-                  { execInfo && execInfo.stdout.data.length > 0 &&
-                    <div style={{fontSize: '80%'}}>
-                      <div className="delta-log-entry">
-                        <ChevronRightIcon/>
-                        <pre>
-                          {execInfo.stdout.data}
-                        </pre>
-                      </div>
-                    </div>
-                  }
-                  { execInfo && execInfo.stderr.data.length > 0 &&
-                    <div style={{fontSize: '80%'}}>
-                      <div className="delta-log-entry" style={{}}>
-                        <div style={{position: 'relative', width: 16, height: 16}}>
-                          <div style={{position: 'absolute', left: 3}}>
-                            <ChevronRightIcon/>
-                          </div>
-                          <div style={{position: 'absolute', left: -3}}>
-                            <ChevronRightIcon/>
-                          </div>
-                        </div>
-                        <pre>
-                          {execInfo.stderr.data}
-                        </pre>
-                      </div>
-                    </div>
-                  }
-                  { execExitInfo && execExitInfo.deltaLog.length > 0 &&
-                    <div style={{fontSize: '80%'}}>
-                      {renderDeltaLog(execExitInfo.deltaLog, execInfo.enterCwd)}
-                    </div>
-                  }
-                  { execExitInfo && execExitInfo.exitCode !== 0 &&
-                    <div className="delta-log-entry" style={{fontSize: '80%'}}>
-                      <SignOutIcon/>
-                      <div>
-                        exit {execExitInfo.exitCode}
-                      </div>
-                    </div>
-                  }
-                  { execExitInfo && execExitInfo.cwd !== execInfo.enterCwd &&
-                    <div style={{fontSize: '80%'}} title={execExitInfo.cwd}>
-                      <div className="delta-log-entry">
-                        <FileSubmoduleIcon/>
-                        {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
-                      </div>
-                    </div>
-                  }
-                  {false && <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>}
-                </div>
-              </div>
-          };
-        });
-        const decoratedLine = addDecorationsToLine(line, decorations);
-        return <div key={i} className="code-line">
-          <div className="code-linenum">{i + 1}</div>
-          <div className="code-linecode">
-            <div className="code-command">{decoratedLine}</div>
-            {/* { outputPerLine[i + 1] &&
-              <div className="row">
-                <div>{lineIndent}</div>
-                <div className="code-stdout" dangerouslySetInnerHTML={{__html: ansiToHtml.toHtml(outputPerLine[i + 1])}}/>
-              </div>
-            } */}
-          </div>
-        </div>;
-      })}
+      {this.lineTreeNodes.map((node) =>
+        this._renderLineTreeNode(node, '')
+      )}
     </div>;
-
 
     const partTransformed = () => <div>
       <div>
@@ -798,7 +779,7 @@ export class Run {
       </div>
     </div>;
 
-    const partExecOutput = () => <div>
+    const partExecInfo = () => <div>
       <h1>exec info</h1>
       <dl>
         {Object.entries(this.execInfos).map(([execId, execInfo]) => {
@@ -813,6 +794,26 @@ export class Run {
               <div><b>rest</b>
                 {inspectHtml(rest)}
               </div>
+            </dd>
+          </Fragment>
+        })}
+      </dl>
+    </div>;
+
+    const partForInfo = () => <div>
+      <h1>for info</h1>
+      <dl>
+        {Object.entries(this.forInfos).map(([execId, forInfo]) => {
+          return <Fragment key={execId}>
+            <dt>{execId}</dt>
+            <dd>
+              <div><b>iterations</b></div>
+              <ul>
+                {forInfo.iterations.map((iteration, i) => <li key={i}>
+                  <div><b>counter</b> {iteration.counter}</div>
+                  <div><b>loopVarValue</b> {iteration.loopVarValue}</div>
+                </li>)}
+              </ul>
             </dd>
           </Fragment>
         })}
@@ -835,14 +836,139 @@ export class Run {
       <div className="row" style={{marginTop: 1000}}></div>
 
       {false && partTransformed()}
-      {true && partAST()}
+      {false && partAST()}
       {true && partMessages()}
-      {false && partExecOutput()}
+      {true && partExecInfo()}
+      {true && partForInfo()}
     </>;
 
     const html = renderToString(jsx);
 
     this.broadcast(html);
+  }
+
+  _renderLine(line: string, i: number, context: string) {
+    const callExprsOnLine = this.callExprs.filter(({callExpr}) => {
+      // TODO: everything's limited to single lines
+      return callExpr.Pos().Line() === i + 1;
+    });
+    const decorations: Decoration[] = callExprsOnLine.map(({callExpr, stmtNodeId}) => {
+      const execId = mkExecId(context, stmtNodeId);
+      const execInfo = this.execInfos[execId] as ExecInfo | undefined;
+      const execExitInfo = execInfo?.exitInfo;
+      const statusClass =
+        execInfo
+        ? execExitInfo
+          ? execExitInfo.exitCode === 0
+            ? 'call-done-success'
+            : 'call-done-failure'
+          : 'call-running'
+        : 'call-not-started';
+
+      return {
+        start: callExpr.Pos().Col() - 1,
+        end: callExpr.End().Col() - 1,
+        decorator: (contents) =>
+          <div key={stmtNodeId} className={`call ${statusClass}`}>
+            <div className="call-code">
+              <div className="call-code-background"/>
+              <div className="call-code-contents">{contents}</div>
+            </div>
+            <div className="call-rest">
+              { execInfo && execInfo.stdout.data.length > 0 &&
+                <div style={{fontSize: '80%'}}>
+                  <div className="delta-log-entry">
+                    <ChevronRightIcon/>
+                    <pre>
+                      {execInfo.stdout.data}
+                    </pre>
+                  </div>
+                </div>
+              }
+              { execInfo && execInfo.stderr.data.length > 0 &&
+                <div style={{fontSize: '80%'}}>
+                  <div className="delta-log-entry" style={{}}>
+                    <div style={{position: 'relative', width: 16, height: 16}}>
+                      <div style={{position: 'absolute', left: 3}}>
+                        <ChevronRightIcon/>
+                      </div>
+                      <div style={{position: 'absolute', left: -3}}>
+                        <ChevronRightIcon/>
+                      </div>
+                    </div>
+                    <pre>
+                      {execInfo.stderr.data}
+                    </pre>
+                  </div>
+                </div>
+              }
+              { execExitInfo && execExitInfo.deltaLog.length > 0 &&
+                <div style={{fontSize: '80%'}}>
+                  {renderDeltaLog(execExitInfo.deltaLog, execInfo.enterCwd)}
+                </div>
+              }
+              { execExitInfo && execExitInfo.exitCode !== 0 &&
+                <div className="delta-log-entry" style={{fontSize: '80%'}}>
+                  <SignOutIcon/>
+                  <div>
+                    exit {execExitInfo.exitCode}
+                  </div>
+                </div>
+              }
+              { execExitInfo && execExitInfo.cwd !== execInfo.enterCwd &&
+                <div style={{fontSize: '80%'}} title={execExitInfo.cwd}>
+                  <div className="delta-log-entry">
+                    <FileSubmoduleIcon/>
+                    {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
+                  </div>
+                </div>
+              }
+              {false && <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>}
+            </div>
+          </div>
+      };
+    });
+    const decoratedLine = addDecorationsToLine(line, decorations);
+    return <div key={i} className="code-line">
+      <div className="code-linenum">{i + 1}</div>
+      <div className="code-linecode">
+        <div className="code-command">{decoratedLine}</div>
+        {/* { outputPerLine[i + 1] &&
+          <div className="row">
+            <div>{lineIndent}</div>
+            <div className="code-stdout" dangerouslySetInnerHTML={{__html: ansiToHtml.toHtml(outputPerLine[i + 1])}}/>
+          </div>
+        } */}
+      </div>
+    </div>;
+  }
+
+  _renderLineTreeNode(node: LineTreeNode, context: string): React.ReactNode {
+    if (node.type === 'line') {
+      return this._renderLine(node.line, node.lineNumStart - 1, context);
+    } else if (node.type === 'loop-body') {
+      const forClause = node.forClause;
+      const forNodeId = getNodeId(forClause);
+      const forInfo = this.forInfos[mkExecId(context, forNodeId)];
+      const iterations = forInfo?.iterations || [];
+      const varName = (forClause.Loop as sh.WordIter).Name!.Value;
+      const forLine = this.scriptLines[forClause.Pos().Line() - 1];
+      const forIndent = forLine.match(/^\s*/)?.[0] || '';
+      return iterations.map((iteration) => {
+        return <Fragment key={iteration.counter}>
+          <div className="code-line">
+            <div className="code-linenum"/>
+            <div className="code-linecode">
+              <div className="for-loop-var">
+                {forIndent}
+                <span style={{fontSize: "80%", fontWeight: 'bold', backgroundColor: '#ccc', color: '#444', padding: '0px 5px'}}>{varName} = {iteration.loopVarValue}</span>
+              </div>
+            </div>
+          </div>
+          {node.children.map((child) => this._renderLineTreeNode(child, `${context}/${forNodeId}-${iteration.counter}`))}
+        </Fragment>;
+      });
+    }
   }
 
   _stmtSrc(stmt: sh.Stmt): string {

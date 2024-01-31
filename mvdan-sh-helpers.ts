@@ -73,7 +73,7 @@ enum EnterResponse { Continue, Skip, Abort }
 enum ExitResponse { Continue, Abort }
 
 type Walker = {
-  enter?(node: sh.Node, ancestors: sh.Node[]): EnterResponse | void,
+  enter?(node: sh.Node, ancestors: sh.Node[]): EnterResponse | void | (() => void),
   exit?(node: sh.Node, ancestors: sh.Node[]): ExitResponse | void,
 }
 
@@ -83,6 +83,8 @@ export function myWalk (
 ): void {
   let ancestors: sh.Node[] = [];
   let aborted = false;
+  let finalizers: Map<sh.Node, () => void> = new Map();
+
   sh.syntax.Walk(node, (node: sh.Node | null) => {
     if (aborted) {
       return false;
@@ -96,8 +98,11 @@ export function myWalk (
         return false;
       } else if (response === EnterResponse.Skip) {
         return false;
-      } else if (response === EnterResponse.Continue || response === undefined) {
+      } else if (response === EnterResponse.Continue || response === undefined || typeof response === 'function') {
         ancestors.push(node);
+        if (typeof response === 'function') {
+          finalizers.set(node, response);
+        }
         return true;
       } else {
         throw new Error(`unknown EnterResponse ${response}`);
@@ -105,6 +110,11 @@ export function myWalk (
     } else {
       // exiting
       const exitedNode = ancestors.pop()!;
+      const finalizer = finalizers.get(exitedNode);
+      if (finalizer) {
+        finalizer();
+        finalizers.delete(exitedNode);
+      }
       const response = walker.exit ? walker.exit(exitedNode, ancestors) : ExitResponse.Continue;
       if (response === ExitResponse.Abort) {
         aborted = true;
