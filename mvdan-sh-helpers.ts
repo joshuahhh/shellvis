@@ -1,8 +1,9 @@
 import sh from "mvdan-sh";
 import { type Node } from "mvdan-sh";
+import { rangeIncl } from "./util";
 
 export type ParseError = {
-  Error(): String,
+  Error(): string,
 }
 
 const excludedSuffixes = ["Pos", "End"];
@@ -206,3 +207,85 @@ type NodeTypesAreNotJustNodes = AssertTrue<
 export function hasNodeType<T extends keyof NodeTypes>(node: sh.Node, nodeType: T): node is NodeTypes[T] {
   return sh.syntax.NodeType(node) === nodeType;
 }
+
+export class Script {
+  ast: sh.File;
+  lines: string[];
+  lineTree: LineTreeNode[];
+
+  constructor (
+    parser: sh.Parser,
+    private src: string,
+  ) {
+    try {
+      this.ast = parser.Parse(this.src);;
+    } catch (e) {
+      throw new Error((e as ParseError).Error());
+    }
+
+    this.lines = this.src.split("\n");
+
+    this.lineTree = lineTreeNodesFromAst(this.ast, this.lines);
+  }
+}
+
+// LineTreeNode is the kinda dumb way we handle loops right now.
+// It's a static representation of a tree of lines, grouped by loop bodies.
+
+export type LineTreeNode =
+  // note: lineNumEnd is exclusive, not inclusive
+  { lineNumStart: number, lineNumEnd: number } & (
+    | { type: 'line', line: string }
+    | { type: 'loop-body', forClause: sh.ForClause, children: LineTreeNode[] }
+  )
+
+function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
+  const result: LineTreeNode[] = [];
+  let stack: LineTreeNode[][] = [result];
+  myWalk(ast, {
+    enter: (node) => {
+      if (hasNodeType(node, "ForClause")) {
+        const lineTreeNode = {
+          type: 'loop-body',
+          forClause: node,
+          children: [],
+          lineNumStart: node.DoPos.Line() + 1,
+          lineNumEnd: node.DonePos.Line(),
+        } satisfies LineTreeNode;
+        stack[stack.length - 1].push(lineTreeNode);
+        stack.push(lineTreeNode.children);
+        return () => {
+          stack.pop();
+        }
+      }
+    }
+  });
+  addLinesToNodes(result, 1, lines.length + 1, lines);
+  return result;
+}
+
+function addLinesToNodes(nodes: LineTreeNode[], lineNumStart: number, lineNumEnd: number, lines: string[]) {
+  let newNodes: LineTreeNode[] = [];
+  let lineNum = lineNumStart;
+  function addLinesUpTo(lineNumEnd: number) {
+    rangeIncl(lineNum, lineNumEnd - 1).forEach((i) => {
+      newNodes.push({
+        type: 'line',
+        line: lines[i - 1],
+        lineNumStart: i,
+        lineNumEnd: i + 1,
+      });
+    });
+    lineNum = lineNumEnd;
+  }
+  for (const child of nodes) {
+    addLinesUpTo(child.lineNumStart);
+    if (child.type === 'loop-body') {
+      addLinesToNodes(child.children, child.lineNumStart, child.lineNumEnd, lines);
+    }
+    newNodes.push(child);
+    lineNum = child.lineNumEnd;
+  }
+  addLinesUpTo(lineNumEnd);
+  nodes.splice(0, nodes.length, ...newNodes);
+};

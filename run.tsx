@@ -17,7 +17,8 @@ import React, { Fragment } from "react";
 import { renderToString } from "react-dom/server";
 import * as tmp from "tmp";
 import { OnlyRunLatestJob } from "./job-stuff";
-import { ParseError, expandObject, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers";
+import { LineTreeNode, ParseError, Script, expandObject, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers";
+import { rangeIncl } from "./util";
 
 const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
 
@@ -183,9 +184,6 @@ async function readWholeStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
   });
 }
 
-const rangeIncl = (start: number, stop: number, step = 1) =>
-  Array.from({ length: (stop - start) / step + 1}, (_, i) => start + (i * step));
-
 type Decoration = {
   start: number,
   end: number,
@@ -325,64 +323,6 @@ function pathInSandbox(path: string, sandbox: Sandbox): string {
   return path.slice(sandbox.deltaUnionDir.length);
 }
 
-type LineTreeNode =
-  // note: lineNumEnd is exclusive, not inclusive
-  { lineNumStart: number, lineNumEnd: number } & (
-    | { type: 'line', line: string }
-    | { type: 'loop-body', forClause: sh.ForClause, children: LineTreeNode[] }
-  )
-
-function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
-  const result: LineTreeNode[] = [];
-  let stack: LineTreeNode[][] = [result];
-  myWalk(ast, {
-    enter: (node) => {
-      if (hasNodeType(node, "ForClause")) {
-        const lineTreeNode = {
-          type: 'loop-body',
-          forClause: node,
-          children: [],
-          lineNumStart: node.DoPos.Line() + 1,
-          lineNumEnd: node.DonePos.Line(),
-        } satisfies LineTreeNode;
-        stack[stack.length - 1].push(lineTreeNode);
-        stack.push(lineTreeNode.children);
-        return () => {
-          stack.pop();
-        }
-      }
-    }
-  });
-  addLinesToNodes(result, 1, lines.length + 1, lines);
-  return result;
-}
-
-function addLinesToNodes(nodes: LineTreeNode[], lineNumStart: number, lineNumEnd: number, lines: string[]) {
-  let newNodes: LineTreeNode[] = [];
-  let lineNum = lineNumStart;
-  function addLinesUpTo(lineNumEnd: number) {
-    rangeIncl(lineNum, lineNumEnd - 1).forEach((i) => {
-      newNodes.push({
-        type: 'line',
-        line: lines[i - 1],
-        lineNumStart: i,
-        lineNumEnd: i + 1,
-      });
-    });
-    lineNum = lineNumEnd;
-  }
-  for (const child of nodes) {
-    addLinesUpTo(child.lineNumStart);
-    if (child.type === 'loop-body') {
-      addLinesToNodes(child.children, child.lineNumStart, child.lineNumEnd, lines);
-    }
-    newNodes.push(child);
-    lineNum = child.lineNumEnd;
-  }
-  addLinesUpTo(lineNumEnd);
-  nodes.splice(0, nodes.length, ...newNodes);
-};
-
 export class Run {
   sandbox: Sandbox | null = null;
   childProcess: child_process.ChildProcess | null = null;
@@ -399,8 +339,7 @@ export class Run {
   allStmts: { [nodeId: string]: {stmt: sh.Stmt, src: string} } = {};
   allForClauses: { [nodeId: string]: sh.ForClause } = {};
   callExprs: {callExpr: sh.CallExpr, stmtNodeId: string}[] = [];
-  lineTreeNodes: LineTreeNode[] = [];
-  scriptLines = this.scriptSrc.split("\n");
+  script: Script | null = null;
 
   constructor(public scriptSrc: string, public broadcast: (data: string) => void) { }
 
@@ -409,12 +348,10 @@ export class Run {
 
     // parse
 
-    let ast: sh.File;
     try {
-      ast = parser.Parse(this.scriptSrc);
-      // syntax.DebugPrint(ast);
+      this.script = new Script(parser, this.scriptSrc);
     } catch (e) {
-      console.error("error parsing script", expandObject((e as ParseError).Error()));
+      console.error("error parsing script", e);
       process.exit(1);  // TODO: report problem intelligently
     }
 
@@ -422,9 +359,8 @@ export class Run {
 
     this.sandbox = await makeSandbox();
 
-    this.lineTreeNodes = lineTreeNodesFromAst(ast, this.scriptLines);
-
-    myWalk(ast, {
+    // TODO: this actually mutates the AST in this.script; pretty ugly!
+    myWalk(this.script.ast, {
       exit: (node) => {
         if (hasNodeType(node, "Stmt")) {
           const nodeId = getNodeId(node);
@@ -498,7 +434,7 @@ export class Run {
     const frmsgHeaderSrc = await fs.readFile(path.join(__dirname, 'frmsg.sh'), { encoding: 'utf-8' });
 
     const initSrc = ['frmsg_init', 'frctx_init'].join("\n");
-    this.transformedSrc = [frmsgHeaderSrc, initSrc, printer.Print(ast)].join("\n\n");
+    this.transformedSrc = [frmsgHeaderSrc, initSrc, printer.Print(this.script.ast)].join("\n\n");
 
     await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
 
@@ -731,7 +667,7 @@ export class Run {
     // </div>;
 
     const partMain = <div>
-      {this.lineTreeNodes.map((node) =>
+      {this.script!.lineTree.map((node) =>
         this._renderLineTreeNode(node, '')
       )}
     </div>;
@@ -964,7 +900,7 @@ export class Run {
       const forInfo = this.forInfos[mkExecId(context, forNodeId)];
       const iterations = forInfo?.iterations || [];
       const varName = (forClause.Loop as sh.WordIter).Name!.Value;
-      const forLine = this.scriptLines[forClause.Pos().Line() - 1];
+      const forLine = this.script!.lines[forClause.Pos().Line() - 1];
       const forIndent = forLine.match(/^\s*/)?.[0] || '';
       return iterations.map((iteration) => {
         return <Fragment key={iteration.counter}>
