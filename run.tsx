@@ -18,6 +18,7 @@ import React, { Fragment } from "react";
 import express from "express";
 import { Server } from "node:http";
 import { DiffAddedIcon, DiffModifiedIcon, DiffRemovedIcon, DiffIgnoredIcon, FileSubmoduleIcon, ChevronRightIcon, SignOutIcon } from '@primer/octicons-react'
+import { OnlyRunLatestJob } from "./job-stuff";
 
 const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
 
@@ -351,7 +352,7 @@ export class Run {
     let ast: sh.File;
     try {
       ast = parser.Parse(this.scriptSrc);
-      syntax.DebugPrint(ast);
+      // syntax.DebugPrint(ast);
     } catch (e) {
       console.error("error parsing script", expandObject((e as ParseError).Error()));
       process.exit(1);  // TODO: report problem intelligently
@@ -653,14 +654,11 @@ export class Run {
     // dump();
   }
 
-  _writeHtmlScheduled = false;
+  onlyRunLatestJob = new OnlyRunLatestJob();
   _scheduleWriteHtml() {
-    if (this._writeHtmlScheduled) { return; }
-    setImmediate(() => {
-      this._writeHtmlScheduled = false;
-      this._writeHtml()
+    this.onlyRunLatestJob.submitJob(async () => {
+      this._writeHtml();
     });
-    this._writeHtmlScheduled = true;
   }
 
   _writeHtml() {

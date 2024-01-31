@@ -42,29 +42,9 @@ async function actuallyBroadcast(data: string): Promise<void> {
   await Promise.all(sends);
 }
 
-let latestJob: (() => Promise<void>) | null = null;
-let jobsAreRunning: boolean = false;
-function submitJob(job: () => Promise<void>): void  {
-  latestJob = job;
-  if (!jobsAreRunning) {
-    setImmediate(() => runJobs());
-    // setTimeout(() => runJobs(), 300);
-  }
-}
-async function runJobs() {
-  if (jobsAreRunning) { return; }
-  jobsAreRunning = true;
-  while (latestJob) {
-    const job = latestJob;
-    latestJob = null;
-    await job();
-  }
-  jobsAreRunning = false;
-}
-
 function broadcast(data: string): void {
   output = data;
-  submitJob(() => actuallyBroadcast(data));
+  actuallyBroadcast(data);
 }
 
 wss.on('connection', (ws) => {
