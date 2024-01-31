@@ -110,22 +110,22 @@ function parseStmt(s: string): sh.Stmt {
   return stmts[0];
 }
 
-function callStmtStr(message: Message, returnVars: string = "fr_dummy") {
+function frMsgStr(message: Message, returnVars: string = "fr_dummy") {
   const messageStr = JSON.stringify(message)
     .replaceAll(new RegExp(`"${RAW("(.*?)")}"`, "g"), (_, p1) => p1)
     .replaceAll('"', '\\"');
-  return `frmsg_call "${messageStr}" | read -r ${returnVars}`;
+  return `fr_msg "${messageStr}" | read -r ${returnVars}`;
 }
 
 function RAW(str: string): any {
   return `RAW<<<${str}>>>RAW`;
 }
 
-function callStmt(message: Message, returnVars?: string): sh.Stmt {
-  return parseStmt(callStmtStr(message, returnVars))
+function frMsgStmt(message: Message, returnVars?: string): sh.Stmt {
+  return parseStmt(frMsgStr(message, returnVars))
 }
 
-function uploadCmdStr(uploadId: string) {
+function frUploadStr(uploadId: string) {
   return `curl -s -X POST -T - http://localhost:1234/upload/${uploadId}`;
 }
 
@@ -133,40 +133,6 @@ function inspectHtml(value: any) {
   return <pre dangerouslySetInnerHTML={{ __html:
     ansiToHtml.toHtml(util.inspect(value, { showHidden: false, depth: null, colors: true }))
   }} />;
-}
-
-function mkfifo(path: string): void {
-  const mkfifoCommand = `mkfifo ${path}`;
-  // console.log("node make pipe", mkfifoCommand);
-  child_process.execSync(mkfifoCommand);
-}
-
-async function readPipe(path: string): Promise<Buffer> {
-  const handle = await fs.open(path, fs.constants.O_RDONLY);
-  const result = await handle.readFile();
-  await handle.close();
-  return result;
-}
-
-type PipeProgress = {
-  data: string,
-  done: boolean,
-}
-
-async function readPipeWithProgress(path: string, onProgress: (progress: PipeProgress) => void): Promise<void> {
-  // console.log("fr: readPipeWithProgress is opening", path)
-  const handle = await fs.open(path, fs.constants.O_RDONLY);
-  // console.log("fr: readPipeWithProgress opened", path)
-  const buffers: Buffer[] = [];
-  const stream = handle.createReadStream()
-  stream.on('data', (data: Buffer) => {
-    buffers.push(data);
-    onProgress({ data: buffers.concat().toString(), done: false });
-  });
-  stream.on('end', () => {
-    onProgress({ data: buffers.concat().toString(), done: true });
-    handle.close();
-  });
 }
 
 async function readWholeStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
@@ -369,24 +335,24 @@ export class Run {
 
             wrapStmt(parser, node, `{
               local fr_stdout fr_stderr fr_ret >/dev/null;
-              ${callStmtStr({
+              ${frMsgStr({
                 type: "call-enter",
                 nodeId: callId,
-                context: '$(frctx_str)',
+                context: '$(fr_ctx_str)',
                 cwd: "$PWD"
               }, "fr_stdout fr_stderr")};
               # echo "sh: got upload ids $fr_stdout $fr_stderr" 1>&2;
               fr-sandbox before-run ${this.sandbox!.deltaDir}
-              ___ 1>&1 1> >(${uploadCmdStr('$fr_stdout')}) 2>&2 2> >(${uploadCmdStr('$fr_stderr')});
+              ___ 1>&1 1> >(${frUploadStr('$fr_stdout')}) 2>&2 2> >(${frUploadStr('$fr_stderr')});
               fr_ret=$?;
-              ${callStmtStr({
+              ${frMsgStr({
                 type: "call-exit",
                 nodeId: callId,
-                context: '$(frctx_str)',
+                context: '$(fr_ctx_str)',
                 cwd: "$PWD",
                 exitCode: RAW("$fr_ret")
               }, "fr_delta_log")};
-              fr-sandbox after-run ${this.sandbox!.deltaDir} ${this.sandbox!.sandboxDir} - | ${uploadCmdStr('$fr_delta_log')};
+              fr-sandbox after-run ${this.sandbox!.deltaDir} ${this.sandbox!.sandboxDir} - | ${frUploadStr('$fr_delta_log')};
               fr_exitcode $fr_ret;
             }`);
           } else if (hasNodeType(cmd, "ForClause")) {
@@ -403,21 +369,21 @@ export class Run {
             }
             wrapStmt(parser, node, `{ ${counterVar}=0; ___; }`);
             cmd.Do = [
-              callStmt({
+              frMsgStmt({
                 type: "for-body-enter",
                 nodeId: forNodeId,
-                context: '$(frctx_str)',
+                context: '$(fr_ctx_str)',
                 counter: RAW(`$${counterVar}`),
                 // TODO: $loopVar's really gonna need some escaping
                 loopVarValue: `$${loopVar}`,
               }),
-              parseStmt(`frctx_push "${forNodeId}-$${counterVar}"`),
+              parseStmt(`fr_ctx_push "${forNodeId}-$${counterVar}"`),
               ...cmd.Do,
-              parseStmt(`frctx_pop`),
-              callStmt({
+              parseStmt(`fr_ctx_pop`),
+              frMsgStmt({
                 type: "for-body-exit",
                 nodeId: forNodeId,
-                context: '$(frctx_str)',
+                context: '$(fr_ctx_str)',
               }),
               parseStmt(`${counterVar}=$(($${counterVar} + 1))`),
             ];
@@ -426,10 +392,9 @@ export class Run {
       }
     });
 
-    const frmsgHeaderSrc = await fs.readFile(path.join(__dirname, 'frmsg.sh'), { encoding: 'utf-8' });
+    const frPreludeSrc = await fs.readFile(path.join(__dirname, 'fr-prelude.sh'), { encoding: 'utf-8' });
 
-    const initSrc = ['frmsg_init', 'frctx_init'].join("\n");
-    this.transformedSrc = [frmsgHeaderSrc, initSrc, printer.Print(transformedAst)].join("\n\n");
+    this.transformedSrc = [frPreludeSrc, printer.Print(transformedAst)].join("\n\n");
 
     await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
 
