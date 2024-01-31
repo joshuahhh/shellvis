@@ -149,3 +149,60 @@ export function wrapStmt(parser: sh.Parser, stmt: sh.Stmt, templateStr: string):
 
   stmt.Cmd = templateNode.Stmts[0]!.Cmd;
 }
+
+type NodeTypes = {
+  File: sh.File,
+  Comment: sh.Comment,
+  Stmt: sh.Stmt,
+  Assign: sh.Assign,
+  Redirect: sh.Redirect,
+  CallExpr: sh.CallExpr,
+  Subshell: sh.Subshell,
+  Block: sh.Block,
+  IfClause: sh.IfClause,
+  WhileClause: sh.WhileClause,
+  ForClause: sh.ForClause,
+  WordIter: sh.WordIter,
+  CStyleLoop: sh.CStyleLoop,
+  BinaryCmd: sh.BinaryCmd,
+  FuncDecl: sh.FuncDecl,
+  Word: sh.Word,
+  Lit: sh.Lit,
+  SglQuoted: sh.SglQuoted,
+  DblQuoted: sh.DblQuoted,
+  CmdSubst: sh.CmdSubst,
+  ParamExp: sh.ParamExp,
+  ArithmExp: sh.ArithmExp,
+  ArithmCmd: sh.ArithmCmd,
+  BinaryArithm: sh.BinaryArithm,
+  UnaryArithm: sh.UnaryArithm,
+  ParenArithm: sh.ParenArithm,
+  CaseClause: sh.CaseClause,
+  CaseItem: sh.CaseItem,
+  TestClause: sh.TestClause,
+  BinaryTest: sh.BinaryTest,
+  UnaryTest: sh.UnaryTest,
+  ParenTest: sh.ParenTest,
+  DeclClause: sh.DeclClause,
+  ArrayExpr: sh.ArrayExpr,
+  ArrayElem: sh.ArrayElem,
+  ExtGlob: sh.ExtGlob,
+  ProcSubst: sh.ProcSubst,
+  TimeClause: sh.TimeClause,
+  CoprocClause: sh.CoprocClause,
+  LetClause: sh.LetClause,
+  BraceExp: sh.BraceExp,
+  TestDecl: sh.TestDecl,
+}
+
+type AssertTrue<A extends true> = A
+type NodeTypesAreAllNodes = AssertTrue<
+  NodeTypes[keyof NodeTypes] extends sh.Node ? true : false
+>
+type NodeTypesAreNotJustNodes = AssertTrue<
+  sh.Node extends NodeTypes[keyof NodeTypes] ? false : true
+>
+
+export function hasNodeType<T extends keyof NodeTypes>(node: sh.Node, nodeType: T): node is NodeTypes[T] {
+  return sh.syntax.NodeType(node) === nodeType;
+}

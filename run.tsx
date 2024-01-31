@@ -2,24 +2,22 @@
 import { dump } from "wtfnode";
 (global as any).dump = dump;
 
-import sh, { syntax } from "mvdan-sh";
+import { ChevronRightIcon, DiffAddedIcon, DiffIgnoredIcon, DiffModifiedIcon, DiffRemovedIcon, FileSubmoduleIcon, SignOutIcon } from '@primer/octicons-react';
 import AnsiToHtml from "ansi-to-html";
-import { ParseError, expandObject, myWalk, getNodeId, wrapStmt } from "./mvdan-sh-helpers";
-import * as child_process from "node:child_process";
-import * as util from "node:util";
-import * as tmp from "tmp";
-import * as os from "os";
-import * as path from "node:path";
-import * as net from "node:net";
-import * as fs from "node:fs/promises";
-import * as fsOld from "node:fs";
-import { renderToString } from "react-dom/server";
-import React, { Fragment } from "react";
 import express from "express";
+import sh from "mvdan-sh";
+import * as child_process from "node:child_process";
+import * as fsOld from "node:fs";
+import * as fs from "node:fs/promises";
 import { Server } from "node:http";
-import { DiffAddedIcon, DiffModifiedIcon, DiffRemovedIcon, DiffIgnoredIcon, FileSubmoduleIcon, ChevronRightIcon, SignOutIcon } from '@primer/octicons-react'
+import * as path from "node:path";
+import * as util from "node:util";
+import * as os from "os";
+import React, { Fragment } from "react";
+import { renderToString } from "react-dom/server";
+import * as tmp from "tmp";
 import { OnlyRunLatestJob } from "./job-stuff";
-import { info } from "node:console";
+import { ParseError, expandObject, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers";
 
 const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
 
@@ -339,15 +337,13 @@ function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
   let stack: LineTreeNode[][] = [result];
   myWalk(ast, {
     enter: (node) => {
-      const nodeType = sh.syntax.NodeType(node);
-      if (nodeType === "ForClause") {
-        const forClause = node as sh.ForClause;
+      if (hasNodeType(node, "ForClause")) {
         const lineTreeNode = {
           type: 'loop-body',
-          forClause,
+          forClause: node,
           children: [],
-          lineNumStart: forClause.DoPos.Line() + 1,
-          lineNumEnd: forClause.DonePos.Line(),
+          lineNumStart: node.DoPos.Line() + 1,
+          lineNumEnd: node.DonePos.Line(),
         } satisfies LineTreeNode;
         stack[stack.length - 1].push(lineTreeNode);
         stack.push(lineTreeNode.children);
@@ -430,18 +426,14 @@ export class Run {
 
     myWalk(ast, {
       exit: (node) => {
-        const nodeType = sh.syntax.NodeType(node);
+        if (hasNodeType(node, "Stmt")) {
+          const nodeId = getNodeId(node);
 
-        if (nodeType === "Stmt") {
-          const stmt = node as sh.Stmt;
-          const nodeId = getNodeId(stmt);
+          this.allStmts[nodeId] = { stmt: node, src: this._stmtSrc(node) };
 
-          this.allStmts[nodeId] = { stmt, src: this._stmtSrc(stmt) };
-
-          const cmd = stmt.Cmd;
-          const cmdType = sh.syntax.NodeType(cmd);
-          if (cmdType === "CallExpr") {
-            wrapStmt(parser, stmt, `{
+          const cmd = node.Cmd;
+          if (hasNodeType(cmd, "CallExpr")) {
+            wrapStmt(parser, node, `{
               local fr_stdout fr_stderr fr_ret >/dev/null;
               ${callStmtStr({
                 type: "stmt-enter",
@@ -464,25 +456,22 @@ export class Run {
               fr_exitcode $fr_ret;
             }`);
             this.callExprs.push({callExpr: cmd as sh.CallExpr, stmtNodeId: nodeId});
-          }
-          if (cmdType === "ForClause") {
-            const forClause = cmd as sh.ForClause;
-            const forNodeId = getNodeId(forClause);
+          } else if (hasNodeType(cmd, "ForClause")) {
+            const forNodeId = getNodeId(cmd);
 
-            this.allForClauses[nodeId] = forClause;
+            this.allForClauses[nodeId] = cmd;
 
             const counterVar = `fr_loop_counter_${forNodeId}`;
-            const loopType = sh.syntax.NodeType(forClause.Loop);
-            if (loopType !== "WordIter") {
-              throw new Error(`unsupported loop type ${loopType}`);
+            const loop = cmd.Loop;
+            if (!hasNodeType(loop, "WordIter")) {
+              throw new Error(`unsupported loop type ${sh.syntax.NodeType(loop)}`);
             }
-            const wordIter = forClause.Loop as sh.WordIter;
-            const loopVar = wordIter.Name?.Value;
+            const loopVar = loop.Name?.Value;
             if (!loopVar) {
               throw new Error(`wordIter has no Name?`);
             }
-            wrapStmt(parser, stmt, `{ ${counterVar}=0; ___; }`);
-            forClause.Do = [
+            wrapStmt(parser, node, `{ ${counterVar}=0; ___; }`);
+            cmd.Do = [
               callStmt({
                 type: "for-body-enter",
                 nodeId: forNodeId,
@@ -492,7 +481,7 @@ export class Run {
                 loopVarValue: `$${loopVar}`,
               }),
               parseStmt(`frctx_push "${forNodeId}-$${counterVar}"`),
-              ...forClause.Do,
+              ...cmd.Do,
               parseStmt(`frctx_pop`),
               callStmt({
                 type: "for-body-exit",
