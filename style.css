@@ -64,6 +64,10 @@ pre {
   /* border: 2px solid #333; */
 }
 
+.call.no-info-sections > .call-code > .call-code-background {
+  border-radius: 5px;
+}
+
 .call.call-done-success > .call-code > .call-code-background {
   background-color: rgba(60, 110, 60);
 }
@@ -102,11 +106,12 @@ pre {
   width: 100%;
 }
 
-.call-rest {
+.call-info {
   padding: 10px;
   display: flex;
   flex-direction: column;
   max-height: 300px;
+  max-width: 500px;
   overflow: scroll;
 }
 

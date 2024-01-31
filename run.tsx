@@ -19,6 +19,7 @@ import express from "express";
 import { Server } from "node:http";
 import { DiffAddedIcon, DiffModifiedIcon, DiffRemovedIcon, DiffIgnoredIcon, FileSubmoduleIcon, ChevronRightIcon, SignOutIcon } from '@primer/octicons-react'
 import { OnlyRunLatestJob } from "./job-stuff";
+import { info } from "node:console";
 
 const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
 
@@ -154,9 +155,9 @@ type PipeProgress = {
 }
 
 async function readPipeWithProgress(path: string, onProgress: (progress: PipeProgress) => void): Promise<void> {
-  console.log("fr: readPipeWithProgress is opening", path)
+  // console.log("fr: readPipeWithProgress is opening", path)
   const handle = await fs.open(path, fs.constants.O_RDONLY);
-  console.log("fr: readPipeWithProgress opened", path)
+  // console.log("fr: readPipeWithProgress opened", path)
   const buffers: Buffer[] = [];
   const stream = handle.createReadStream()
   stream.on('data', (data: Buffer) => {
@@ -526,11 +527,14 @@ export class Run {
 
     this.startTime = new Date();
 
+    // const cwd = process.cwd();
+    const cwd = "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old"
+
     this.childProcess = child_process.spawn(
       'zsh',
       [ tmpFile.name ],
       {
-        cwd: path.join(this.sandbox.deltaUnionDir, process.cwd()),
+        cwd: path.join(this.sandbox.deltaUnionDir, cwd),
         env: {
           ...process.env,
         },
@@ -615,7 +619,7 @@ export class Run {
       } else if (message.type === "stmt-exit") {
         const execId = mkExecId(message.context, message.nodeId);
 
-        console.log("fr: stmt-exit", execId, util.inspect(message));
+        // console.log("fr: stmt-exit", execId);
 
         const deltaLogId = `${uploadId++}`;
 
@@ -657,7 +661,7 @@ export class Run {
       const dataString = req.body.toString();
       // TODO: this might be naive; a message might be split across events?
       const lines = dataString.trim().split("\n");
-      console.log(`fr: ${lines.length} messages received`);
+      // console.log(`fr: ${lines.length} messages received`);
       for (const line of lines) {
         try {
           const dataParsed = JSON.parse(line);
@@ -673,7 +677,7 @@ export class Run {
     })
 
     this.sh2frExpress.post('/upload/:uploadId', (req, res) => {
-      console.log("fr: upload", req.params.uploadId);
+      // console.log("fr: upload", req.params.uploadId);
 
       const uploadHandler = this.sh2frUploadHandlers[req.params.uploadId];
 
@@ -865,66 +869,85 @@ export class Run {
           : 'call-running'
         : 'call-not-started';
 
+      const infoSections: React.ReactNode[] = [];
+      if (execInfo && execInfo.stdout.data.length > 0) {
+        infoSections.push(
+          <div style={{fontSize: '80%'}}>
+            <div className="delta-log-entry">
+              <ChevronRightIcon/>
+              <pre>
+                {execInfo.stdout.data}
+              </pre>
+            </div>
+          </div>
+        );
+      }
+      if (execInfo && execInfo.stderr.data.length > 0) {
+        infoSections.push(
+          <div style={{fontSize: '80%'}}>
+            <div className="delta-log-entry" style={{}}>
+              <div style={{position: 'relative', width: 16, height: 16}}>
+                <div style={{position: 'absolute', left: 3}}>
+                  <ChevronRightIcon/>
+                </div>
+                <div style={{position: 'absolute', left: -3}}>
+                  <ChevronRightIcon/>
+                </div>
+              </div>
+              <pre>
+                {execInfo.stderr.data}
+              </pre>
+            </div>
+          </div>,
+        );
+      }
+      if (execExitInfo && execExitInfo.deltaLog.length > 0) {
+        infoSections.push(
+          <div style={{fontSize: '80%'}}>
+            {renderDeltaLog(execExitInfo.deltaLog, execInfo.enterCwd)}
+          </div>,
+        );
+      }
+      if (execExitInfo && execExitInfo.exitCode !== 0) {
+        infoSections.push(
+          <div className="delta-log-entry" style={{fontSize: '80%'}}>
+            <SignOutIcon/>
+            <div>
+              exit {execExitInfo.exitCode}
+            </div>
+          </div>
+        );
+      }
+      if (execExitInfo && execExitInfo.cwd !== execInfo.enterCwd) {
+        infoSections.push(
+          <div style={{fontSize: '80%'}} title={execExitInfo.cwd}>
+            <div className="delta-log-entry">
+              <FileSubmoduleIcon/>
+              {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
+            </div>
+          </div>
+        );
+      }
+      if (false) {
+        infoSections.push(
+          <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>
+        );
+      }
+
       return {
         start: callExpr.Pos().Col() - 1,
         end: callExpr.End().Col() - 1,
         decorator: (contents) =>
-          <div key={stmtNodeId} className={`call ${statusClass}`}>
+          <div key={stmtNodeId} className={`call ${statusClass} ${infoSections.length === 0 ? 'no-info-sections' : ''}`}>
             <div className="call-code">
               <div className="call-code-background"/>
               <div className="call-code-contents">{contents}</div>
             </div>
-            <div className="call-rest">
-              { execInfo && execInfo.stdout.data.length > 0 &&
-                <div style={{fontSize: '80%'}}>
-                  <div className="delta-log-entry">
-                    <ChevronRightIcon/>
-                    <pre>
-                      {execInfo.stdout.data}
-                    </pre>
-                  </div>
-                </div>
-              }
-              { execInfo && execInfo.stderr.data.length > 0 &&
-                <div style={{fontSize: '80%'}}>
-                  <div className="delta-log-entry" style={{}}>
-                    <div style={{position: 'relative', width: 16, height: 16}}>
-                      <div style={{position: 'absolute', left: 3}}>
-                        <ChevronRightIcon/>
-                      </div>
-                      <div style={{position: 'absolute', left: -3}}>
-                        <ChevronRightIcon/>
-                      </div>
-                    </div>
-                    <pre>
-                      {execInfo.stderr.data}
-                    </pre>
-                  </div>
-                </div>
-              }
-              { execExitInfo && execExitInfo.deltaLog.length > 0 &&
-                <div style={{fontSize: '80%'}}>
-                  {renderDeltaLog(execExitInfo.deltaLog, execInfo.enterCwd)}
-                </div>
-              }
-              { execExitInfo && execExitInfo.exitCode !== 0 &&
-                <div className="delta-log-entry" style={{fontSize: '80%'}}>
-                  <SignOutIcon/>
-                  <div>
-                    exit {execExitInfo.exitCode}
-                  </div>
-                </div>
-              }
-              { execExitInfo && execExitInfo.cwd !== execInfo.enterCwd &&
-                <div style={{fontSize: '80%'}} title={execExitInfo.cwd}>
-                  <div className="delta-log-entry">
-                    <FileSubmoduleIcon/>
-                    {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
-                  </div>
-                </div>
-              }
-              {false && <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>}
-            </div>
+            { infoSections.length > 0 &&
+              <div className="call-info">
+                {infoSections}
+              </div>
+            }
           </div>
       };
     });

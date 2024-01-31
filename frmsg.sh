@@ -28,9 +28,7 @@ frctx_push () {
 
 frctx_pop () {
   # WARNING: we are now in zsh/bash incompatibility world
-  echo "frctx_pop before ${#frctx[@]} $(frctx_str)" >&$my_stderr;
   shift -p frctx
-  echo "frctx_pop after ${#frctx[@]} $(frctx_str)" >&$my_stderr;
 }
 
 frctx_str () {
