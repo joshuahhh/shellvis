@@ -33,13 +33,13 @@ type Message =
       [key: string]: any,
     }
   | {
-      type: 'stmt-enter',
+      type: 'call-enter',
       nodeId: string,
       context: string,
       cwd: string,
     }
   | {
-      type: 'stmt-exit',
+      type: 'call-exit',
       nodeId: string,
       context: string,
       cwd: string,
@@ -336,9 +336,6 @@ export class Run {
   sh2frUploadHandlers: Record<string, (req: express.Request, res: express.Response) => void> = {};
   execInfos: Record<string, ExecInfo> = {};
   forInfos: Record<string, ForInfo> = {};
-  allStmts: { [nodeId: string]: {stmt: sh.Stmt, src: string} } = {};
-  allForClauses: { [nodeId: string]: sh.ForClause } = {};
-  callExprs: {callExpr: sh.CallExpr, stmtNodeId: string}[] = [];
   script: Script | null = null;
 
   constructor(public scriptSrc: string, public broadcast: (data: string) => void) { }
@@ -359,21 +356,22 @@ export class Run {
 
     this.sandbox = await makeSandbox();
 
-    // TODO: this actually mutates the AST in this.script; pretty ugly!
-    myWalk(this.script.ast, {
+    const transformedAst = this.script.freshAst();
+
+    myWalk(transformedAst, {
       exit: (node) => {
         if (hasNodeType(node, "Stmt")) {
           const nodeId = getNodeId(node);
 
-          this.allStmts[nodeId] = { stmt: node, src: this._stmtSrc(node) };
-
           const cmd = node.Cmd;
           if (hasNodeType(cmd, "CallExpr")) {
+            const callId = getNodeId(cmd);
+
             wrapStmt(parser, node, `{
               local fr_stdout fr_stderr fr_ret >/dev/null;
               ${callStmtStr({
-                type: "stmt-enter",
-                nodeId,
+                type: "call-enter",
+                nodeId: callId,
                 context: '$(frctx_str)',
                 cwd: "$PWD"
               }, "fr_stdout fr_stderr")};
@@ -382,8 +380,8 @@ export class Run {
               ___ 1>&1 1> >(${uploadCmdStr('$fr_stdout')}) 2>&2 2> >(${uploadCmdStr('$fr_stderr')});
               fr_ret=$?;
               ${callStmtStr({
-                type: "stmt-exit",
-                nodeId,
+                type: "call-exit",
+                nodeId: callId,
                 context: '$(frctx_str)',
                 cwd: "$PWD",
                 exitCode: RAW("$fr_ret")
@@ -391,11 +389,8 @@ export class Run {
               fr-sandbox after-run ${this.sandbox!.deltaDir} ${this.sandbox!.sandboxDir} - | ${uploadCmdStr('$fr_delta_log')};
               fr_exitcode $fr_ret;
             }`);
-            this.callExprs.push({callExpr: cmd as sh.CallExpr, stmtNodeId: nodeId});
           } else if (hasNodeType(cmd, "ForClause")) {
             const forNodeId = getNodeId(cmd);
-
-            this.allForClauses[nodeId] = cmd;
 
             const counterVar = `fr_loop_counter_${forNodeId}`;
             const loop = cmd.Loop;
@@ -434,7 +429,7 @@ export class Run {
     const frmsgHeaderSrc = await fs.readFile(path.join(__dirname, 'frmsg.sh'), { encoding: 'utf-8' });
 
     const initSrc = ['frmsg_init', 'frctx_init'].join("\n");
-    this.transformedSrc = [frmsgHeaderSrc, initSrc, printer.Print(this.script.ast)].join("\n\n");
+    this.transformedSrc = [frmsgHeaderSrc, initSrc, printer.Print(transformedAst)].join("\n\n");
 
     await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
 
@@ -496,7 +491,7 @@ export class Run {
     let uploadId = 0;
 
     const onMessage = (message: Message): string => {
-      if (message.type === "stmt-enter") {
+      if (message.type === "call-enter") {
         const stdoutUploadId = `${uploadId++}`;
         const stderrUploadId = `${uploadId++}`;
 
@@ -541,7 +536,7 @@ export class Run {
         };
 
         return `${stdoutUploadId} ${stderrUploadId}\n`;
-      } else if (message.type === "stmt-exit") {
+      } else if (message.type === "call-exit") {
         const execId = mkExecId(message.context, message.nodeId);
 
         // console.log("fr: stmt-exit", execId);
@@ -695,9 +690,9 @@ export class Run {
         <ul>
           {this.messageLog.map((entry, i) =>
             <li key={i}>
-              { entry.nodeId && this.allStmts[entry.nodeId] &&
+              { entry.nodeId &&
                 <div style={{display: 'inline-block', border: '1px solid gray', padding: 4}}>
-                  <pre>{this.allStmts[entry.nodeId].src}</pre>
+                  <pre>{this.script!.srcForNode(this.script!.nodesById[entry.nodeId])}</pre>
                 </div>
               }
               { inspectHtml(entry) }
@@ -777,12 +772,14 @@ export class Run {
   }
 
   _renderLine(line: string, i: number, context: string) {
-    const callExprsOnLine = this.callExprs.filter(({callExpr}) => {
+    const callExprs = Object.values(this.script!.nodesByTypeById.CallExpr);
+    const callExprsOnLine = callExprs.filter((callExpr) => {
       // TODO: everything's limited to single lines
       return callExpr.Pos().Line() === i + 1;
     });
-    const decorations: Decoration[] = callExprsOnLine.map(({callExpr, stmtNodeId}) => {
-      const execId = mkExecId(context, stmtNodeId);
+    const decorations: Decoration[] = callExprsOnLine.map((callExpr) => {
+      const nodeId = getNodeId(callExpr);
+      const execId = mkExecId(context, nodeId);
       const execInfo = this.execInfos[execId] as ExecInfo | undefined;
       const execExitInfo = execInfo?.exitInfo;
       const statusClass =
@@ -855,7 +852,7 @@ export class Run {
       }
       if (false) {
         infoSections.push(
-          <div style={{fontStyle: 'italic', fontSize: '60%'}}>{stmtNodeId}</div>
+          <div style={{fontStyle: 'italic', fontSize: '60%'}}>{nodeId}</div>
         );
       }
 
@@ -863,7 +860,7 @@ export class Run {
         start: callExpr.Pos().Col() - 1,
         end: callExpr.End().Col() - 1,
         decorator: (contents) =>
-          <div key={stmtNodeId} className={`call ${statusClass} ${infoSections.length === 0 ? 'no-info-sections' : ''}`}>
+          <div key={nodeId} className={`call ${statusClass} ${infoSections.length === 0 ? 'no-info-sections' : ''}`}>
             <div className="call-code">
               <div className="call-code-background"/>
               <div className="call-code-contents">{contents}</div>
@@ -917,10 +914,6 @@ export class Run {
         </Fragment>;
       });
     }
-  }
-
-  _stmtSrc(stmt: sh.Stmt): string {
-    return this.scriptSrc.slice(stmt.Pos().Offset(), stmt.End().Offset());
   }
 }
 

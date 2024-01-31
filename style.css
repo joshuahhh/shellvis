@@ -112,7 +112,7 @@ pre {
   flex-direction: column;
   max-height: 300px;
   max-width: 500px;
-  overflow: scroll;
+  overflow: auto;
 }
 
 .delta-log {

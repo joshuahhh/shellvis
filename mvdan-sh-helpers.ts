@@ -1,9 +1,21 @@
 import sh from "mvdan-sh";
 import { type Node } from "mvdan-sh";
-import { rangeIncl } from "./util";
+import { isObject, rangeIncl } from "./util";
 
 export type ParseError = {
   Error(): string,
+}
+
+export function isNode(maybeNode: any): maybeNode is Node {
+  return maybeNode !== null && typeof maybeNode === 'object' && '__internal_object__' in maybeNode && 'Pos' in maybeNode && 'End' in maybeNode;
+}
+
+export function posStr(pos: sh.Pos): string {
+  return pos.Line() + '_' + pos.Col();
+}
+
+export function getNodeId(node: Node): string {
+  return sh.syntax.NodeType(node) + "_" + posStr(node.Pos()) + '_' + posStr(node.End());
 }
 
 const excludedSuffixes = ["Pos", "End"];
@@ -19,22 +31,6 @@ const excludedKeys: {[key: string]: true} = {
 
 const excludedTypes: {[key: string]: true} = {
   'mvdan.cc/sh/v3/syntax.*Pos': true,
-}
-
-function isObject(obj: any): boolean {
-  return obj !== null && typeof obj === 'object';
-}
-
-export function isNode(maybeNode: any): maybeNode is Node {
-  return maybeNode !== null && typeof maybeNode === 'object' && '__internal_object__' in maybeNode && 'Pos' in maybeNode && 'End' in maybeNode;
-}
-
-export function posStr(pos: sh.Pos): string {
-  return pos.Line() + '_' + pos.Col();
-}
-
-export function getNodeId(node: Node): string {
-  return posStr(node.Pos()) + '_' + posStr(node.End());
 }
 
 export function expandObject(obj: any): any {
@@ -208,17 +204,23 @@ export function hasNodeType<T extends keyof NodeTypes>(node: sh.Node, nodeType: 
   return sh.syntax.NodeType(node) === nodeType;
 }
 
+const trackedNodeTypes = [
+  "ForClause", "CallExpr", "Stmt"
+] satisfies (keyof NodeTypes)[];
+
 export class Script {
   ast: sh.File;
   lines: string[];
   lineTree: LineTreeNode[];
+  nodesByTypeById: {[Key in (typeof trackedNodeTypes)[number]]: {[id: string]: NodeTypes[Key]}};
+  nodesById: {[id: string]: sh.Node} = {};
 
   constructor (
-    parser: sh.Parser,
-    private src: string,
+    private parser: sh.Parser,
+    readonly src: string,
   ) {
     try {
-      this.ast = parser.Parse(this.src);;
+      this.ast = this.freshAst();
     } catch (e) {
       throw new Error((e as ParseError).Error());
     }
@@ -226,6 +228,31 @@ export class Script {
     this.lines = this.src.split("\n");
 
     this.lineTree = lineTreeNodesFromAst(this.ast, this.lines);
+
+    this.nodesByTypeById = Object.fromEntries(trackedNodeTypes.map((nodeType) => [nodeType, {}] as const)) as any;
+
+    myWalk(this.ast, {
+      enter: (node) => {
+        const nodeId = getNodeId(node);
+        this.nodesById[nodeId] = node;
+        for (const nodeType of trackedNodeTypes) {
+          if (hasNodeType(node, nodeType)) {
+            this.nodesByTypeById[nodeType][nodeId] = node;
+            console.log("foundNode", nodeId, node.Pos().Offset(), node.End().Offset(), this.src.slice(node.Pos().Offset(), node.End().Offset()));
+          }
+        }
+      }
+    });
+
+    console.log('nodesByTypeById', JSON.stringify(this.nodesByTypeById, null, 2));
+  }
+
+  srcForNode(node: sh.Node): string {
+    return this.src.slice(node.Pos().Offset(), node.End().Offset());
+  }
+
+  freshAst(): sh.File {
+    return this.parser.Parse(this.src);
   }
 }
 
