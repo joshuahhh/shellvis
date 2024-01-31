@@ -1,33 +1,37 @@
-for i in {1..10}; do
-  echo "i=$i"
-done | cat
+ls | rev
 
+for i in *.sh; do
+  echo "i=$i"
+  for j in {1..3}; do
+    echo "i,j=$i,$j"
+  done
+done | cat
 
 # set -eu
 
-# echo "hello"
+echo "hello"
 
-# git st
+git st
 
-# git ci -am "yoooo"
+git ci -am "yoooo"
 
-# git log -1
+git log -1
 
-# pushd node_modules
+pushd node_modules
 
-# diff <(ls) <(ls ..)
+diff <(ls) <(ls ..)
 
-# popd
+popd
 
-# rm doesntexist
+rm doesntexist
 
-# mv test test2
+mv test test2
 
-# rm *.sh
+rm *.sh
 
-# ls
+ls
 
-# cd node_modules
+cd node_modules
 
 # exit
 
@@ -54,8 +58,8 @@ done | cat
 
 # echo "hi" | cat | cat
 
-# true && echo "true"
-# false && echo "false"
+true && echo "true"
+false && echo "false"
 
 # fr_exitcode 10
 

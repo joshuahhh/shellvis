@@ -2,7 +2,7 @@
 import { dump } from "wtfnode";
 (global as any).dump = dump;
 
-import sh from "mvdan-sh";
+import sh, { syntax } from "mvdan-sh";
 import AnsiToHtml from "ansi-to-html";
 import { ParseError, expandObject, myWalk, getNodeId, wrapStmt } from "./mvdan-sh-helpers";
 import * as child_process from "node:child_process";
@@ -47,11 +47,14 @@ type Message =
   | {
       type: 'for-body-enter',
       nodeId: string,
+      context: string,
       counter: number,
+      loopVarValue: string,
     }
   | {
       type: 'for-body-exit',
-      nodeId: string
+      nodeId: string,
+      context: string,
     };
 
 type Sandbox = {
@@ -108,7 +111,7 @@ function parseStmt(s: string): sh.Stmt {
 
 function callStmtStr(message: Message, returnVars: string = "fr_dummy") {
   const messageStr = JSON.stringify(message)
-    .replaceAll(new RegExp('"RAW<<<(.*)>>>RAW"', "g"), (_, p1) => p1)
+    .replaceAll(new RegExp(`"${RAW("(.*?)")}"`, "g"), (_, p1) => p1)
     .replaceAll('"', '\\"');
   return `frmsg_call "${messageStr}" | read -r ${returnVars}`;
 }
@@ -239,7 +242,7 @@ function addDecorationsToLine(line: string, decorations: Decoration[]): React.Re
 // ])}
 
 function mkExecId(context: string, nodeId: string): string {
-  return `${context}-${nodeId}`;
+  return `${context}/${nodeId}`;
 }
 
 type DeltaLogEntry = {
@@ -256,6 +259,15 @@ type ExecInfo = {
     cwd: string,
     deltaLog: DeltaLogEntry[],
   } | null,
+}
+
+type Iteration = {
+  counter: number,
+  loopVarValue: string,
+}
+
+type ForInfo = {
+  iterations: Iteration[],
 }
 
 function parseDeltaLog(log: string): DeltaLogEntry[] {
@@ -325,6 +337,7 @@ export class Run {
   sh2frServer: Server | null = null;
   sh2frUploadHandlers: Record<string, (req: express.Request, res: express.Response) => void> = {};
   execInfos: Record<string, ExecInfo> = {};
+  forInfos: Record<string, ForInfo> = {};
   allStmts: { [nodeId: string]: {stmt: sh.Stmt, src: string} } = {};
   callExprs: {callExpr: sh.CallExpr, stmtNodeId: string}[] = [];
 
@@ -338,6 +351,7 @@ export class Run {
     let ast: sh.File;
     try {
       ast = parser.Parse(this.scriptSrc);
+      syntax.DebugPrint(ast);
     } catch (e) {
       console.error("error parsing script", expandObject((e as ParseError).Error()));
       process.exit(1);  // TODO: report problem intelligently
@@ -389,13 +403,33 @@ export class Run {
             const forClause = cmd as sh.ForClause;
             const forNodeId = getNodeId(forClause);
             const counterVar = `fr_loop_counter_${forNodeId}`;
+            const loopType = sh.syntax.NodeType(forClause.Loop);
+            if (loopType !== "WordIter") {
+              throw new Error(`unsupported loop type ${loopType}`);
+            }
+            const wordIter = forClause.Loop as sh.WordIter;
+            const loopVar = wordIter.Name?.Value;
+            if (!loopVar) {
+              throw new Error(`wordIter has no Name?`);
+            }
             wrapStmt(parser, stmt, `{ ${counterVar}=0; ___; }`);
             forClause.Do = [
+              callStmt({
+                type: "for-body-enter",
+                nodeId: forNodeId,
+                context: '$(fr_join / ${frctx[@]})',
+                counter: RAW(`$${counterVar}`),
+                // TODO: $loopVar's really gonna need some escaping
+                loopVarValue: "$loopVar",
+              }),
               parseStmt(`frctx_push "${forNodeId}-$${counterVar}"`),
-              callStmt({type: "for-body-enter", nodeId: forNodeId, counter: RAW(`$${counterVar}`)}),
               ...forClause.Do,
-              callStmt({type: "for-body-exit", nodeId: forNodeId}),
               parseStmt(`frctx_pop`),
+              callStmt({
+                type: "for-body-exit",
+                nodeId: forNodeId,
+                context: '$(fr_join / ${frctx[@]})',
+              }),
               parseStmt(`${counterVar}=$(($${counterVar} + 1))`),
             ];
           }
@@ -531,6 +565,16 @@ export class Run {
         };
 
         return `${deltaLogId}\n`;
+      } else if (message.type === "for-body-enter") {
+        const execId = mkExecId(message.context, message.nodeId);
+        let forInfo = this.forInfos[execId] as ForInfo | undefined;
+        if (!forInfo) {
+          forInfo = this.forInfos[execId] = { iterations: [] };
+        }
+        forInfo.iterations.push({
+          counter: message.counter,
+          loopVarValue: message.loopVarValue,
+        });
       }
       return "\n";
     }
@@ -793,8 +837,8 @@ export class Run {
       <div className="row" style={{marginTop: 1000}}></div>
 
       {false && partTransformed()}
-      {false && partAST()}
-      {false && partMessages()}
+      {true && partAST()}
+      {true && partMessages()}
       {false && partExecOutput()}
     </>;
 
