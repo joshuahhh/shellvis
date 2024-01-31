@@ -17,7 +17,7 @@ import React, { Fragment } from "react";
 import { renderToString } from "react-dom/server";
 import * as tmp from "tmp";
 import { OnlyRunLatestJob } from "./job-stuff";
-import { LineTreeNode, ParseError, Script, expandObject, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers";
+import { LineTreeNode, Script, expandObject, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers";
 import { rangeIncl } from "./util";
 
 const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
@@ -225,6 +225,11 @@ type ExecInfo = {
   } | null,
 }
 
+type PipeProgress = {
+  data: string,
+  done: boolean,
+}
+
 type Iteration = {
   counter: number,
   loopVarValue: string,
@@ -246,15 +251,6 @@ function parseDeltaLog(log: string): DeltaLogEntry[] {
     const [, path, event] = match;
     return { path: '/' + path, event };
   });
-}
-
-function stringifyDeltaLog(log: DeltaLogEntry[], baseDir?: string): string {
-  return log.map(({path: somePath, event}) => {
-    if (baseDir) {
-      somePath = path.relative(baseDir, somePath);
-    }
-    return `${somePath} (${event})`;
-  }).join("\n");
 }
 
 const eventIcons: Record<string, React.ReactNode> = {
@@ -287,6 +283,22 @@ function pathInSandbox(path: string, sandbox: Sandbox): string {
     throw new Error(`path ${path} is not in sandbox`);
   }
   return path.slice(sandbox.deltaUnionDir.length);
+}
+
+function pipeProgressUploadHandler(pipeProgress: PipeProgress, onUpdate?: () => void):
+  (req: express.Request, res: express.Response) => void {
+  return (req, res) => {
+    req.setEncoding('utf8');
+    req.on('data', (data) => {
+      pipeProgress.data += data;
+      onUpdate && onUpdate();
+    });
+    req.on('end', () => {
+      pipeProgress.done = true;
+      onUpdate && onUpdate();
+      res.end();
+    });
+  };
 }
 
 export class Run {
@@ -429,23 +441,6 @@ export class Run {
     );
     console.log("fr: spawned child process at", this.childProcess.pid);
 
-
-    // collect output
-
-    // this.childProcess.stdout.on('data', (data: string) => {
-    //   console.log("childProcess stdout");
-    //   data.toString().trimEnd().split("\n").forEach((line) => {
-    //     console.log("  ", line);
-    //   });
-    // });
-
-    // this.childProcess.stderr.on('data', (data: string) => {
-    //   console.error("childProcess stderr");
-    //   data.toString().trimEnd().split("\n").forEach((line) => {
-    //     console.error("  ", line);
-    //   });
-    // });
-
     this.childProcess.on('close', (exitCodeIn: number) => {
       console.log("child process exited with code", exitCodeIn);
       this.exitCode = exitCodeIn;
@@ -468,37 +463,15 @@ export class Run {
           exitInfo: null,
         };
 
-        this.sh2frUploadHandlers[stdoutUploadId] = (req, res) => {
-          // console.log("fr: stdout upload handler called")
-          // console.log(req);
-          req.setEncoding('utf8');
-          req.on('data', (data) => {
-            // console.log("fr: stdout upload handler got data", data)
-            execOutput.stdout.data += data;
-            this._scheduleWriteHtml();
-          });
-          req.on('end', () => {
-            // console.log("fr: stdout upload handler got end")
-            execOutput.stdout.done = true;
-            this._scheduleWriteHtml();
-            res.end();
-          });
-        };
+        this.sh2frUploadHandlers[stdoutUploadId] = pipeProgressUploadHandler(
+          execOutput.stdout,
+          () => this._scheduleWriteHtml()
+        );
 
-        this.sh2frUploadHandlers[stderrUploadId] = (req, res) => {
-          // console.log("fr: stderr upload handler called")
-          req.on('data', (data) => {
-            // console.log("fr: stderr upload handler got data", data)
-            execOutput.stderr.data += data;
-            this._scheduleWriteHtml();
-          });
-          req.on('end', () => {
-            // console.log("fr: stderr upload handler got end")
-            execOutput.stderr.done = true;
-            this._scheduleWriteHtml();
-            res.end();
-          });
-        };
+        this.sh2frUploadHandlers[stderrUploadId] = pipeProgressUploadHandler(
+          execOutput.stderr,
+          () => this._scheduleWriteHtml()
+        );
 
         return `${stdoutUploadId} ${stderrUploadId}\n`;
       } else if (message.type === "call-exit") {
@@ -607,9 +580,6 @@ export class Run {
         resolve(undefined);
       })
     });
-    // await this.sh2frHandle.close();
-    // this.sh2frSocket.destroy();
-    // dump();
   }
 
   onlyRunLatestJob = new OnlyRunLatestJob();
@@ -620,12 +590,6 @@ export class Run {
   }
 
   _writeHtml() {
-    // const partMain = <div>
-    //   {this.scriptSrc.split('\n').map((line, i) =>
-    //     this._renderLine(line, i, '')
-    //   )}
-    // </div>;
-
     const partMain = <div>
       {this.script!.lineTree.map((node) =>
         this._renderLineTreeNode(node, '')
