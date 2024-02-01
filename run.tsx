@@ -424,8 +424,8 @@ export class Run {
 
     this.startTime = new Date();
 
-    // const cwd = process.cwd();
-    const cwd = "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old"
+    const cwd = process.cwd();
+    // const cwd = "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old"
 
     this.childProcess = child_process.spawn(
       'zsh',
