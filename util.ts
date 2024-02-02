@@ -4,3 +4,8 @@ export const rangeIncl = (start: number, stop: number, step = 1) =>
 export function isObject(obj: any): boolean {
   return obj !== null && typeof obj === 'object';
 }
+
+export function FATAL(...args: any[]): never {
+  console.error("FATAL", ...args);
+  process.exit(1);
+}
