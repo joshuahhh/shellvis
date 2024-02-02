@@ -1,13 +1,13 @@
 rm *.sh
 
-# for i in {1..2}; do
-#   echo "i=$i"
-#   for j in {1..2}; do
-#     echo "i,j=$i,$j"
-#   done
-# done
+for i in {1..2}; do
+  echo "i=$i"
+  for j in {1..2}; do
+    echo "i,j=$i,$j"
+  done
+done
 
-exit
+# exit
 
 while getopts "h?vf:" opt; do
   case "$opt" in

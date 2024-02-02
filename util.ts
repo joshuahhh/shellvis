@@ -9,3 +9,5 @@ export function FATAL(...args: any[]): never {
   console.error("FATAL", ...args);
   process.exit(1);
 }
+
+export const __dirname = new URL('.', import.meta.url).pathname;

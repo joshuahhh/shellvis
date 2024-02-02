@@ -1,4 +1,4 @@
-import { ShellVar, ShellVarChange } from "./typeset";
+import { ShellVar, ShellVarChange } from "./typeset.js";
 
 export function mkExecId(context: string, nodeId: string): string {
   return `${context}/${nodeId}`;

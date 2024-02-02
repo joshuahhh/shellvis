@@ -1,4 +1,4 @@
-import { rangeIncl } from "./util";
+import { rangeIncl } from "./util.js";
 
 export type Decoration = {
   start: number,

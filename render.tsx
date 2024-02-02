@@ -1,16 +1,18 @@
-import { ChevronRightIcon, DiffAddedIcon, DiffIgnoredIcon, DiffModifiedIcon, DiffRemovedIcon, FileSubmoduleIcon, SignOutIcon } from "@primer/octicons-react";
+import octicons from "@primer/octicons-react";
 import sh from "mvdan-sh";
 import path from "node:path";
 import * as util from "node:util";
 import React, { Fragment, memo } from "react";
-import { Decoration, addDecorationsToLine } from "./decorations";
-import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "./execution";
-import { LineTreeNode, Script, expandObject, getNodeId } from "./mvdan-sh-helpers";
-import { ShellVarChange, shellVarChangeVarName } from "./typeset";
+import { Decoration, addDecorationsToLine } from "./decorations.js";
+import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "./execution.js";
+import { LineTreeNode, Script, expandObject, getNodeId } from "./mvdan-sh-helpers.js";
+import { ShellVarChange, shellVarChangeVarName } from "./typeset.js";
 import * as fsOld from "node:fs";
 import AnsiToHtml from "ansi-to-html";
-import { Message } from "./tracing";
+import { Message } from "./tracing.js";
+import { __dirname } from "./util.js";
 
+const { ChevronRightIcon, DiffAddedIcon, DiffIgnoredIcon, DiffModifiedIcon, DiffRemovedIcon, FileSubmoduleIcon, SignOutIcon } = octicons;
 
 const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
 

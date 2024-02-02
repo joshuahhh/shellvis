@@ -12,13 +12,13 @@ import * as path from "node:path";
 import * as os from "os";
 import { renderToString } from "react-dom/server";
 import * as tmp from "tmp";
-import { ExecInfo, ForInfo, PipeProgress, Trace, mkExecId, parseDeltaLog } from "./execution";
-import { OnlyRunLatestJob } from "./job-stuff";
-import { Script, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers";
-import { TraceV } from "./render";
-import { diffShellVars, parseTypeset } from "./typeset";
-import { Message } from "./tracing";
-import { FATAL } from "./util";
+import { ExecInfo, ForInfo, PipeProgress, Trace, mkExecId, parseDeltaLog } from "./execution.js";
+import { OnlyRunLatestJob } from "./job-stuff.js";
+import { Script, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers.js";
+import { TraceV } from "./render.js";
+import { diffShellVars, parseTypeset } from "./typeset.js";
+import { Message } from "./tracing.js";
+import { FATAL, __dirname } from "./util.js";
 
 type Sandbox = {
   sandboxDir: string,

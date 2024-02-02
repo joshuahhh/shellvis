@@ -2,7 +2,7 @@ import chokidar from "chokidar";
 import * as fs from "node:fs";
 import WebSocket, { WebSocketServer } from 'ws';
 import yargs from "yargs";
-import { Run } from "./run";
+import { Run } from "./run.js";
 
 
 console.log("welcome to funrun")

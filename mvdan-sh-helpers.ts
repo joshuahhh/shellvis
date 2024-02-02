@@ -1,6 +1,6 @@
 import sh from "mvdan-sh";
 import { type Node } from "mvdan-sh";
-import { isObject, rangeIncl } from "./util";
+import { isObject, rangeIncl } from "./util.js";
 
 export type ParseError = {
   Error(): string,
