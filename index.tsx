@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import WebSocket, { WebSocketServer } from 'ws';
 import yargs from "yargs";
 import { Run } from "./run.js";
+import { AutomergeServer } from "./automerge.js";
 
 
 console.log("welcome to funrun")
@@ -51,6 +52,8 @@ wss.on('connection', (ws) => {
   ws.send(output);
 });
 
+const automergeServer = new AutomergeServer();
+
 let run: Run | null = null;
 
 async function onFile() {
@@ -59,7 +62,7 @@ async function onFile() {
   }
 
   const scriptStr = fs.readFileSync(argv.script, { encoding: 'utf-8' });
-  run = new Run(scriptStr, broadcast);
+  run = new Run(scriptStr, broadcast, automergeServer);
   run.start();
 }
 

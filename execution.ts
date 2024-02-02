@@ -24,7 +24,7 @@ export type ExecInfo = {
 }
 
 export type PipeProgress = {
-  data: string,
+  data: string[],  // interesting reflection of Automerge usage; push to array instead of appending to string!
   done: boolean,
 }
 

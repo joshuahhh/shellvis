@@ -19,6 +19,8 @@ import { TraceV } from "./render.js";
 import { diffShellVars, parseTypeset } from "./typeset.js";
 import { Message } from "./tracing.js";
 import { FATAL, __dirname } from "./util.js";
+import { AutomergeServer, changeAt } from "./automerge.js";
+import { DocHandle } from "@automerge/automerge-repo";
 
 type Sandbox = {
   sandboxDir: string,
@@ -111,16 +113,20 @@ function pathInSandbox(path: string, sandbox: Sandbox): string {
   return path.slice(sandbox.deltaUnionDir.length);
 }
 
-function pipeProgressUploadHandler(pipeProgress: PipeProgress, onUpdate?: () => void):
+function pipeProgressUploadHandler(changePipeProgress: DocHandle<PipeProgress>["change"], onUpdate?: () => void):
   (req: express.Request, res: express.Response) => void {
   return (req, res) => {
     req.setEncoding('utf8');
     req.on('data', (data) => {
-      pipeProgress.data += data;
+      changePipeProgress((pipeProgress) => {
+        pipeProgress.data.push(data);
+      });
       onUpdate && onUpdate();
     });
     req.on('end', () => {
-      pipeProgress.done = true;
+      changePipeProgress((pipeProgress) => {
+        pipeProgress.done = true;
+      });
       onUpdate && onUpdate();
       res.end();
     });
@@ -139,10 +145,9 @@ export class Run {
   sh2frServer: Server | null = null;
   sh2frUploadHandlers: Record<string, (req: express.Request, res: express.Response) => void> = {};
   script: Script | null = null;
-  trace: Trace = { execInfos: {}, forInfos: {} };
+  traceDoc = this.automergeServer.repo.create({ execInfos: {}, forInfos: {} } as Trace);
 
-
-  constructor(public scriptSrc: string, public broadcast: (data: string) => void) { }
+  constructor(public scriptSrc: string, public broadcast: (data: string) => void, public automergeServer: AutomergeServer) { }
 
   async start() {
     console.log("\n\n\nstarting");
@@ -278,7 +283,7 @@ export class Run {
 
     let uploadId = 0;
 
-    const onMessage = (message: Message): string => {
+    const onMessage = async (message: Message): Promise<string> => {
       if (message.type === "call-enter") {
         const stdoutUploadId = `${uploadId++}`;
         const stderrUploadId = `${uploadId++}`;
@@ -286,37 +291,53 @@ export class Run {
         const varsExitUploadId = `${uploadId++}`;
 
         const execId = mkExecId(message.context, message.nodeId);
-        const execInfo: ExecInfo = this.trace.execInfos[execId] = {
-          stdout: { data: "", done: false },
-          stderr: { data: "", done: false },
-          enterCwd: pathInSandbox(message.cwd, this.sandbox!),
-          exitInfo: null,
-          varsEnter: null,
-          varsExit: null,
-          varsDiff: null,
-        };
+        this.traceDoc.change((trace) => {
+          trace.execInfos[execId] = {
+            stdout: { data: [], done: false },
+            stderr: { data: [], done: false },
+            enterCwd: pathInSandbox(message.cwd, this.sandbox!),
+            exitInfo: null,
+            varsEnter: null,
+            varsExit: null,
+            varsDiff: null,
+          }
+        });
+
+        const changeStdout = changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stdout);
+        const changeStderr = changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stderr);
 
         this.sh2frUploadHandlers[stdoutUploadId] = pipeProgressUploadHandler(
-          execInfo.stdout,
+          changeStdout,
           () => this._scheduleWriteHtml()
         );
 
         this.sh2frUploadHandlers[stderrUploadId] = pipeProgressUploadHandler(
-          execInfo.stderr,
+          changeStderr,
           () => this._scheduleWriteHtml()
         );
 
         this.sh2frUploadHandlers[varsEnterUploadId] = async (req, res) => {
-          const varsEnter = (await readWholeStream(req)).toString();
-          execInfo.varsEnter = parseTypeset(varsEnter);
+          const varsEnterStr = (await readWholeStream(req)).toString();
+          const varsEnter = parseTypeset(varsEnterStr);
+          this.traceDoc.change((trace) => {
+            const execInfo = trace.execInfos[execId];
+            execInfo.varsEnter = varsEnter;
+          });
           this._scheduleWriteHtml();
           res.end();
         };
 
         this.sh2frUploadHandlers[varsExitUploadId] = async (req, res) => {
-          const varsExit = (await readWholeStream(req)).toString();
-          execInfo.varsExit = parseTypeset(varsExit);
-          execInfo.varsDiff = diffShellVars(execInfo.varsEnter!, execInfo.varsExit!);
+          const varsExitStr = (await readWholeStream(req)).toString();
+          const varsExit = parseTypeset(varsExitStr);
+          const trace = await this.traceDoc.doc();
+          if (!trace) { throw new Error("trace not found"); }
+          const varsDiff = diffShellVars(trace.execInfos[execId].varsEnter!, varsExit);
+          this.traceDoc.change((trace) => {
+            const execInfo = trace.execInfos[execId];
+            execInfo.varsExit = varsExit;
+            execInfo.varsDiff = varsDiff;
+          });
           this._scheduleWriteHtml();
           res.end();
         };
@@ -330,14 +351,17 @@ export class Run {
         const deltaLogId = `${uploadId++}`;
 
         this.sh2frUploadHandlers[deltaLogId] = async (req, res) => {
+          console.log("fr: deltaLog upload handler called")
           // console.log("fr: deltaLog upload handler called");
           const deltaLog = (await readWholeStream(req)).toString();
           // console.log("fr: deltaLog upload handler got data", deltaLog);
-          this.trace.execInfos[execId].exitInfo = {
-            exitCode: message.exitCode,
-            cwd: pathInSandbox(message.cwd, this.sandbox!),
-            deltaLog: parseDeltaLog(deltaLog),
-          };
+          this.traceDoc.change((trace) => {
+            trace.execInfos[execId].exitInfo = {
+              exitCode: message.exitCode,
+              cwd: pathInSandbox(message.cwd, this.sandbox!),
+              deltaLog: parseDeltaLog(deltaLog),
+            };
+          });
           this._scheduleWriteHtml();
           res.end();
         };
@@ -345,15 +369,20 @@ export class Run {
         return `${deltaLogId}\n`;
       } else if (message.type === "for-body-enter") {
         const execId = mkExecId(message.context, message.nodeId);
-        let forInfo = this.trace.forInfos[execId] as ForInfo | undefined;
-        if (!forInfo) {
-          forInfo = this.trace.forInfos[execId] = {
-            iterations: []
-          };
+        const trace = await this.traceDoc.doc();
+        if (!trace) { throw new Error("trace not found"); }
+        if (!trace.forInfos[execId]) {
+          this.traceDoc.change((trace) => {
+            trace.forInfos[execId] = {
+              iterations: []
+            };
+          });
         }
-        forInfo.iterations.push({
-          counter: message.counter,
-          loopVarValue: message.loopVarValue,
+        this.traceDoc.change((trace) => {
+          trace.forInfos[execId].iterations.push({
+            counter: message.counter,
+            loopVarValue: message.loopVarValue,
+          });
         });
       }
       return "\n";
@@ -441,10 +470,12 @@ export class Run {
     });
   }
 
-  _writeHtml() {
+  async _writeHtml() {
+    const trace = await this.traceDoc.doc();
+    if (!trace) { throw new Error("trace not found"); }
     const html = renderToString(<TraceV
       script={this.script!}
-      trace={this.trace}
+      trace={trace}
       messageLog={this.messageLog}
       transformedSrc={this.transformedSrc!}
     />);

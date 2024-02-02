@@ -1,3 +1,9 @@
+echo "hi"
+
+echo "yay"
+
+exit
+
 rm *.sh
 
 for i in {1..2}; do
