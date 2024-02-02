@@ -156,16 +156,16 @@ const LineV = memo((props: LineVProps) => {
       execInfo
       ? execExitInfo
         ? execExitInfo.exitCode === 0
-          ? 'call-done-success'
-          : 'call-done-failure'
-        : 'call-running'
-      : 'call-not-started';
+          ? 'call--done-success'
+          : 'call--done-failure'
+        : 'call--running'
+      : 'call--not-started';
 
     const infoSections: React.ReactNode[] = [];
     if (execInfo && execInfo.stdout.data.length > 0) {
       infoSections.push(
         <div style={{fontSize: '80%'}}>
-          <div className="delta-log-entry">
+          <div className="info-entry">
             <ChevronRightIcon/>
             <pre>
               {execInfo.stdout.data}
@@ -177,7 +177,7 @@ const LineV = memo((props: LineVProps) => {
     if (execInfo && execInfo.stderr.data.length > 0) {
       infoSections.push(
         <div style={{fontSize: '80%'}}>
-          <div className="delta-log-entry" style={{}}>
+          <div className="info-entry" style={{}}>
             <div style={{position: 'relative', width: 16, height: 16}}>
               <div style={{position: 'absolute', left: 3}}>
                 <ChevronRightIcon/>
@@ -202,7 +202,7 @@ const LineV = memo((props: LineVProps) => {
     }
     if (execExitInfo && execExitInfo.exitCode !== 0) {
       infoSections.push(
-        <div className="delta-log-entry" style={{fontSize: '80%'}}>
+        <div className="info-entry" style={{fontSize: '80%'}}>
           <SignOutIcon/>
           <div>
             exit {execExitInfo.exitCode}
@@ -213,7 +213,7 @@ const LineV = memo((props: LineVProps) => {
     if (execExitInfo && execExitInfo.cwd !== execInfo.enterCwd) {
       infoSections.push(
         <div style={{fontSize: '80%'}} title={execExitInfo.cwd}>
-          <div className="delta-log-entry">
+          <div className="info-entry">
             <FileSubmoduleIcon/>
             {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
           </div>
@@ -244,13 +244,13 @@ const LineV = memo((props: LineVProps) => {
       start: callExpr.Pos().Col() - 1,
       end: callExpr.End().Col() - 1,
       decorator: (contents) =>
-        <div key={nodeId} className={`call ${statusClass} ${infoSections.length === 0 ? 'no-info-sections' : ''}`}>
-          <div className="call-code">
-            <div className="call-code-background"/>
-            <div className="call-code-contents">{contents}</div>
+        <div key={nodeId} className={`call ${statusClass} ${infoSections.length === 0 ? 'call--no-info-sections' : ''}`}>
+          <div className="call__code">
+            <div className="call__code-background"/>
+            <div className="call__code-contents">{contents}</div>
           </div>
           { infoSections.length > 0 &&
-            <div className="call-info">
+            <div className="call__info">
               {infoSections}
             </div>
           }
@@ -258,150 +258,11 @@ const LineV = memo((props: LineVProps) => {
     };
   });
   const decoratedLine = addDecorationsToLine(line, decorations);
-  return <div key={i} className="code-line">
-    <div className="code-linenum">{i + 1}</div>
-    <div className="code-linecode">
-      <div className="code-command">{decoratedLine}</div>
-      {/* { outputPerLine[i + 1] &&
-        <div className="row">
-          <div>{lineIndent}</div>
-          <div className="code-stdout" dangerouslySetInnerHTML={{__html: ansiToHtml.toHtml(outputPerLine[i + 1])}}/>
-        </div>
-      } */}
-    </div>
+  return <div key={i} className="line">
+    <div className="line__num">{i + 1}</div>
+    <div className="line__contents">{decoratedLine}</div>
   </div>;
 });
-
-function _renderLine(script: Script, trace: Trace, line: string, i: number, context: string) {
-  const callExprs = Object.values(script.nodesByTypeById.CallExpr);
-  const callExprsOnLine = callExprs.filter((callExpr) => {
-    // TODO: everything's limited to single lines
-    return callExpr.Pos().Line() === i + 1;
-  });
-  const decorations: Decoration[] = callExprsOnLine.map((callExpr) => {
-    const nodeId = getNodeId(callExpr);
-    const execId = mkExecId(context, nodeId);
-    const execInfo = trace.execInfos[execId] as ExecInfo | undefined;
-    const execExitInfo = execInfo?.exitInfo;
-    const statusClass =
-      execInfo
-      ? execExitInfo
-        ? execExitInfo.exitCode === 0
-          ? 'call-done-success'
-          : 'call-done-failure'
-        : 'call-running'
-      : 'call-not-started';
-
-    const infoSections: React.ReactNode[] = [];
-    if (execInfo && execInfo.stdout.data.length > 0) {
-      infoSections.push(
-        <div style={{fontSize: '80%'}}>
-          <div className="delta-log-entry">
-            <ChevronRightIcon/>
-            <pre>
-              {execInfo.stdout.data}
-            </pre>
-          </div>
-        </div>
-      );
-    }
-    if (execInfo && execInfo.stderr.data.length > 0) {
-      infoSections.push(
-        <div style={{fontSize: '80%'}}>
-          <div className="delta-log-entry" style={{}}>
-            <div style={{position: 'relative', width: 16, height: 16}}>
-              <div style={{position: 'absolute', left: 3}}>
-                <ChevronRightIcon/>
-              </div>
-              <div style={{position: 'absolute', left: -3}}>
-                <ChevronRightIcon/>
-              </div>
-            </div>
-            <pre>
-              {execInfo.stderr.data}
-            </pre>
-          </div>
-        </div>,
-      );
-    }
-    if (execExitInfo && execExitInfo.deltaLog.length > 0) {
-      infoSections.push(
-        <div style={{fontSize: '80%'}}>
-          {renderDeltaLog(execExitInfo.deltaLog, execInfo.enterCwd)}
-        </div>,
-      );
-    }
-    if (execExitInfo && execExitInfo.exitCode !== 0) {
-      infoSections.push(
-        <div className="delta-log-entry" style={{fontSize: '80%'}}>
-          <SignOutIcon/>
-          <div>
-            exit {execExitInfo.exitCode}
-          </div>
-        </div>
-      );
-    }
-    if (execExitInfo && execExitInfo.cwd !== execInfo.enterCwd) {
-      infoSections.push(
-        <div style={{fontSize: '80%'}} title={execExitInfo.cwd}>
-          <div className="delta-log-entry">
-            <FileSubmoduleIcon/>
-            {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
-          </div>
-        </div>
-      );
-    }
-    if (execInfo?.varsDiff) {
-      // TODO: make this principled, add feature to expand them
-      const ignoredShellVarNames = ['pipestatus', 'PWD', 'OLDPWD', 'SECONDS']
-      execInfo.varsDiff.forEach((change) => {
-        if (ignoredShellVarNames.includes(shellVarChangeVarName(change))) {
-          return;
-        }
-        infoSections.push(
-          <div style={{fontSize: '80%'}}>
-            {renderShellVarChange(change)}
-          </div>
-        );
-      });
-    }
-    if (false) {
-      infoSections.push(
-        <div style={{fontStyle: 'italic', fontSize: '60%'}}>{nodeId}</div>
-      );
-    }
-
-    return {
-      start: callExpr.Pos().Col() - 1,
-      end: callExpr.End().Col() - 1,
-      decorator: (contents) =>
-        <div key={nodeId} className={`call ${statusClass} ${infoSections.length === 0 ? 'no-info-sections' : ''}`}>
-          <div className="call-code">
-            <div className="call-code-background"/>
-            <div className="call-code-contents">{contents}</div>
-          </div>
-          { infoSections.length > 0 &&
-            <div className="call-info">
-              {infoSections}
-            </div>
-          }
-        </div>
-    };
-  });
-  const decoratedLine = addDecorationsToLine(line, decorations);
-  return <div key={i} className="code-line">
-    <div className="code-linenum">{i + 1}</div>
-    <div className="code-linecode">
-      <div className="code-command">{decoratedLine}</div>
-      {/* { outputPerLine[i + 1] &&
-        <div className="row">
-          <div>{lineIndent}</div>
-          <div className="code-stdout" dangerouslySetInnerHTML={{__html: ansiToHtml.toHtml(outputPerLine[i + 1])}}/>
-        </div>
-      } */}
-    </div>
-  </div>;
-}
 
 function renderLineTreeNode(script: Script, trace: Trace, node: LineTreeNode, context: string): React.ReactNode {
   if (node.type === 'line') {
@@ -416,9 +277,9 @@ function renderLineTreeNode(script: Script, trace: Trace, node: LineTreeNode, co
     const forIndent = forLine.match(/^\s*/)?.[0] || '';
     return iterations.map((iteration) => {
       return <Fragment key={iteration.counter}>
-        <div className="code-line">
-          <div className="code-linenum"/>
-          <div className="code-linecode">
+        <div className="line">
+          <div className="line__num"/>
+          <div className="line__contents">
             <div className="for-loop-var">
               {forIndent}
               <span style={{fontSize: "80%", fontWeight: 'bold', backgroundColor: '#ccc', color: '#444', padding: '0px 5px'}}>{varName} = {iteration.loopVarValue}</span>
@@ -441,46 +302,46 @@ const eventIcons: Record<string, React.ReactNode> = {
 
 // TODO: make into component?
 export function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): React.ReactNode {
-  return <div className="delta-log">
+  return <>
     {log.map(({path: somePath, event}) => {
       if (baseDir) {
         somePath = path.relative(baseDir, somePath);
       }
-      return <div key={somePath} className="delta-log-entry">
-        <div className="delta-log-entry-icon">
+      return <div key={somePath} className="info-entry">
+        <div className="info-entry__icon">
           {eventIcons[event] || <DiffIgnoredIcon/>}
         </div>
-        <div className="delta-log-entry-path">{somePath}</div>
-        <div className="delta-log-entry-event">({event})</div>
+        <div className="info-entry__contents">{somePath}</div>
+        <div className="info-entry__details">({event})</div>
       </div>
     })}
-  </div>
+  </>
 }
 
 // TODO: make into component?
 export function renderShellVarChange(change: ShellVarChange): React.ReactNode {
   if (change.type === 'add') {
-    return <div className="delta-log-entry">
-      <div className="delta-log-entry-icon shell-var-icon"><DiffAddedIcon/></div>
-      <div className="delta-log-entry-path">{change.newVar.name} = {change.newVar.value}</div>
+    return <div className="info-entry">
+      <div className="info-entry__icon shell-var-icon"><DiffAddedIcon/></div>
+      <div className="info-entry__contents">{change.newVar.name} = {change.newVar.value}</div>
     </div>;
   } else if (change.type === 'remove') {
-    return <div className="delta-log-entry">
-      <div className="delta-log-entry-icon shell-var-icon"><DiffRemovedIcon/></div>
-      <div className="delta-log-entry-path">{change.oldVar.name}</div>
-      <div className="delta-log-entry-event">(← {change.oldVar.value})</div>
+    return <div className="info-entry">
+      <div className="info-entry__icon shell-var-icon"><DiffRemovedIcon/></div>
+      <div className="info-entry__contents">{change.oldVar.name}</div>
+      <div className="info-entry__details">(← {change.oldVar.value})</div>
     </div>;
   } else if (change.type === 'changeValue') {
-    return <div className="delta-log-entry">
-      <div className="delta-log-entry-icon shell-var-icon"><DiffModifiedIcon/></div>
-      <div className="delta-log-entry-path">{change.oldVar.name} = {change.newVar.value}</div>
-      <div className="delta-log-entry-event">(← {change.oldVar.value})</div>
+    return <div className="info-entry">
+      <div className="info-entry__icon shell-var-icon"><DiffModifiedIcon/></div>
+      <div className="info-entry__contents">{change.oldVar.name} = {change.newVar.value}</div>
+      <div className="info-entry__details">(← {change.oldVar.value})</div>
     </div>;
   } else if (change.type === 'changeAttributes') {
-    return <div className="delta-log-entry">
-      <div className="delta-log-entry-icon shell-var-icon"><DiffModifiedIcon/></div>
-      <div className="delta-log-entry-path">{change.newVar.name} attributes: {change.newVar.attributes}</div>
-      <div className="delta-log-entry-event">(← {change.oldVar.attributes})</div>
+    return <div className="info-entry">
+      <div className="info-entry__icon shell-var-icon"><DiffModifiedIcon/></div>
+      <div className="info-entry__contents">{change.newVar.name} attributes: {change.newVar.attributes}</div>
+      <div className="info-entry__details">(← {change.oldVar.attributes})</div>
     </div>;
   } else {
     throw new Error(`unknown change type ${(change as any).type}`);

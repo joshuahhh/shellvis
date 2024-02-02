@@ -21,13 +21,13 @@ pre {
   flex-basis: 0;
 }
 
-.code-line {
+.line {
   display: flex;
   flex-direction: row;
   font-size: 16px;
 }
 
-.code-linenum {
+.line__num {
   color: #999;
   margin-right: 20px;
   text-align: right;
@@ -35,19 +35,11 @@ pre {
   font-family: monospace;
 }
 
-.code-linecode {
+.line__contents {
   flex-grow: 1;
   flex-basis: 0;
   white-space: pre;
   font-family: monospace;
-}
-
-.code-stdout {
-  color: #999;
-}
-
-.code-command {
-  margin-bottom: 0px;
 }
 
 .call {
@@ -58,17 +50,17 @@ pre {
   margin-bottom: 5px;
 }
 
-.call > .call-code > .call-code-background {
+.call > .call__code > .call__code-background {
   background-color: rgba(90, 90, 90);
   border-radius: 5px 5px 0px 0px;
   /* border: 2px solid #333; */
 }
 
-.call.no-info-sections > .call-code > .call-code-background {
+.call.call--no-info-sections > .call__code > .call__code-background {
   border-radius: 5px;
 }
 
-.call.call-done-success > .call-code > .call-code-background {
+.call.call--done-success > .call__code > .call__code-background {
   background-color: rgba(60, 110, 60);
 }
 
@@ -76,7 +68,7 @@ pre {
   background-color: rgba(60, 110, 60);
 } */
 
-.call.call-done-failure > .call-code > .call-code-background {
+.call.call--done-failure > .call__code > .call__code-background {
   background-color: rgba(220, 60, 60);
 }
 
@@ -84,29 +76,29 @@ pre {
   background-color: rgba(220, 60, 60);
 } */
 
-.call.call-running {
+.call.call--running {
   margin-top: -3px;
   border-top: 3px solid white;
 }
 
-.call-code {
+.call__code {
   position: relative;
   background-color: #444;
   border-radius: 5px;
 }
 
-.call-code-contents {
+.call__code-contents {
   position: relative;
   padding: 0px 10px;
 }
 
-.call-code-background {
+.call__code-background {
   position: absolute;
   height: 24px;
   width: 100%;
 }
 
-.call-info {
+.call__info {
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -115,18 +107,13 @@ pre {
   overflow: auto;
 }
 
-.delta-log {
-  display: flex;
-  flex-direction: column;
-}
-
-.delta-log-entry {
+.info-entry {
   display: flex;
   flex-direction: row;
   gap: 10px;
 }
 
-.delta-log-entry-event {
+.info-entry__details {
   opacity: 50%;
 }
 

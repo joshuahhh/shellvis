@@ -1,3 +1,14 @@
+rm *.sh
+
+# for i in {1..2}; do
+#   echo "i=$i"
+#   for j in {1..2}; do
+#     echo "i,j=$i,$j"
+#   done
+# done
+
+exit
+
 while getopts "h?vf:" opt; do
   case "$opt" in
     h|\?)
@@ -16,12 +27,6 @@ X=3
 
 unset X
 
-# for i in $(ls *.sh); do
-#   echo "i=$i"
-#   for j in {1..2}; do
-#     echo "i,j=$i,$j"
-#   done
-# done
 
 ls | rev
 
