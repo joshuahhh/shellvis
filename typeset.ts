@@ -1,10 +1,10 @@
-export type ShellVariable = {
+export type ShellVar = {
   name: string,
   attributes: string[],
   value: string,
 }
 
-export function parseTypesetLine(line: string): ShellVariable {
+export function parseTypesetLine(line: string): ShellVar {
   const [beforeEq, afterEq] = line.split(/=(.*)/);
   const beforeEqParts = beforeEq.split(" ");
   let name = beforeEqParts[beforeEqParts.length - 1];
@@ -16,4 +16,51 @@ export function parseTypesetLine(line: string): ShellVariable {
     attributes: beforeEqParts.slice(0, beforeEqParts.length - 1),
     value: afterEq,
   };
+}
+
+export function parseTypeset(output: string): Record<string, ShellVar> {
+  const result: Record<string, ShellVar> = {};
+  for (const line of output.split("\n")) {
+    const vari = parseTypesetLine(line);
+    result[vari.name] = vari;
+  }
+  return result;
+}
+
+export type ShellVarChange =
+  | { type: "add", newVar: ShellVar }
+  | { type: "remove", oldVar: ShellVar }
+  | { type: "changeValue", oldVar: ShellVar, newVar: ShellVar }
+  | { type: "changeAttributes", oldVar: ShellVar, newVar: ShellVar }
+
+export function diffShellVars(oldVars: Record<string, ShellVar>, newVars: Record<string, ShellVar>): ShellVarChange[] {
+  const result: ShellVarChange[] = [];
+  for (const name in oldVars) {
+    if (newVars[name] === undefined) {
+      result.push({ type: "remove", oldVar: oldVars[name] });
+    } else {
+      const oldVar = oldVars[name];
+      const newVar = newVars[name];
+      if (oldVar.value !== newVar.value) {
+        result.push({ type: "changeValue", oldVar, newVar });
+      }
+      if (oldVar.attributes.join(" ") !== newVar.attributes.join(" ")) {
+        result.push({ type: "changeAttributes", oldVar, newVar });
+      }
+    }
+  }
+  for (const name in newVars) {
+    if (oldVars[name] === undefined) {
+      result.push({ type: "add", newVar: newVars[name] });
+    }
+  }
+  return result;
+}
+
+export function shellVarChangeVarName(change: ShellVarChange): string {
+  if (change.type === "add") {
+    return change.newVar.name;
+  } else {
+    return change.oldVar.name;
+  }
 }

@@ -129,3 +129,7 @@ pre {
 .delta-log-entry-event {
   opacity: 50%;
 }
+
+.shell-var-icon {
+  color: hsl(200,100%,60%);
+}

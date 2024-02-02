@@ -238,13 +238,10 @@ export class Script {
         for (const nodeType of trackedNodeTypes) {
           if (hasNodeType(node, nodeType)) {
             this.nodesByTypeById[nodeType][nodeId] = node;
-            console.log("foundNode", nodeId, node.Pos().Offset(), node.End().Offset(), this.src.slice(node.Pos().Offset(), node.End().Offset()));
           }
         }
       }
     });
-
-    console.log('nodesByTypeById', JSON.stringify(this.nodesByTypeById, null, 2));
   }
 
   srcForNode(node: sh.Node): string {

@@ -19,6 +19,7 @@ import * as tmp from "tmp";
 import { OnlyRunLatestJob } from "./job-stuff";
 import { LineTreeNode, Script, expandObject, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers";
 import { rangeIncl } from "./util";
+import { ShellVar, ShellVarChange, diffShellVars, parseTypeset, shellVarChangeVarName } from "./typeset";
 
 const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encoding: 'utf-8' });
 
@@ -223,6 +224,9 @@ type ExecInfo = {
     cwd: string,
     deltaLog: DeltaLogEntry[],
   } | null,
+  varsEnter: Record<string, ShellVar> | null,
+  varsExit: Record<string, ShellVar> | null,  // TODO: put in exitInfo? idk
+  varsDiff: ShellVarChange[] | null,
 }
 
 type PipeProgress = {
@@ -276,6 +280,35 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): React.ReactNode
       </div>
     })}
   </div>
+}
+
+function renderShellVarChange(change: ShellVarChange): React.ReactNode {
+  if (change.type === 'add') {
+    return <div className="delta-log-entry">
+      <div className="delta-log-entry-icon shell-var-icon"><DiffAddedIcon/></div>
+      <div className="delta-log-entry-path">{change.newVar.name} = {change.newVar.value}</div>
+    </div>;
+  } else if (change.type === 'remove') {
+    return <div className="delta-log-entry">
+      <div className="delta-log-entry-icon shell-var-icon"><DiffRemovedIcon/></div>
+      <div className="delta-log-entry-path">{change.oldVar.name}</div>
+      <div className="delta-log-entry-event">(← {change.oldVar.value})</div>
+    </div>;
+  } else if (change.type === 'changeValue') {
+    return <div className="delta-log-entry">
+      <div className="delta-log-entry-icon shell-var-icon"><DiffModifiedIcon/></div>
+      <div className="delta-log-entry-path">{change.oldVar.name} = {change.newVar.value}</div>
+      <div className="delta-log-entry-event">(← {change.oldVar.value})</div>
+    </div>;
+  } else if (change.type === 'changeAttributes') {
+    return <div className="delta-log-entry">
+      <div className="delta-log-entry-icon shell-var-icon"><DiffModifiedIcon/></div>
+      <div className="delta-log-entry-path">{change.newVar.name} attributes: {change.newVar.attributes}</div>
+      <div className="delta-log-entry-event">(← {change.oldVar.attributes})</div>
+    </div>;
+  } else {
+    throw new Error(`unknown change type ${(change as any).type}`);
+  }
 }
 
 function pathInSandbox(path: string, sandbox: Sandbox): string {
@@ -352,18 +385,20 @@ export class Run {
                 nodeId: callId,
                 context: '$(fr_ctx_str)',
                 cwd: "$PWD"
-              }, "fr_stdout fr_stderr")};
+              }, "fr_stdout fr_stderr fr_vars_enter fr_vars_exit")};
               # echo "sh: got upload ids $fr_stdout $fr_stderr" 1>&2;
               fr-sandbox before-run ${this.sandbox!.deltaDir}
+              fr_typeset | ${frUploadStr('$fr_vars_enter')};
               ___ 1>&1 1> >(${frUploadStr('$fr_stdout')}) 2>&2 2> >(${frUploadStr('$fr_stderr')});
               fr_ret=$?;
+              fr_typeset | ${frUploadStr('$fr_vars_exit')};
               ${frMsgStr({
                 type: "call-exit",
                 nodeId: callId,
                 context: '$(fr_ctx_str)',
                 cwd: "$PWD",
                 exitCode: RAW("$fr_ret")
-              }, "fr_delta_log")};
+              }, " fr_delta_log")};
               fr-sandbox after-run ${this.sandbox!.deltaDir} ${this.sandbox!.sandboxDir} - | ${frUploadStr('$fr_delta_log')};
               fr_exitcode $fr_ret;
             }`);
@@ -454,26 +489,46 @@ export class Run {
       if (message.type === "call-enter") {
         const stdoutUploadId = `${uploadId++}`;
         const stderrUploadId = `${uploadId++}`;
+        const varsEnterUploadId = `${uploadId++}`;
+        const varsExitUploadId = `${uploadId++}`;
 
         const execId = mkExecId(message.context, message.nodeId);
-        const execOutput: ExecInfo = this.execInfos[execId] = {
+        const execInfo: ExecInfo = this.execInfos[execId] = {
           stdout: { data: "", done: false },
           stderr: { data: "", done: false },
           enterCwd: pathInSandbox(message.cwd, this.sandbox!),
           exitInfo: null,
+          varsEnter: null,
+          varsExit: null,
+          varsDiff: null,
         };
 
         this.sh2frUploadHandlers[stdoutUploadId] = pipeProgressUploadHandler(
-          execOutput.stdout,
+          execInfo.stdout,
           () => this._scheduleWriteHtml()
         );
 
         this.sh2frUploadHandlers[stderrUploadId] = pipeProgressUploadHandler(
-          execOutput.stderr,
+          execInfo.stderr,
           () => this._scheduleWriteHtml()
         );
 
-        return `${stdoutUploadId} ${stderrUploadId}\n`;
+        this.sh2frUploadHandlers[varsEnterUploadId] = async (req, res) => {
+          const varsEnter = (await readWholeStream(req)).toString();
+          execInfo.varsEnter = parseTypeset(varsEnter);
+          this._scheduleWriteHtml();
+          res.end();
+        };
+
+        this.sh2frUploadHandlers[varsExitUploadId] = async (req, res) => {
+          const varsExit = (await readWholeStream(req)).toString();
+          execInfo.varsExit = parseTypeset(varsExit);
+          execInfo.varsDiff = diffShellVars(execInfo.varsEnter!, execInfo.varsExit!);
+          this._scheduleWriteHtml();
+          res.end();
+        };
+
+        return `${stdoutUploadId} ${stderrUploadId} ${varsEnterUploadId} ${varsExitUploadId}\n`;
       } else if (message.type === "call-exit") {
         const execId = mkExecId(message.context, message.nodeId);
 
@@ -534,13 +589,17 @@ export class Run {
       }
     })
 
+    this.sh2frExpress.post('/upload/', (req, res) => {
+      res.status(404).send(`missing uploadId\n`);
+    });
+
     this.sh2frExpress.post('/upload/:uploadId', (req, res) => {
       // console.log("fr: upload", req.params.uploadId);
 
       const uploadHandler = this.sh2frUploadHandlers[req.params.uploadId];
 
       if (!uploadHandler) {
-        res.status(404).send(`upload handler not found for ${req.params.uploadId}`);
+        res.status(404).send(`upload handler not found for ${req.params.uploadId}\n`);
         return;
       }
 
@@ -691,7 +750,7 @@ export class Run {
       {false && partTransformed()}
       {false && partAST()}
       {true && partMessages()}
-      {true && partExecInfo()}
+      {false && partExecInfo()}
       {true && partForInfo()}
     </>;
 
@@ -778,6 +837,20 @@ export class Run {
             </div>
           </div>
         );
+      }
+      if (execInfo?.varsDiff) {
+        // TODO: make this principled, add feature to expand them
+        const ignoredShellVarNames = ['pipestatus', 'PWD', 'OLDPWD', 'SECONDS']
+        execInfo.varsDiff.forEach((change) => {
+          if (ignoredShellVarNames.includes(shellVarChangeVarName(change))) {
+            return;
+          }
+          infoSections.push(
+            <div style={{fontSize: '80%'}}>
+              {renderShellVarChange(change)}
+            </div>
+          );
+        });
       }
       if (false) {
         infoSections.push(

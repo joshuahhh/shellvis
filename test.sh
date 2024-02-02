@@ -1,9 +1,27 @@
-for i in $(ls *.sh); do
-  echo "i=$i"
-  for j in {1..2}; do
-    echo "i,j=$i,$j"
-  done
+while getopts "h?vf:" opt; do
+  case "$opt" in
+    h|\?)
+      show_help
+      exit 0
+      ;;
+    v)  verbose=1
+      ;;
+    f)  output_file=$OPTARG
+      ;;
+  esac
 done
+
+
+X=3
+
+unset X
+
+# for i in $(ls *.sh); do
+#   echo "i=$i"
+#   for j in {1..2}; do
+#     echo "i,j=$i,$j"
+#   done
+# done
 
 ls | rev
 
