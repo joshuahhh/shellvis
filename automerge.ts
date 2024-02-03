@@ -5,47 +5,21 @@ import { WebSocketServer } from "ws"
 import { DocHandle, PeerId, Repo } from "@automerge/automerge-repo"
 import { NodeWSServerAdapter } from "@automerge/automerge-repo-network-websocket"
 import os from "os"
-import http from "http"
+import http from "node:http"
 
 export class AutomergeServer {
-  socket: WebSocketServer;
-  server: http.Server;
+  wsServer: WebSocketServer;
   repo: Repo;
 
-
-  constructor() {
+  constructor(public readonly httpServer: http.Server, public readonly path: string) {
     var hostname = os.hostname()
 
-    this.socket = new WebSocketServer({ noServer: true })
-
-    const PORT =
-      process.env.PORT !== undefined ? parseInt(process.env.PORT) : 3030
-    const app = express()
-    app.use(express.static("public"))
+    this.wsServer = new WebSocketServer({ server: httpServer, path })
 
     this.repo = new Repo({
-      network: [new NodeWSServerAdapter(this.socket)],
-      peerId: `storage-server-${hostname}` as PeerId,
-      // Since this is a server, we don't share generously — meaning we only sync documents they already
-      // know about and can ask for by ID.
+      network: [new NodeWSServerAdapter(this.wsServer)],
+      peerId: `engine-${hostname}` as PeerId,
       sharePolicy: async () => false,
-    })
-
-    app.get("/", (req, res) => {
-      res.send(`👍 @automerge/example-sync-server is running`)
-    })
-
-    this.server = app.listen(PORT, () => {
-      console.log(`Automerge server listening on port ${PORT}`)
-      // this.#readyResolvers.forEach((resolve) => resolve(true))
-    })
-
-    this.server.on("upgrade", (request, socket, head) => {
-      // console.log("upgrade request", request.url);
-      this.socket.handleUpgrade(request, socket, head, (socket) => {
-        // console.log("upgrade request callback")
-        this.socket.emit("connection", socket, request)
-      })
     })
 
     if (false) {
@@ -60,8 +34,7 @@ export class AutomergeServer {
   }
 
   close() {
-    this.socket.close()
-    this.server.close()
+    this.wsServer.close();
   }
 }
 

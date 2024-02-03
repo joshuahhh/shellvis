@@ -54,10 +54,6 @@ wss.on('connection', (ws) => {
   ws.send(output);
 });
 
-const automergeServer = new AutomergeServer();
-
-const sessionHandle = automergeServer.repo.create<Session>({ traceAutomergeUrl: null });
-
 const app = express()
 
 app.use(cors());
@@ -72,13 +68,9 @@ const server = app.listen(PORT, () => {
   // this.#readyResolvers.forEach((resolve) => resolve(true))
 })
 
-server.on("upgrade", (request, socket, head) => {
-  console.log("upgrade request", request.url);
-  wss.handleUpgrade(request, socket, head, (socket) => {
-    console.log("upgrade request callback")
-    wss.emit("connection", socket, request)
-  })
-})
+
+const automergeServer = new AutomergeServer(server, "/automerge");
+const sessionHandle = automergeServer.repo.create<Session>({ traceAutomergeUrl: null });
 
 let run: Run | null = null;
 

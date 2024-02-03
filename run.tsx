@@ -299,7 +299,6 @@ export class Run {
             exitInfo: null,
             varsEnter: null,
             varsExit: null,
-            varsDiff: null,
           }
         });
 
@@ -332,11 +331,9 @@ export class Run {
           const varsExit = parseTypeset(varsExitStr);
           const trace = await this.traceDoc.doc();
           if (!trace) { throw new Error("trace not found"); }
-          const varsDiff = diffShellVars(trace.execInfos[execId].varsEnter!, varsExit);
           this.traceDoc.change((trace) => {
             const execInfo = trace.execInfos[execId];
             execInfo.varsExit = varsExit;
-            execInfo.varsDiff = varsDiff;
           });
           this._scheduleWriteHtml();
           res.end();

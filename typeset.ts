@@ -1,3 +1,5 @@
+import { weakMapCache2 } from "./util.js";
+
 export type ShellVar = {
   name: string,
   attributes: string[],
@@ -39,7 +41,9 @@ export type ShellVarChange =
   | { type: "changeValue", oldVar: ShellVar, newVar: ShellVar }
   | { type: "changeAttributes", oldVar: ShellVar, newVar: ShellVar }
 
-export function diffShellVars(oldVars: Record<string, ShellVar>, newVars: Record<string, ShellVar>): ShellVarChange[] {
+export const diffShellVars = weakMapCache2(_diffShellVars)
+
+function _diffShellVars(oldVars: Record<string, ShellVar>, newVars: Record<string, ShellVar>): ShellVarChange[] {
   const result: ShellVarChange[] = [];
   for (const name in oldVars) {
     if (newVars[name] === undefined) {

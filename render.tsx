@@ -6,7 +6,7 @@ import React, { Fragment, memo } from "react";
 import { Decoration, addDecorationsToLine } from "./decorations.js";
 import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "./execution.js";
 import { LineTreeNode, Script, expandObject, getNodeId } from "./mvdan-sh-helpers.js";
-import { ShellVarChange, shellVarChangeVarName } from "./typeset.js";
+import { ShellVarChange, diffShellVars, shellVarChangeVarName } from "./typeset.js";
 import * as fsOld from "node:fs";
 import AnsiToHtml from "ansi-to-html";
 import { Message } from "./tracing.js";
@@ -222,10 +222,11 @@ const LineV = memo((props: LineVProps) => {
         </div>
       );
     }
-    if (execInfo?.varsDiff) {
+    if (execInfo && execInfo.varsEnter && execInfo.varsExit) {
+      const varsDiff = diffShellVars(execInfo.varsEnter, execInfo.varsExit);
       // TODO: make this principled, add feature to expand them
       const ignoredShellVarNames = ['pipestatus', 'PWD', 'OLDPWD', 'SECONDS']
-      execInfo.varsDiff.forEach((change) => {
+      varsDiff.forEach((change) => {
         if (ignoredShellVarNames.includes(shellVarChangeVarName(change))) {
           return;
         }

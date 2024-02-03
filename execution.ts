@@ -20,7 +20,6 @@ export type ExecInfo = {
   } | null,
   varsEnter: Record<string, ShellVar> | null,
   varsExit: Record<string, ShellVar> | null,  // TODO: put in exitInfo? idk
-  varsDiff: ShellVarChange[] | null,
 }
 
 export type PipeProgress = {

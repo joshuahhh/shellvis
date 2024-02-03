@@ -8,7 +8,7 @@ import { RepoContext } from '@automerge/automerge-repo-react-hooks'
 
 const repo = new Repo({
   network: [
-    new BrowserWebSocketClientAdapter("ws://localhost:3030"),
+    new BrowserWebSocketClientAdapter("ws://localhost:8080/automerge"),
   ]
 });
 

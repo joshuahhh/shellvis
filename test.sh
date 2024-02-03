@@ -1,6 +1,8 @@
+sleep 2
+
 # echo "hi"
 
-echo "yay"
+# echo "yay"
 
 exit
 
