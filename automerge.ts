@@ -6,6 +6,7 @@ import { DocHandle, PeerId, Repo } from "@automerge/automerge-repo"
 import { NodeWSServerAdapter } from "@automerge/automerge-repo-network-websocket"
 import os from "os"
 import http from "node:http"
+import { connectWsServer } from "./websocket.js"
 
 export class AutomergeServer {
   wsServer: WebSocketServer;
@@ -14,7 +15,8 @@ export class AutomergeServer {
   constructor(public readonly httpServer: http.Server, public readonly path: string) {
     var hostname = os.hostname()
 
-    this.wsServer = new WebSocketServer({ server: httpServer, path })
+    this.wsServer = new WebSocketServer({ noServer: true });
+    connectWsServer(this.wsServer, httpServer, path);
 
     this.repo = new Repo({
       network: [new NodeWSServerAdapter(this.wsServer)],

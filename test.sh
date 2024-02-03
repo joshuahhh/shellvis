@@ -1,4 +1,8 @@
-sleep 2
+echo "what"
+
+echo "yay"
+
+# sleep 1
 
 # echo "hi"
 

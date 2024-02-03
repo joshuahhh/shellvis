@@ -23,7 +23,7 @@ function Trace(props: { traceAutomergeUrl: AutomergeUrl }) {
   return <div>
     <h1>Trace</h1>
     <pre>
-      {JSON.stringify(trace, null, 2)}
+      {JSON.stringify(trace, (key, value) => key === 'varsEnter' || key=== 'varsExit' ? undefined : value, 2)}
     </pre>
   </div>;
 }

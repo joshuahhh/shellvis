@@ -1,3 +1,4 @@
+import { Message } from "./tracing.js";
 import { ShellVar, ShellVarChange } from "./typeset.js";
 
 export function mkExecId(context: string, nodeId: string): string {
@@ -51,6 +52,11 @@ export function parseDeltaLog(log: string): DeltaLogEntry[] {
 }
 
 export type Trace = {
+  scriptSrc: string,
   execInfos: Record<string, ExecInfo>,
   forInfos: Record<string, ForInfo>,
+  startTime: Date | null;
+  messageLog: Message[];
+  exitCode: number | null;
+  transformedSrc: string | null;
 }

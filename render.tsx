@@ -1,15 +1,14 @@
 import octicons from "@primer/octicons-react";
+import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
+import * as fsOld from "node:fs";
 import path from "node:path";
 import * as util from "node:util";
-import React, { Fragment, memo } from "react";
+import React, { Fragment, memo, useMemo } from "react";
 import { Decoration, addDecorationsToLine } from "./decorations.js";
 import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "./execution.js";
 import { LineTreeNode, Script, expandObject, getNodeId } from "./mvdan-sh-helpers.js";
 import { ShellVarChange, diffShellVars, shellVarChangeVarName } from "./typeset.js";
-import * as fsOld from "node:fs";
-import AnsiToHtml from "ansi-to-html";
-import { Message } from "./tracing.js";
 import { __dirname } from "./util.js";
 
 const { ChevronRightIcon, DiffAddedIcon, DiffIgnoredIcon, DiffModifiedIcon, DiffRemovedIcon, FileSubmoduleIcon, SignOutIcon } = octicons;
@@ -19,14 +18,18 @@ const styleCss = fsOld.readFileSync(path.join(__dirname, 'style.css'), { encodin
 const ansiToHtml = new AnsiToHtml({});
 
 type TraceVProps = {
-  script: Script,
   trace: Trace,
-  messageLog: Message[],
-  transformedSrc: string,
+  optionalScript?: Script,
 }
 
+const parser = sh.syntax.NewParser();
+
 export const TraceV = memo((props: TraceVProps) => {
-  const {script, trace, messageLog, transformedSrc} = props;
+  const {trace, optionalScript} = props;
+
+  const script = useMemo(() => {
+    return optionalScript || new Script(parser, trace.scriptSrc);
+  }, [trace.scriptSrc]);
 
   const partMain = <div>
     {script.lineTree.map((node) =>
@@ -34,12 +37,13 @@ export const TraceV = memo((props: TraceVProps) => {
     )}
   </div>;
 
-  const partTransformed = () => <div>
-    <div>
-      <h1>transformed</h1>
-      {/* prepend each line with a line number */}
-      <pre>{transformedSrc.split('\n').map((line, i) => `${String(i + 1).padStart(3)} ${line}`).join('\n')}</pre>
-    </div>
+  const partTransformed = () => trace.transformedSrc && <div>
+    <h1>transformed</h1>
+    <pre>
+      {trace.transformedSrc.split('\n').map((line, i) =>
+        `${String(i + 1).padStart(3)} ${line}
+      `).join('\n')}
+    </pre>
   </div>;
 
   const partAST = () => <div>
@@ -53,7 +57,7 @@ export const TraceV = memo((props: TraceVProps) => {
     <div>
       <h1>messages</h1>
       <ul>
-        {messageLog.map((entry, i) =>
+        {trace.messageLog.map((entry, i) =>
           <li key={i}>
             { entry.nodeId &&
               <div style={{display: 'inline-block', border: '1px solid gray', padding: 4}}>

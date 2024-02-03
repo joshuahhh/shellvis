@@ -21,6 +21,7 @@ import { Message } from "./tracing.js";
 import { FATAL, __dirname } from "./util.js";
 import { AutomergeServer, changeAt } from "./automerge.js";
 import { DocHandle } from "@automerge/automerge-repo";
+import { WebSocketServer } from "ws";
 
 type Sandbox = {
   sandboxDir: string,
@@ -136,18 +137,30 @@ function pipeProgressUploadHandler(changePipeProgress: DocHandle<PipeProgress>["
 export class Run {
   sandbox: Sandbox | null = null;
   childProcess: child_process.ChildProcess | null = null;
-  startTime: Date | null = null;
-  messageLog: Message[] = [];
-  exitCode: number | null = null;
   transformedSrc: string | null = null;
   sh2frPort: number | null = null;
   sh2frExpress: express.Express | null = null;
   sh2frServer: Server | null = null;
   sh2frUploadHandlers: Record<string, (req: express.Request, res: express.Response) => void> = {};
   script: Script | null = null;
-  traceDoc = this.automergeServer.repo.create({ execInfos: {}, forInfos: {} } as Trace);
+  traceDoc: DocHandle<Trace>;
 
-  constructor(public scriptSrc: string, public broadcast: (data: string) => void, public automergeServer: AutomergeServer) { }
+  constructor(
+    public scriptSrc: string,
+    public broadcast: (data: string) => void,
+    public automergeServer: AutomergeServer,
+    public wsHtmlServer: WebSocketServer,
+  ) {
+    this.traceDoc = this.automergeServer.repo.create({
+      scriptSrc,
+      messageLog: [],
+      execInfos: {},
+      forInfos: {},
+      exitCode: null,
+      startTime: null,
+      transformedSrc: null,
+    })
+  }
 
   async start() {
     console.log("\n\n\nstarting");
@@ -255,7 +268,9 @@ export class Run {
     const tmpFile = tmp.fileSync();
     await fs.writeFile(tmpFile.name, this.transformedSrc, { encoding: 'utf-8' });
 
-    this.startTime = new Date();
+    this.traceDoc.change((trace) => {
+      trace.startTime = new Date();
+    });
 
     const cwd = process.cwd();
     // const cwd = "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old"
@@ -274,9 +289,11 @@ export class Run {
     );
     console.log("fr: spawned child process at", this.childProcess.pid);
 
-    this.childProcess.on('close', (exitCodeIn: number) => {
-      console.log("child process exited with code", exitCodeIn);
-      this.exitCode = exitCodeIn;
+    this.childProcess.on('close', (exitCode: number) => {
+      console.log("child process exited with code", exitCode);
+      this.traceDoc.change((trace) => {
+        trace.exitCode = exitCode;
+      });
       this._scheduleWriteHtml();
       this.stop();
     });
@@ -396,7 +413,9 @@ export class Run {
       for (const line of lines) {
         try {
           const dataParsed = JSON.parse(line);
-          this.messageLog.push(dataParsed);
+          this.traceDoc.change((trace) => {
+            trace.messageLog.push(dataParsed);
+          });
           const response: string = await onMessage(dataParsed);
           res.send(response);
           this._scheduleWriteHtml();
@@ -442,7 +461,7 @@ export class Run {
 
   async stop() {
     console.log("stopping");
-    if (this.exitCode === null && this.childProcess) {
+    if (this.childProcess && this.childProcess.exitCode === null) {
       this.childProcess.kill();
     }
     this.sandbox && removeSandbox(this.sandbox);
@@ -466,13 +485,16 @@ export class Run {
   }
 
   async _writeHtml() {
+    if (this.wsHtmlServer.clients.size === 0) {
+      console.log("no html clients, not writing html");
+      return;
+    }
+    console.log("html client, writing html");
     const trace = await this.traceDoc.doc();
     if (!trace) { throw new Error("trace not found"); }
     const html = renderToString(<TraceV
-      script={this.script!}
       trace={trace}
-      messageLog={this.messageLog}
-      transformedSrc={this.transformedSrc!}
+      optionalScript={this.script || undefined}
     />);
 
     this.broadcast(html);
