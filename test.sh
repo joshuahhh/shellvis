@@ -1,14 +1,12 @@
-echo "what"
+# echo "what"
 
-echo "yay"
+# echo "yay"
 
 # sleep 1
 
 # echo "hi"
 
 # echo "yay"
-
-exit
 
 rm *.sh
 

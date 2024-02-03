@@ -1,6 +1,8 @@
 import { AutomergeUrl } from "@automerge/automerge-repo";
 import { useDocument } from "@automerge/automerge-repo-react-hooks"
 import { Session } from "../types.js";
+import { TraceV } from "./render.js";
+import { Trace } from "../execution.js";
 
 
 export function App(props: { sessionAutomergeUrl: AutomergeUrl }) {
@@ -14,14 +16,17 @@ export function App(props: { sessionAutomergeUrl: AutomergeUrl }) {
     return <div>Loading... (no trace URL)</div>
   }
 
-  return <Trace traceAutomergeUrl={session.traceAutomergeUrl} />
+  return <TraceVV traceAutomergeUrl={session.traceAutomergeUrl} />
 }
 
-function Trace(props: { traceAutomergeUrl: AutomergeUrl }) {
+function TraceVV(props: { traceAutomergeUrl: AutomergeUrl }) {
   const { traceAutomergeUrl } = props
-  const [ trace, changeTrace ] = useDocument<any>(traceAutomergeUrl)
+  const [ trace, changeTrace ] = useDocument<Trace>(traceAutomergeUrl)
+  if (!trace) {
+    return <div>Loading... (no trace)</div>
+  }
   return <div>
-    <h1>Trace</h1>
+    <TraceV trace={trace} />
     <pre>
       {JSON.stringify(trace, (key, value) => key === 'varsEnter' || key=== 'varsExit' ? undefined : value, 2)}
     </pre>

@@ -2,6 +2,7 @@
 import { dump } from "wtfnode";
 (global as any).dump = dump;
 
+import { DocHandle } from "@automerge/automerge-repo";
 import express from "express";
 import sh from "mvdan-sh";
 import * as child_process from "node:child_process";
@@ -12,16 +13,14 @@ import * as path from "node:path";
 import * as os from "os";
 import { renderToString } from "react-dom/server";
 import * as tmp from "tmp";
-import { ExecInfo, ForInfo, PipeProgress, Trace, mkExecId, parseDeltaLog } from "./execution.js";
+import { WebSocketServer } from "ws";
+import { AutomergeServer, changeAt } from "./automerge.js";
+import { PipeProgress, Trace, mkExecId, parseDeltaLog } from "./execution.js";
 import { OnlyRunLatestJob } from "./job-stuff.js";
 import { Script, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers.js";
-import { TraceV } from "./render.js";
-import { diffShellVars, parseTypeset } from "./typeset.js";
 import { Message } from "./tracing.js";
+import { parseTypeset } from "./typeset.js";
 import { FATAL, __dirname } from "./util.js";
-import { AutomergeServer, changeAt } from "./automerge.js";
-import { DocHandle } from "@automerge/automerge-repo";
-import { WebSocketServer } from "ws";
 
 type Sandbox = {
   sandboxDir: string,
@@ -492,10 +491,13 @@ export class Run {
     console.log("html client, writing html");
     const trace = await this.traceDoc.doc();
     if (!trace) { throw new Error("trace not found"); }
-    const html = renderToString(<TraceV
-      trace={trace}
-      optionalScript={this.script || undefined}
-    />);
+
+    const html = renderToString(<div>
+      <h1>fun-run trace</h1>
+      <pre>
+        {JSON.stringify(trace, (key, value) => key === 'varsEnter' || key=== 'varsExit' ? undefined : value, 2)}
+      </pre>
+    </div>);
 
     this.broadcast(html);
   }
