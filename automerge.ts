@@ -41,20 +41,22 @@ export class AutomergeServer {
     })
 
     this.server.on("upgrade", (request, socket, head) => {
-      console.log("upgrade request", request.url);
+      // console.log("upgrade request", request.url);
       this.socket.handleUpgrade(request, socket, head, (socket) => {
-        console.log("upgrade request callback")
+        // console.log("upgrade request callback")
         this.socket.emit("connection", socket, request)
       })
     })
 
-    this.repo.addListener("document", ({handle, isNew}) => {
-      handle.on("change", (payload) => {
-        console.log("doc changed", payload.doc)
-        console.log("patch info", payload.patchInfo)
-        console.log("patches", payload.patches)
+    if (false) {
+      this.repo.addListener("document", ({handle, isNew}) => {
+        handle.on("change", (payload) => {
+          console.log("doc changed", payload.doc)
+          console.log("patch info", payload.patchInfo)
+          console.log("patches", payload.patches)
+        });
       });
-    });
+    }
   }
 
   close() {

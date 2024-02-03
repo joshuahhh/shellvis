@@ -4,7 +4,9 @@ import WebSocket, { WebSocketServer } from 'ws';
 import yargs from "yargs";
 import { Run } from "./run.js";
 import { AutomergeServer } from "./automerge.js";
-
+import express from "express";
+import cors from "cors";
+import { Session } from "./types.js";
 
 console.log("welcome to funrun")
 
@@ -17,7 +19,7 @@ const argv = yargs(process.argv.slice(2))
   )
   .parseSync() as unknown as { script: string };
 
-const wss = new WebSocketServer({ port: 8080 });
+const wss = new WebSocketServer({ noServer: true });
 
 function wsSend(ws: WebSocket, data: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -54,6 +56,30 @@ wss.on('connection', (ws) => {
 
 const automergeServer = new AutomergeServer();
 
+const sessionHandle = automergeServer.repo.create<Session>({ traceAutomergeUrl: null });
+
+const app = express()
+
+app.use(cors());
+
+app.get("/session-automerge-url", (req, res) => {
+  res.send(sessionHandle.url);
+});
+
+const PORT = 8080;
+const server = app.listen(PORT, () => {
+  console.log(`Automerge server listening on port ${PORT}`)
+  // this.#readyResolvers.forEach((resolve) => resolve(true))
+})
+
+server.on("upgrade", (request, socket, head) => {
+  console.log("upgrade request", request.url);
+  wss.handleUpgrade(request, socket, head, (socket) => {
+    console.log("upgrade request callback")
+    wss.emit("connection", socket, request)
+  })
+})
+
 let run: Run | null = null;
 
 async function onFile() {
@@ -63,6 +89,9 @@ async function onFile() {
 
   const scriptStr = fs.readFileSync(argv.script, { encoding: 'utf-8' });
   run = new Run(scriptStr, broadcast, automergeServer);
+  sessionHandle.change((session) => {
+    session.traceAutomergeUrl = run!.traceDoc.url;
+  });
   run.start();
 }
 

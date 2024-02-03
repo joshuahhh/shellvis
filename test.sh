@@ -1,4 +1,4 @@
-echo "hi"
+# echo "hi"
 
 echo "yay"
 

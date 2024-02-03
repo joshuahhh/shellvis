@@ -1,11 +1,13 @@
 export type ShellVar = {
   name: string,
   attributes: string[],
-  value: string,
+  value: string | null,
 }
 
 export function parseTypesetLine(line: string): ShellVar {
-  const [beforeEq, afterEq] = line.split(/=(.*)/);
+  const beforeAndAfterEq = line.split(/=(.*)/);
+  const beforeEq = beforeAndAfterEq[0];
+  const afterEq = beforeAndAfterEq[1] as string | undefined;
   const beforeEqParts = beforeEq.split(" ");
   let name = beforeEqParts[beforeEqParts.length - 1];
   if (name[0] === "'" && name[name.length - 1] === "'") {
@@ -14,7 +16,7 @@ export function parseTypesetLine(line: string): ShellVar {
   return {
     name,
     attributes: beforeEqParts.slice(0, beforeEqParts.length - 1),
-    value: afterEq,
+    value: afterEq === undefined ? null : afterEq,
   };
 }
 
@@ -22,6 +24,10 @@ export function parseTypeset(output: string): Record<string, ShellVar> {
   const result: Record<string, ShellVar> = {};
   for (const line of output.split("\n")) {
     const vari = parseTypesetLine(line);
+    if (vari.name === "") {
+      // TODO: automerge doesn't allow this
+      continue;
+    }
     result[vari.name] = vari;
   }
   return result;

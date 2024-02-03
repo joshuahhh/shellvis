@@ -177,14 +177,14 @@ export class Run {
             const callId = getNodeId(cmd);
 
             wrapStmt(parser, node, `{
-              local fr_stdout fr_stderr fr_ret >/dev/null;
+              local fr_stdout fr_stderr fr_vars_enter fr_vars_exit fr_ret >/dev/null;
               ${frMsgStr({
                 type: "call-enter",
                 nodeId: callId,
                 context: '$(fr_ctx_str)',
                 cwd: "$PWD"
               }, "fr_stdout fr_stderr fr_vars_enter fr_vars_exit")};
-              # echo "sh: got upload ids $fr_stdout $fr_stderr" 1>&2;
+              # echo "sh: got upload ids $fr_stdout $fr_stderr $fr_vars_enter $fr_vars_exit" >&$fr_top_stderr;
               fr-sandbox before-run ${this.sandbox!.deltaDir}
               fr_typeset | ${frUploadStr('$fr_vars_enter')};
               ___ 1>&1 1> >(${frUploadStr('$fr_stdout')}) 2>&2 2> >(${frUploadStr('$fr_stderr')});
@@ -351,7 +351,6 @@ export class Run {
         const deltaLogId = `${uploadId++}`;
 
         this.sh2frUploadHandlers[deltaLogId] = async (req, res) => {
-          console.log("fr: deltaLog upload handler called")
           // console.log("fr: deltaLog upload handler called");
           const deltaLog = (await readWholeStream(req)).toString();
           // console.log("fr: deltaLog upload handler got data", deltaLog);
@@ -392,7 +391,7 @@ export class Run {
 
     this.sh2frExpress.use('/', express.raw({ type: "*/*" }))
 
-    this.sh2frExpress.post('/', (req, res) => {
+    this.sh2frExpress.post('/', async (req, res) => {
       const dataString = req.body.toString();
       // TODO: this might be naive; a message might be split across events?
       const lines = dataString.trim().split("\n");
@@ -401,7 +400,7 @@ export class Run {
         try {
           const dataParsed = JSON.parse(line);
           this.messageLog.push(dataParsed);
-          const response = onMessage(dataParsed);
+          const response: string = await onMessage(dataParsed);
           res.send(response);
           this._scheduleWriteHtml();
           // console.log("sh2fr pipe data parsed", dataParsed)
@@ -436,10 +435,9 @@ export class Run {
       res.status(404).send(`404 not found`);
     });
 
-
     this.sh2frPort = 1234;
     this.sh2frServer = this.sh2frExpress.listen(this.sh2frPort, () => {
-      console.log(`Example app listening on port ${this.sh2frPort}`)
+      console.log(`sh2fr server listening on port ${this.sh2frPort}`)
     })
 
     this._scheduleWriteHtml();
