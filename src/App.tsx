@@ -1,12 +1,38 @@
-import { AutomergeUrl } from "@automerge/automerge-repo";
-import { useDocument } from "@automerge/automerge-repo-react-hooks"
+import { AutomergeUrl, Repo } from "@automerge/automerge-repo";
+import { RepoContext, useDocument } from "@automerge/automerge-repo-react-hooks"
 import { Session } from "../types.js";
 import { TraceV } from "./render.js";
 import { Trace } from "../execution.js";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { BrowserWebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 
+export function App() {
+  const repoRef = useRef<Repo>();
+  if (!repoRef.current) {
+    const networkAdapter = new BrowserWebSocketClientAdapter("ws://localhost:8080/automerge", 500);
+    repoRef.current = new Repo({ network: [ networkAdapter ] });
+  }
 
-export function App(props: { sessionAutomergeUrl: AutomergeUrl }) {
+  // TODO: should I do something smarter than polling here?
+  const [ sessionAutomergeUrl, setSessionAutomergeUrl ] = useState<string | null>(null);
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const sessionAutomergeUrlRequest = await fetch("http://localhost:8080/session-automerge-url");
+      const sessionAutomergeUrl = await sessionAutomergeUrlRequest.text();
+      setSessionAutomergeUrl(sessionAutomergeUrl);  // won't rerender if it's the same
+    }, 1000);
+  }, [])
+
+  if (!sessionAutomergeUrl) {
+    return <div>Loading... (no session URL)</div>
+  }
+
+  return <RepoContext.Provider value={repoRef.current}>
+    <AppWithSessionUrl sessionAutomergeUrl={sessionAutomergeUrl} />
+  </RepoContext.Provider>
+}
+
+export function AppWithSessionUrl(props: { sessionAutomergeUrl: AutomergeUrl }) {
   const { sessionAutomergeUrl } = props
   const [ session, changeSession ] = useDocument<Session>(sessionAutomergeUrl)
 

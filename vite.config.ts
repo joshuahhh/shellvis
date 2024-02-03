@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import wasm from "vite-plugin-wasm"
+import wasmModule from "vite-plugin-wasm"
+
+// TODO: types are strange
+const wasm = wasmModule as any as typeof wasmModule.default;
 
 export default defineConfig({
   plugins: [wasm(), react()],
@@ -25,7 +28,8 @@ export default defineConfig({
   },
 
   define: {
-    'process.env': process.env
+    'process.browser': true,
+    'process.env': process.env,
   },
 
   server: {

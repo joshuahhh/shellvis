@@ -6,10 +6,22 @@ import { BrowserWebSocketClientAdapter } from '@automerge/automerge-repo-network
 import { RepoContext } from '@automerge/automerge-repo-react-hooks'
 
 
-const repo = new Repo({
-  network: [
-    new BrowserWebSocketClientAdapter("ws://localhost:8080/automerge"),
-  ]
+ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+  <React.StrictMode>
+    <App/>
+  </React.StrictMode>
+)
+
+const networkAdapter = new BrowserWebSocketClientAdapter("ws://localhost:8080/automerge", 500);
+
+const repo = new Repo({ network: [ networkAdapter ] });
+
+networkAdapter.addListener("ready", () => {
+  console.log("networkAdapter ready");
+});
+
+networkAdapter.addListener("close", () => {
+  console.log("networkAdapter close");
 });
 
 (async () => {
@@ -17,11 +29,4 @@ const repo = new Repo({
   const sessionAutomergeUrl = await sessionAutomergeUrlRequest.text();
   console.log("sessionAutomergeUrl", sessionAutomergeUrl);
 
-  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-    <RepoContext.Provider value={repo}>
-      <React.StrictMode>
-        <App sessionAutomergeUrl={sessionAutomergeUrl as AutomergeUrl}/>
-      </React.StrictMode>
-    </RepoContext.Provider>
-  )
 })();

@@ -33,8 +33,10 @@ export const TraceV = memo((props: TraceVProps) => {
   }, [trace.scriptSrc]);
 
   const partMain = <div>
-    {script.lineTree.map((node) =>
-      renderLineTreeNode(script, trace, node, '')
+    {script.lineTree.map((node, i) =>
+      <Fragment key={i}>
+        {renderLineTreeNode(script, trace, node, '')}
+      </Fragment>
     )}
   </div>;
 
@@ -188,7 +190,7 @@ const LineV = memo((props: LineVProps) => {
     };
   });
   const decoratedLine = addDecorationsToLine(line, decorations);
-  return <div key={i} className="line">
+  return <div className="line">
     <div className="line__num">{i + 1}</div>
     <div className="line__contents">{decoratedLine}</div>
   </div>;
@@ -339,7 +341,11 @@ function renderLineTreeNode(script: Script, trace: Trace, node: LineTreeNode, co
             </div>
           </div>
         </div>
-        {node.children.map((child) => renderLineTreeNode(script, trace, child, `${context}/${forNodeId}-${iteration.counter}`))}
+        {node.children.map((child, i) =>
+          <Fragment key={i}>
+            {renderLineTreeNode(script, trace, child, `${context}/${forNodeId}-${iteration.counter}`)}
+          </Fragment>
+        )}
       </Fragment>;
     });
   }

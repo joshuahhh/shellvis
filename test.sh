@@ -1,4 +1,4 @@
-echo "what"
+echo "whaaat"
 
 # echo "yay"
 
