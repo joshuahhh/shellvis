@@ -1,0 +1,129 @@
+body {
+  background-color: #333;
+  color: white;
+  margin: 0px;
+  padding: 40px;
+  line-height: 20px;
+  font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+}
+
+.output-stderr {
+  color: red;
+}
+
+pre {
+  white-space: pre-wrap;
+  margin: 0px;
+  padding: 0px;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+}
+
+.row > * {
+  flex-grow: 1;
+  flex-basis: 0;
+}
+
+.line {
+  display: flex;
+  flex-direction: row;
+  font-size: 16px;
+  margin-bottom: 5px;
+}
+
+.line__num {
+  color: #999;
+  margin-right: 20px;
+  text-align: right;
+  min-width: 30px;
+  font-family: monospace;
+}
+
+.line__contents {
+  flex-grow: 1;
+  flex-basis: 0;
+  white-space: pre;
+  font-family: monospace;
+}
+
+.call {
+  display: inline-flex;
+  flex-direction: column;
+  background-color: rgba(120, 120, 120);
+  border-radius: 5px;
+  margin-bottom: 5px;
+}
+
+.call > .call__code > .call__code-background {
+  background-color: rgba(90, 90, 90);
+  border-radius: 5px 5px 0px 0px;
+  /* border: 2px solid #333; */
+}
+
+.call.call--no-info-sections > .call__code > .call__code-background {
+  border-radius: 5px;
+}
+
+.call.call--done-success > .call__code > .call__code-background {
+  background-color: rgba(60, 110, 60);
+}
+
+/* .call.call-done-success {
+  background-color: rgba(60, 110, 60);
+} */
+
+.call.call--done-failure > .call__code > .call__code-background {
+  background-color: rgba(220, 60, 60);
+}
+
+/* .call.call-done-failure {
+  background-color: rgba(220, 60, 60);
+} */
+
+.call.call--running {
+  margin-top: -3px;
+  border-top: 3px solid white;
+}
+
+.call__code {
+  position: relative;
+  background-color: #444;
+  border-radius: 5px;
+}
+
+.call__code-contents {
+  position: relative;
+  padding: 0px 10px;
+}
+
+.call__code-background {
+  position: absolute;
+  height: 24px;
+  width: 100%;
+}
+
+.call__info {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  max-height: 300px;
+  max-width: 500px;
+  overflow: auto;
+}
+
+.info-entry {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.info-entry__details {
+  opacity: 50%;
+}
+
+.shell-var-icon {
+  color: hsl(200,100%,60%);
+}

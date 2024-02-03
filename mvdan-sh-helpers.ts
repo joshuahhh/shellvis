@@ -1,6 +1,7 @@
 import sh from "mvdan-sh";
 import { type Node } from "mvdan-sh";
 import { isObject, rangeIncl } from "./util.js";
+import { weakMapCache } from "@engraft/shared/lib/cache.js";
 
 export type ParseError = {
   Error(): string,
@@ -10,11 +11,13 @@ export function isNode(maybeNode: any): maybeNode is Node {
   return maybeNode !== null && typeof maybeNode === 'object' && '__internal_object__' in maybeNode && 'Pos' in maybeNode && 'End' in maybeNode;
 }
 
-export function posStr(pos: sh.Pos): string {
+function posStr(pos: sh.Pos): string {
   return pos.Line() + '_' + pos.Col();
 }
 
-export function getNodeId(node: Node): string {
+// TODO: more slow Go stuff; idk
+export const getNodeId = weakMapCache(_getNodeId);
+function _getNodeId(node: Node): string {
   return sh.syntax.NodeType(node) + "_" + posStr(node.Pos()) + '_' + posStr(node.End());
 }
 

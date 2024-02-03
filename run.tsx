@@ -2,6 +2,7 @@
 import { dump } from "wtfnode";
 (global as any).dump = dump;
 
+import { RawString } from "@automerge/automerge/next";
 import { DocHandle } from "@automerge/automerge-repo";
 import express from "express";
 import sh from "mvdan-sh";
@@ -313,8 +314,8 @@ export class Run {
             stderr: { data: [], done: false },
             enterCwd: pathInSandbox(message.cwd, this.sandbox!),
             exitInfo: null,
-            varsEnter: null,
-            varsExit: null,
+            varsEnterStr: null,
+            varsExitStr: null,
           }
         });
 
@@ -332,24 +333,26 @@ export class Run {
         );
 
         this.sh2frUploadHandlers[varsEnterUploadId] = async (req, res) => {
-          const varsEnterStr = (await readWholeStream(req)).toString();
-          const varsEnter = parseTypeset(varsEnterStr);
+          const varsEnterTypeset = (await readWholeStream(req)).toString();
+          const varsEnter = parseTypeset(varsEnterTypeset);
+          const varsEnterStr = JSON.stringify(varsEnter);
           this.traceDoc.change((trace) => {
             const execInfo = trace.execInfos[execId];
-            execInfo.varsEnter = varsEnter;
+            execInfo.varsEnterStr = new RawString(varsEnterStr);
           });
           this._scheduleWriteHtml();
           res.end();
         };
 
         this.sh2frUploadHandlers[varsExitUploadId] = async (req, res) => {
-          const varsExitStr = (await readWholeStream(req)).toString();
-          const varsExit = parseTypeset(varsExitStr);
+          const varsExitTypeset = (await readWholeStream(req)).toString();
+          const varsExit = parseTypeset(varsExitTypeset);
+          const varsExitStr = JSON.stringify(varsExit);
           const trace = await this.traceDoc.doc();
           if (!trace) { throw new Error("trace not found"); }
           this.traceDoc.change((trace) => {
             const execInfo = trace.execInfos[execId];
-            execInfo.varsExit = varsExit;
+            execInfo.varsExitStr = new RawString(varsExitStr);
           });
           this._scheduleWriteHtml();
           res.end();
@@ -485,10 +488,10 @@ export class Run {
 
   async _writeHtml() {
     if (this.wsHtmlServer.clients.size === 0) {
-      console.log("no html clients, not writing html");
+      // console.log("no html clients, not writing html");
       return;
     }
-    console.log("html client, writing html");
+    // console.log("html client, writing html");
     const trace = await this.traceDoc.doc();
     if (!trace) { throw new Error("trace not found"); }
 

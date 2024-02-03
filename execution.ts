@@ -1,5 +1,6 @@
 import { Message } from "./tracing.js";
 import { ShellVar, ShellVarChange } from "./typeset.js";
+import { RawString } from "@automerge/automerge/next"
 
 export function mkExecId(context: string, nodeId: string): string {
   return `${context}/${nodeId}`;
@@ -19,8 +20,8 @@ export type ExecInfo = {
     cwd: string,
     deltaLog: DeltaLogEntry[],
   } | null,
-  varsEnter: Record<string, ShellVar> | null,
-  varsExit: Record<string, ShellVar> | null,  // TODO: put in exitInfo? idk
+  varsEnterStr: RawString | null,
+  varsExitStr: RawString | null,  // TODO: put in exitInfo? idk
 }
 
 export type PipeProgress = {

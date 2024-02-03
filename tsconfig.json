@@ -21,7 +21,6 @@
     "noEmit": true,
     "declaration": true,
     "declarationMap": true,
-    "incremental": true,
-    "types": ["node-util"]
+    "incremental": true
   }
 }

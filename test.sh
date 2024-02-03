@@ -1,4 +1,4 @@
-# echo "what"
+echo "what"
 
 # echo "yay"
 
@@ -122,7 +122,7 @@ false
 
 ls
 
-ls | rev
+ls | rev | rev
 
 
 echo "#2" | rev
