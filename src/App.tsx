@@ -21,6 +21,7 @@ export function App() {
       const sessionAutomergeUrl = await sessionAutomergeUrlRequest.text() as AutomergeUrl;
       setSessionAutomergeUrl(sessionAutomergeUrl);  // won't rerender if it's the same
     }, 1000);
+    return () => clearInterval(interval);
   }, [])
 
   if (!sessionAutomergeUrl) {
