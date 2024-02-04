@@ -159,6 +159,7 @@ export class Run {
       exitCode: null,
       startTime: null,
       transformedSrc: null,
+      parseError: null,
     })
   }
 
@@ -170,8 +171,10 @@ export class Run {
     try {
       this.script = new Script(parser, this.scriptSrc);
     } catch (e) {
-      console.error("error parsing script", e);
-      process.exit(1);  // TODO: report problem intelligently
+      this.traceDoc.change((trace) => {
+        trace.parseError = (e as any).toString();
+      });
+      return;
     }
 
     // transform

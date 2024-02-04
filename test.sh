@@ -1,3 +1,12 @@
+i=0
+j=1
+
+for n in {1..10}; do
+  j=$((i + j))
+  i=$((j - i))
+done
+
+
 echo "whaaat"
 
 # echo "yay"

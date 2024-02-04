@@ -14,11 +14,11 @@ export function App() {
   }
 
   // TODO: should I do something smarter than polling here?
-  const [ sessionAutomergeUrl, setSessionAutomergeUrl ] = useState<string | null>(null);
+  const [ sessionAutomergeUrl, setSessionAutomergeUrl ] = useState<AutomergeUrl | null>(null);
   useEffect(() => {
     const interval = setInterval(async () => {
       const sessionAutomergeUrlRequest = await fetch("http://localhost:8080/session-automerge-url");
-      const sessionAutomergeUrl = await sessionAutomergeUrlRequest.text();
+      const sessionAutomergeUrl = await sessionAutomergeUrlRequest.text() as AutomergeUrl;
       setSessionAutomergeUrl(sessionAutomergeUrl);  // won't rerender if it's the same
     }, 1000);
   }, [])

@@ -29,8 +29,20 @@ export const TraceV = memo((props: TraceVProps) => {
   const {trace, optionalScript} = props;
 
   const script = useMemo(() => {
-    return optionalScript || new Script(parser, trace.scriptSrc);
+    // TODO ugly ugly
+    try {
+      return optionalScript || new Script(parser, trace.scriptSrc);
+    } catch (e) {
+      return new Script(parser, '');
+    }
   }, [trace.scriptSrc]);
+
+  if (trace.parseError) {
+    return <div>
+      <h1>parse error</h1>
+      <pre>{trace.parseError}</pre>
+    </div>;
+  }
 
   const partMain = <div>
     {script.lineTree.map((node, i) =>

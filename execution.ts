@@ -56,8 +56,9 @@ export type Trace = {
   scriptSrc: string,
   execInfos: Record<string, ExecInfo>,
   forInfos: Record<string, ForInfo>,
-  startTime: Date | null;
-  messageLog: Message[];
-  exitCode: number | null;
-  transformedSrc: string | null;
+  startTime: Date | null,
+  messageLog: Message[],
+  exitCode: number | null,
+  transformedSrc: string | null,
+  parseError: string | null,
 }
