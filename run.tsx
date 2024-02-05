@@ -257,7 +257,10 @@ export class Run {
 
     this.transformedSrc = [frPreludeSrc, printer.Print(transformedAst)].join("\n\n");
 
-    await fs.writeFile("transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
+    if (true) {
+      await fs.mkdir("_debug", { recursive: true });
+      await fs.writeFile("_debug/transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
+    }
 
     try {
       this.transformedSrc = fsOld.readFileSync("transformedOverride.sh", { encoding: 'utf-8' });
