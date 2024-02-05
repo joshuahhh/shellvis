@@ -208,33 +208,43 @@ function renderLineTreeNode(script: Script, trace: Trace, node: LineTreeNode, co
   if (node.type === 'line') {
     return <LineV script={script} trace={trace} line={node.line} i={node.lineNumStart - 1} context={context}/>;
   } else if (node.type === 'loop-body') {
-    const forClause = node.forClause;
-    const forNodeId = getNodeId(forClause);
-    const forInfo = trace.forInfos[mkExecId(context, forNodeId)];
-    const iterations = forInfo?.iterations || [];
-    const varName = (forClause.Loop as sh.WordIter).Name!.Value;
-    const forLine = script.lines[forClause.Pos().Line() - 1];
-    const forIndent = forLine.match(/^\s*/)?.[0] || '';
-    return iterations.map((iteration) => {
-      return <Fragment key={iteration.counter}>
-        <div className="line">
-          <div className="line__num"/>
-          <div className="line__contents">
-            <div className="for-loop-var">
-              {forIndent}
-              <span style={{fontSize: "80%", fontWeight: 'bold', backgroundColor: '#ccc', color: '#444', padding: '0px 5px'}}>{varName} = {iteration.loopVarValue}</span>
-            </div>
-          </div>
-        </div>
-        {node.children.map((child, i) =>
-          <Fragment key={i}>
-            {renderLineTreeNode(script, trace, child, `${context}/${forNodeId}-${iteration.counter}`)}
-          </Fragment>
-        )}
-      </Fragment>;
-    });
+    return <LoopBodyV node={node} script={script} trace={trace} context={context} />;
   }
 }
+
+const LoopBodyV = memo((props: {
+  node: LineTreeNode & { type: 'loop-body' },
+  script: Script,
+  trace: Trace,
+  context: string,
+}) => {
+  const { node, script, trace, context } = props;
+  const forClause = node.forClause;
+  const forNodeId = getNodeId(forClause);
+  const forInfo = trace.forInfos[mkExecId(context, forNodeId)];
+  const iterations = forInfo?.iterations || [];
+  const varName = (forClause.Loop as sh.WordIter).Name!.Value;
+  const forLine = script.lines[forClause.Pos().Line() - 1];
+  const forIndent = forLine.match(/^\s*/)?.[0] || '';
+  return iterations.map((iteration) => {
+    return <Fragment key={iteration.counter}>
+      <div className="line">
+        <div className="line__num"/>
+        <div className="line__contents">
+          <div className="for-loop-var">
+            {forIndent}
+            <span style={{fontSize: "80%", fontWeight: 'bold', backgroundColor: '#ccc', color: '#444', padding: '0px 5px'}}>{varName} = {iteration.loopVarValue}</span>
+          </div>
+        </div>
+      </div>
+      {node.children.map((child, i) =>
+        <Fragment key={i}>
+          {renderLineTreeNode(script, trace, child, `${context}/${forNodeId}-${iteration.counter}`)}
+        </Fragment>
+      )}
+    </Fragment>;
+  });
+});
 
 function inspectHtml(value: any) {
   return <pre dangerouslySetInnerHTML={{ __html:
