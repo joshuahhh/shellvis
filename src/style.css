@@ -162,6 +162,7 @@ pre {
 
 .for-loop-iteration-header__slider {
   margin: 0px 15px;
+  padding: 0px;
 }
 
 .line.line--dead {

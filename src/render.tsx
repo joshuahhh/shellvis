@@ -271,16 +271,16 @@ const LoopBodyV = memo((props: {
           <div className="line__num"/>
           <div className="line__contents">
             <div className="for-loop-iteration-header">
-              <span>{forIndent}</span>
-              <span className="for-loop-iteration-header__label">
+              <div>{forIndent}</div>
+              <div className="for-loop-iteration-header__label">
                 {varName} = {iteration.loopVarValue}
-              </span>
-              <span
+              </div>
+              <div
                 className="for-loop-iteration-header__expand-toggle"
                 onClick={() => setViewState({ collapsedOn: iterationIdx })}
               >
                 <octicons.FoldIcon/>
-              </span>
+              </div>
             </div>
           </div>
         </div>
@@ -299,11 +299,11 @@ const LoopBodyV = memo((props: {
         <div className="line__num"/>
         <div className="line__contents">
           <div className="for-loop-iteration-header">
-            <span>{forIndent}</span>
+            <div>{forIndent}</div>
             <LockSize lock={sliderIsDragging}>
-              <span className="for-loop-iteration-header__label">
+              <div className="for-loop-iteration-header__label">
                 {varName} = {iteration.loopVarValue}
-              </span>
+              </div>
             </LockSize>
             <Slider
               className="for-loop-iteration-header__slider"
@@ -320,15 +320,15 @@ const LoopBodyV = memo((props: {
               onMouseDown={() => { setSliderIsDragging(true); }}
               onChangeCommitted={() => { setSliderIsDragging(false); }}
             />
-            <span>
+            <div>
               {viewState.collapsedOn + 1} / {iterations.length}
-            </span>
-            <span
+            </div>
+            <div
               className="for-loop-iteration-header__expand-toggle"
               onClick={() => setViewState('expanded')}
             >
               <octicons.UnfoldIcon/>
-            </span>
+            </div>
           </div>
         </div>
       </div>
