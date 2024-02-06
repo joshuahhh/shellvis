@@ -249,10 +249,10 @@ const LoopBodyV = memo((props: {
         <div className="line__num"/>
         <div className="line__contents">
           <div className="for-loop-iteration-header">
-            <span>{forIndent}</span>
-            <span className="for-loop-iteration-header__label">
+            <div>{forIndent}</div>
+            <div className="for-loop-iteration-header__label">
               no iterations
-            </span>
+            </div>
           </div>
         </div>
       </div>
@@ -265,32 +265,41 @@ const LoopBodyV = memo((props: {
   }
 
   if (viewState === 'expanded') {
-    return iterations.map((iteration, iterationIdx) => {
-      return <Fragment key={iteration.counter}>
-        <div className="line">
-          <div className="line__num"/>
-          <div className="line__contents">
-            <div className="for-loop-iteration-header">
-              <div>{forIndent}</div>
-              <div className="for-loop-iteration-header__label">
-                {varName} = {iteration.loopVarValue}
-              </div>
-              <div
-                className="for-loop-iteration-header__expand-toggle"
-                onClick={() => setViewState({ collapsedOn: iterationIdx })}
-              >
-                <octicons.FoldIcon/>
+    return <div
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        gap: 30,
+        overflowX: 'auto',
+      }}
+    >
+      {iterations.map((iteration, iterationIdx) =>
+        <div key={iteration.counter}>
+          <div className="line">
+            <div className="line__num"/>
+            <div className="line__contents">
+              <div className="for-loop-iteration-header">
+                <div>{forIndent}</div>
+                <div className="for-loop-iteration-header__label">
+                  {varName} = {iteration.loopVarValue}
+                </div>
+                <div
+                  className="for-loop-iteration-header__expand-toggle"
+                  onClick={() => setViewState({ collapsedOn: iterationIdx })}
+                >
+                  <octicons.FoldIcon/>
+                </div>
               </div>
             </div>
           </div>
+          {node.children.map((child, i) =>
+            <Fragment key={i}>
+              {renderLineTreeNode(script, trace, child, `${context}/${forNodeId}-${iteration.counter}`)}
+            </Fragment>
+          )}
         </div>
-        {node.children.map((child, i) =>
-          <Fragment key={i}>
-            {renderLineTreeNode(script, trace, child, `${context}/${forNodeId}-${iteration.counter}`)}
-          </Fragment>
-        )}
-      </Fragment>;
-    });
+      )}
+    </div>;
   } else {
     const iteration = iterations[viewState.collapsedOn];
 
