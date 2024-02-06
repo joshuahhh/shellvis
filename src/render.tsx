@@ -1,15 +1,16 @@
 import { weakMapCache } from "@engraft/shared/lib/cache.js";
-import * as octicons from "@primer/octicons-react";
 import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
-import React, { Fragment, memo, useMemo } from "react";
+import React, { Fragment, memo, useCallback, useMemo } from "react";
 import * as util from "util";
 import { Decoration, addDecorationsToLine } from "../decorations.js";
-import { Trace, mkExecId } from "../execution.js";
+import { Iteration, Trace, mkExecId } from "../execution.js";
 import { LineTreeNode, Script, expandObject, getNodeId } from "../mvdan-sh-helpers.js";
 import { Message } from "../tracing.js";
 import { CallV } from "./CallV.js";
 import styleCss from "./style.css?inline";
+import * as octicons from "@primer/octicons-react";
+import { Slider } from '@mui/material';
 
 
 const ansiToHtml = new AnsiToHtml({});
@@ -190,6 +191,7 @@ const LineV = memo((props: LineVProps) => {
       end: nodePosInfo(callExpr).end.col - 1,
       decorator: (contents) =>
         <CallV
+          key={getNodeId(callExpr)}
           contents={contents}
           callExpr={callExpr}
           context={context}
@@ -212,6 +214,22 @@ function renderLineTreeNode(script: Script, trace: Trace, node: LineTreeNode, co
   }
 }
 
+function renderDeadTreeLineNode(script: Script, node: LineTreeNode): React.ReactNode {
+  if (node.type === 'line') {
+    // TODO: duplication from LineV
+    return <div className="line line--dead">
+      <div className="line__num">{node.lineNumStart}</div>
+      <div className="line__contents">{node.line}</div>
+    </div>;
+  } else if (node.type === 'loop-body') {
+    return node.children.map((child, i) =>
+      <Fragment key={i}>
+        {renderDeadTreeLineNode(script, child)}
+      </Fragment>
+    );
+  }
+}
+
 const LoopBodyV = memo((props: {
   node: LineTreeNode & { type: 'loop-body' },
   script: Script,
@@ -225,15 +243,84 @@ const LoopBodyV = memo((props: {
   const iterations = forInfo?.iterations || [];
   const varName = (forClause.Loop as sh.WordIter).Name!.Value;
   const forLine = script.lines[forClause.Pos().Line() - 1];
-  const forIndent = forLine.match(/^\s*/)?.[0] || '';
-  return iterations.map((iteration) => {
-    return <Fragment key={iteration.counter}>
+  const forIndent = (forLine.match(/^\s*/)?.[0] || '') + ' ';
+
+  const [ viewState, setViewState ] = React.useState<'expanded' | { collapsedOn: number }>({ collapsedOn: 0 });
+
+  if (iterations.length === 0) {
+    return <>
       <div className="line">
         <div className="line__num"/>
         <div className="line__contents">
-          <div className="for-loop-var">
-            {forIndent}
-            <span style={{fontSize: "80%", fontWeight: 'bold', backgroundColor: '#ccc', color: '#444', padding: '0px 5px'}}>{varName} = {iteration.loopVarValue}</span>
+          <div className="for-loop-iteration-header">
+            <span>{forIndent}</span>
+            <span className="for-loop-iteration-header__label">
+              no iterations
+            </span>
+          </div>
+        </div>
+      </div>
+      {node.children.map((child, i) =>
+        <Fragment key={i}>
+          {renderDeadTreeLineNode(script, child)}
+        </Fragment>
+      )}
+    </>;
+  }
+
+  if (viewState === 'expanded') {
+    return iterations.map((iteration, iterationIdx) => {
+      return <Fragment key={iteration.counter}>
+        <div className="line">
+          <div className="line__num"/>
+          <div className="line__contents">
+            <div className="for-loop-iteration-header">
+              <span>{forIndent}</span>
+              <span className="for-loop-iteration-header__label">
+                {varName} = {iteration.loopVarValue}
+              </span>
+              <span
+                className="for-loop-iteration-header__expand-toggle"
+                onClick={() => setViewState({ collapsedOn: iterationIdx })}
+              >
+                <octicons.FoldIcon/>
+              </span>
+            </div>
+          </div>
+        </div>
+        {node.children.map((child, i) =>
+          <Fragment key={i}>
+            {renderLineTreeNode(script, trace, child, `${context}/${forNodeId}-${iteration.counter}`)}
+          </Fragment>
+        )}
+      </Fragment>;
+    });
+  } else {
+    const iteration = iterations[viewState.collapsedOn];
+
+    return <>
+      <div className="line">
+        <div className="line__num"/>
+        <div className="line__contents">
+          <div className="for-loop-iteration-header">
+            <span>{forIndent}</span>
+            <span className="for-loop-iteration-header__label">
+              {varName} = {iteration.loopVarValue}
+            </span>
+            <IterationSliderV
+              iterations={iterations}
+              viewState={viewState}
+              setViewState={setViewState}
+            />
+            <span>
+              {viewState.collapsedOn + 1} / {iterations.length}
+            </span>
+            <span
+              className="for-loop-iteration-header__expand-toggle"
+              onClick={() => setViewState('expanded')}
+            >
+              <octicons.UnfoldIcon/>
+            </span>
           </div>
         </div>
       </div>
@@ -242,8 +329,60 @@ const LoopBodyV = memo((props: {
           {renderLineTreeNode(script, trace, child, `${context}/${forNodeId}-${iteration.counter}`)}
         </Fragment>
       )}
-    </Fragment>;
-  });
+    </>;
+  }
+});
+
+const IterationSliderV = memo((props: {
+  iterations: Iteration[],
+  viewState: { collapsedOn: number },
+  setViewState: (newState: { collapsedOn: number }) => void,
+}) => {
+  const { iterations, viewState, setViewState } = props;
+
+  const [ sliderStabilization, setSliderStabilization ] = React.useState<React.CSSProperties | null>(null);
+  const [ wrapperStabilization, setWrapperStabilization ] = React.useState<React.CSSProperties | null>(null);
+
+  return <>
+    <div style={{display: 'flex', ...wrapperStabilization}}>
+      <Slider
+        className="for-loop-iteration-header__slider"
+        size="small"
+        min={0} max={iterations.length - 1} step={1}
+        value={viewState.collapsedOn}
+        onChange={(_, newValue) =>
+          setViewState({ collapsedOn: newValue as number })
+        }
+        marks={iterations.length < 30}
+        style={{
+          ...sliderStabilization,
+          width: Math.min(Math.max(10 * iterations.length, 15), 200)
+        }}
+        onMouseDown={(e) => {
+          const elem = e.currentTarget as HTMLElement;
+          const wrapper = elem.parentElement!;
+          setWrapperStabilization({
+            width: wrapper.offsetWidth,
+            height: wrapper.offsetHeight,
+          });
+          const elemRect = elem.getBoundingClientRect();
+          const header = elem.closest('.for-loop-iteration-header') as HTMLElement;
+          const headerRect = header.getBoundingClientRect();
+          setSliderStabilization({
+            left: elemRect.left - headerRect.left,
+            top: elemRect.top - headerRect.top,
+            position: 'absolute',
+            zIndex: 1000,
+            margin: 0,
+          });
+        }}
+        onChangeCommitted={(e) => {
+          setSliderStabilization(null);
+          setWrapperStabilization(null);
+        }}
+      />
+    </div>
+  </>;
 });
 
 function inspectHtml(value: any) {

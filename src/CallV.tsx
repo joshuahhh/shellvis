@@ -1,12 +1,18 @@
 import { RawString } from "@automerge/automerge/next";
+import { weakMapCache } from "@engraft/shared/lib/cache.js";
 import * as octicons from "@primer/octicons-react";
+import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
 import path from "path-browserify";
-import React, { memo } from "react";
+import React, { Fragment, memo, useMemo } from "react";
+import * as util from "util";
+import { Decoration, addDecorationsToLine } from "../decorations.js";
 import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "../execution.js";
-import { getNodeId } from "../mvdan-sh-helpers.js";
+import { LineTreeNode, Script, expandObject, getNodeId } from "../mvdan-sh-helpers.js";
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from "../typeset.js";
 import { weakMapCache2 } from "../util.js";
+import styleCss from "./style.css?inline";
+import { Message } from "../tracing.js";
 
 const { ChevronRightIcon, DiffAddedIcon, DiffIgnoredIcon, DiffModifiedIcon, DiffRemovedIcon, FileSubmoduleIcon, SignOutIcon } = octicons;
 

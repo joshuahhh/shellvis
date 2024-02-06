@@ -1,3 +1,10 @@
+html {
+  box-sizing: border-box;
+}
+*, *:before, *:after {
+  box-sizing: inherit;
+}
+
 body {
   background-color: #333;
   color: white;
@@ -126,4 +133,37 @@ pre {
 
 .shell-var-icon {
   color: hsl(200,100%,60%);
+}
+
+.for-loop-iteration-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  position: relative;  /* for slider stabilization */
+}
+
+.for-loop-iteration-header__label {
+  font-size: 80%;
+  font-weight: bold;
+  background-color: #ccc;
+  color: #444;
+  padding: 0px 5px;
+}
+
+.for-loop-iteration-header__expand-toggle {
+  visibility: hidden;
+  cursor: pointer;
+  padding: 0px 5px;
+}
+
+.for-loop-iteration-header:hover .for-loop-iteration-header__expand-toggle {
+  visibility: visible;
+}
+
+.for-loop-iteration-header__slider {
+  margin: 0px 15px;
+}
+
+.line.line--dead {
+  color: #777;
 }

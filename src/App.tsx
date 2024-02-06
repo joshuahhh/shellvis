@@ -16,16 +16,18 @@ export function App() {
   // TODO: should I do something smarter than polling here?
   const [ sessionAutomergeUrl, setSessionAutomergeUrl ] = useState<AutomergeUrl | null>(null);
   useEffect(() => {
-    const interval = setInterval(async () => {
+    async function check() {
       const sessionAutomergeUrlRequest = await fetch("http://localhost:8080/session-automerge-url");
       const sessionAutomergeUrl = await sessionAutomergeUrlRequest.text() as AutomergeUrl;
       setSessionAutomergeUrl(sessionAutomergeUrl);  // won't rerender if it's the same
-    }, 1000);
+    }
+    const interval = setInterval(check, 1000);
+    check();
     return () => clearInterval(interval);
-  }, [])
+  }, []);
 
   if (!sessionAutomergeUrl) {
-    return <div>Loading... (no session URL)</div>
+    return <div>Loading session document URL from server...</div>
   }
 
   return <RepoContext.Provider value={repoRef.current}>
@@ -35,13 +37,13 @@ export function App() {
 
 export function AppWithSessionUrl(props: { sessionAutomergeUrl: AutomergeUrl }) {
   const { sessionAutomergeUrl } = props
-  const [ session, changeSession ] = useDocument<Session>(sessionAutomergeUrl)
+  const [ session ] = useDocument<Session>(sessionAutomergeUrl)
 
   if (!session) {
-    return <div>Loading... (no session)</div>
+    return <div>Loading session document from Automerge...</div>
   }
   if (!session.traceAutomergeUrl) {
-    return <div>Loading... (no trace URL)</div>
+    return <div>Session document lacks a traceAutomergeUrl!</div>
   }
 
   return <AppWithTraceAutomergeUrl traceAutomergeUrl={session.traceAutomergeUrl} />
@@ -49,7 +51,7 @@ export function AppWithSessionUrl(props: { sessionAutomergeUrl: AutomergeUrl }) 
 
 function AppWithTraceAutomergeUrl(props: { traceAutomergeUrl: AutomergeUrl }) {
   const { traceAutomergeUrl } = props
-  const [ trace, changeTrace ] = useDocument<Trace>(traceAutomergeUrl)
+  const [ trace ] = useDocument<Trace>(traceAutomergeUrl)
 
   const oldTraceRef = useRef<Trace>();
   if (trace) {
@@ -57,7 +59,7 @@ function AppWithTraceAutomergeUrl(props: { traceAutomergeUrl: AutomergeUrl }) {
   }
 
   if (!oldTraceRef.current) {
-    return <div>Loading... (no trace)</div>
+    return <div>Loading trace document from Automerge...</div>
   }
 
   return <>
@@ -65,7 +67,7 @@ function AppWithTraceAutomergeUrl(props: { traceAutomergeUrl: AutomergeUrl }) {
     { !trace &&
       // full-screen loading spinner
       <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start'}}>
-        <div style={{fontSize: '100%'}}>Loading...</div>
+        <div style={{fontSize: '100%'}}>Loading trace...</div>
       </div>
     }
   </>;

@@ -1,9 +1,32 @@
+n=1
+while [ $n -le 100 ]; do
+  n=$(( n * 2 ))
+done
+
+empty=()
+for n in $empty; do
+  echo "n=$n"
+done
+
+for n in "hi"; do
+  echo "n=$n"
+done
+
 i=0
 j=1
 
 for n in {1..10}; do
   j=$((i + j))
   i=$((j - i))
+done
+
+for n in {1..100}; do
+  echo "n=$n"
+done
+
+
+for n in *; do
+  echo "n=$n"
 done
 
 
