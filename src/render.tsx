@@ -1,7 +1,7 @@
 import { weakMapCache } from "@engraft/shared/lib/cache.js";
 import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
-import React, { Fragment, memo, useCallback, useMemo } from "react";
+import React, { Fragment, memo, useCallback, useEffect, useMemo } from "react";
 import * as util from "util";
 import { Decoration, addDecorationsToLine } from "../decorations.js";
 import { Iteration, Trace, mkExecId } from "../execution.js";
@@ -241,6 +241,8 @@ const LoopBodyV = memo((props: {
 
   const [ viewState, setViewState ] = React.useState<'expanded' | { collapsedOn: number }>({ collapsedOn: 0 });
 
+  const [ sliderIsDragging, setSliderIsDragging ] = React.useState(false);
+
   if (iterations.length === 0) {
     return <>
       <div className="line">
@@ -298,13 +300,25 @@ const LoopBodyV = memo((props: {
         <div className="line__contents">
           <div className="for-loop-iteration-header">
             <span>{forIndent}</span>
-            <span className="for-loop-iteration-header__label">
-              {varName} = {iteration.loopVarValue}
-            </span>
-            <IterationSliderV
-              iterations={iterations}
-              viewState={viewState}
-              setViewState={setViewState}
+            <LockSize lock={sliderIsDragging}>
+              <span className="for-loop-iteration-header__label">
+                {varName} = {iteration.loopVarValue}
+              </span>
+            </LockSize>
+            <Slider
+              className="for-loop-iteration-header__slider"
+              size="small"
+              min={0} max={iterations.length - 1} step={1}
+              value={viewState.collapsedOn}
+              onChange={(_, newValue) =>
+                setViewState({ collapsedOn: newValue as number })
+              }
+              marks={iterations.length < 30}
+              style={{
+                width: Math.min(Math.max(10 * iterations.length, 0), 200),
+              }}
+              onMouseDown={() => { setSliderIsDragging(true); }}
+              onChangeCommitted={() => { setSliderIsDragging(false); }}
             />
             <span>
               {viewState.collapsedOn + 1} / {iterations.length}
@@ -327,56 +341,27 @@ const LoopBodyV = memo((props: {
   }
 });
 
-const IterationSliderV = memo((props: {
-  iterations: Iteration[],
-  viewState: { collapsedOn: number },
-  setViewState: (newState: { collapsedOn: number }) => void,
+const LockSize = memo((props: {
+  children: React.ReactNode,
+  lock: boolean
 }) => {
-  const { iterations, viewState, setViewState } = props;
+  const { children, lock } = props;
+  const [ wrapper, setWrapper ] = React.useState<HTMLElement | null>(null);
+  const [ wrapperStyle, setWrapperStyle ] = React.useState<React.CSSProperties | null>(null);
 
-  const [ sliderStabilization, setSliderStabilization ] = React.useState<React.CSSProperties | null>(null);
-  const [ wrapperStabilization, setWrapperStabilization ] = React.useState<React.CSSProperties | null>(null);
+  useEffect(() => {
+    if (!wrapper) { return; }
+    if (lock) {
+      const { width, height } = wrapper.getBoundingClientRect();
+      setWrapperStyle({ width, height });
+    } else {
+      setWrapperStyle(null);
+    }
+  }, [wrapper, lock]);
 
-  return <>
-    <div style={{display: 'flex', ...wrapperStabilization}}>
-      <Slider
-        className="for-loop-iteration-header__slider"
-        size="small"
-        min={0} max={iterations.length - 1} step={1}
-        value={viewState.collapsedOn}
-        onChange={(_, newValue) =>
-          setViewState({ collapsedOn: newValue as number })
-        }
-        marks={iterations.length < 30}
-        style={{
-          ...sliderStabilization,
-          width: Math.min(Math.max(10 * iterations.length, 0), 200)
-        }}
-        onMouseDown={(e) => {
-          const elem = e.currentTarget as HTMLElement;
-          const wrapper = elem.parentElement!;
-          setWrapperStabilization({
-            width: wrapper.offsetWidth,
-            height: wrapper.offsetHeight,
-          });
-          const elemRect = elem.getBoundingClientRect();
-          const header = elem.closest('.for-loop-iteration-header') as HTMLElement;
-          const headerRect = header.getBoundingClientRect();
-          setSliderStabilization({
-            left: elemRect.left - headerRect.left,
-            top: elemRect.top - headerRect.top,
-            position: 'absolute',
-            zIndex: 1000,
-            margin: 0,
-          });
-        }}
-        onChangeCommitted={(e) => {
-          setSliderStabilization(null);
-          setWrapperStabilization(null);
-        }}
-      />
-    </div>
-  </>;
+  return <div style={{...wrapperStyle}} ref={setWrapper}>
+    {children}
+  </div>;
 });
 
 function inspectHtml(value: any) {
