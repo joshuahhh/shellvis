@@ -10,6 +10,44 @@ import { Message } from "../tracing.js";
 import { CallV } from "./CallV.js";
 import * as octicons from "@primer/octicons-react";
 import { Slider } from '@mui/material';
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { HVContext, defaultHVContext } from "./HVContext.js";
+
+type TraceViewerVProps = {
+  trace: Trace,
+  optionalScript?: Script,
+}
+
+export const TraceViewerV = memo((props: TraceViewerVProps) => {
+  const [ hvContext, setHVContext ] = React.useState<HVContext>(defaultHVContext);
+
+  return <HVContext.Provider value={hvContext}>
+    <TraceV {...props} />
+    <div style={{
+      position: 'fixed', bottom: 20, right: 20,
+      display: 'flex', flexDirection: 'column', gap: 5,
+    }}>
+      <label>
+        <input
+          type="checkbox"
+          checked={hvContext.showCallDetails}
+          onChange={(e) => setHVContext((hvContext) => ({ ...hvContext, showCallDetails: e.target.checked }))}
+          style={{marginRight: 10}}
+        />
+        Show call details
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={hvContext.showMessages}
+          onChange={(e) => setHVContext((hvContext) => ({ ...hvContext, showMessages: e.target.checked }))}
+          style={{marginRight: 10}}
+        />
+        Show messages
+      </label>
+    </div>
+  </HVContext.Provider>;
+});
 
 
 const ansiToHtml = new AnsiToHtml({});
@@ -21,7 +59,7 @@ type TraceVProps = {
 
 const parser = sh.syntax.NewParser();
 
-export const TraceV = memo((props: TraceVProps) => {
+const TraceV = memo((props: TraceVProps) => {
   const {trace, optionalScript} = props;
 
   const script = useMemo(() => {
@@ -118,21 +156,23 @@ export const TraceV = memo((props: TraceVProps) => {
     </dl>
   </div>;
 
+  const { showMessages } = React.useContext(HVContext);
+
   return <>
     <div style={{fontSize: "80%", marginBottom: 10}}>
       {/* <div>started @ {this.startTime?.toLocaleTimeString()}</div> */}
       {/* <div>updated @ {new Date().toLocaleTimeString()}</div> */}
     </div>
 
-    {true && partMain}
+    {partMain}
 
-    <div className="row" style={{marginTop: 1000}}></div>
+    <div className="row" style={{marginTop: 30}}></div>
 
+    {showMessages && partMessages()}
     {false && partTransformed()}
     {false && partAST()}
-    {true && partMessages()}
     {false && partExecInfo()}
-    {true && partForInfo()}
+    {false && partForInfo()}
   </>;
 });
 
@@ -237,9 +277,10 @@ const LoopBodyV = memo((props: {
   const iterations = forInfo?.iterations || [];
   const varName = (forClause.Loop as sh.WordIter).Name!.Value;
   const forLine = script.lines[forClause.Pos().Line() - 1];
-  const forIndent = (forLine.match(/^\s*/)?.[0] || '') + ' ';
+  const forIndent = (forLine.match(/^\s*/)?.[0] || '  ');
 
-  const [ viewState, setViewState ] = React.useState<'expanded' | { collapsedOn: number }>({ collapsedOn: 0 });
+  let [ viewState, setViewState ] = React.useState<'expanded' | { collapsedOn: number }>({ collapsedOn: 0 });
+  const [ orientation, setOrientation ] = React.useState<'horizontal' | 'vertical'>('vertical');
 
   const [ sliderIsDragging, setSliderIsDragging ] = React.useState(false);
 
@@ -268,8 +309,8 @@ const LoopBodyV = memo((props: {
     return <div
       style={{
         display: 'flex',
-        flexDirection: 'row',
-        gap: 30,
+        flexDirection: orientation === 'horizontal' ? 'row' : 'column',
+        ...orientation === 'horizontal' && {gap: 30},
         overflowX: 'auto',
       }}
     >
@@ -283,11 +324,29 @@ const LoopBodyV = memo((props: {
                 <div className="for-loop-iteration-header__label">
                   {varName} = {iteration.loopVarValue}
                 </div>
+                <div style={{width: 10}}/>
                 <div
                   className="for-loop-iteration-header__expand-toggle"
                   onClick={() => setViewState({ collapsedOn: iterationIdx })}
+                  style={{
+                    transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
+                    transition: "transform 0.2s",
+                  }}
                 >
-                  <octicons.FoldIcon/>
+                  <octicons.FoldIcon verticalAlign="middle"/>
+                </div>
+                <div
+                  className="for-loop-iteration-header__expand-toggle"
+                  onClick={() => setOrientation(orientation === 'horizontal' ? 'vertical' : 'horizontal')}
+                >
+                  <div
+                     style={{
+                      transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
+                      transition: "transform 0.2s",
+                    }}
+                  >
+                    <FontAwesomeIcon icon="ellipsis-vertical" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -301,19 +360,31 @@ const LoopBodyV = memo((props: {
       )}
     </div>;
   } else {
+    if (viewState.collapsedOn >= iterations.length) {
+      viewState = { collapsedOn: iterations.length - 1 };
+    }
     const iteration = iterations[viewState.collapsedOn];
-
     return <>
       <div className="line">
         <div className="line__num"/>
         <div className="line__contents">
-          <div className="for-loop-iteration-header">
+          <div className={`for-loop-iteration-header ${sliderIsDragging ? 'for-loop-iteration-header--slider-is-dragging' : ''}`}>
             <div>{forIndent}</div>
             <LockSize lock={sliderIsDragging}>
               <div className="for-loop-iteration-header__label">
                 {varName} = {iteration.loopVarValue}
               </div>
             </LockSize>
+            <div style={{width: 10}}/>
+            <div
+              className="for-loop-iteration-header__expand-toggle"
+              onClick={() => setViewState('expanded')}
+              style={{
+                transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
+              }}
+            >
+              <octicons.UnfoldIcon verticalAlign="middle"/>
+            </div>
             <Slider
               className="for-loop-iteration-header__slider"
               size="small"
@@ -331,12 +402,6 @@ const LoopBodyV = memo((props: {
             />
             <div>
               {viewState.collapsedOn + 1} / {iterations.length}
-            </div>
-            <div
-              className="for-loop-iteration-header__expand-toggle"
-              onClick={() => setViewState('expanded')}
-            >
-              <octicons.UnfoldIcon/>
             </div>
           </div>
         </div>

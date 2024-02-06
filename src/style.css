@@ -108,7 +108,7 @@ pre {
 
 .call__code-background {
   position: absolute;
-  height: 24px;
+  height: 22px;
   width: 100%;
 }
 
@@ -119,6 +119,19 @@ pre {
   max-height: 300px;
   max-width: 500px;
   overflow: auto;
+}
+
+.call__info-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  grid-template-columns: 0fr;
+  transition: grid-template-rows 0.3s ease-out, grid-template-columns 0.1s ease-out 0.3s;
+}
+
+.call__info-wrapper.open {
+  grid-template-rows: 1fr;
+  grid-template-columns: 1fr;
+  transition: grid-template-rows 0.3s ease-out 0.1s, grid-template-columns 0.1s ease-out;
 }
 
 .info-entry {
@@ -148,15 +161,17 @@ pre {
   background-color: #ccc;
   color: #444;
   padding: 0px 5px;
+  width: fit-content;
 }
 
 .for-loop-iteration-header__expand-toggle {
   visibility: hidden;
   cursor: pointer;
   padding: 0px 5px;
+  display: flex;
 }
 
-.for-loop-iteration-header:hover .for-loop-iteration-header__expand-toggle {
+.for-loop-iteration-header:hover:not(.for-loop-iteration-header--slider-is-dragging) .for-loop-iteration-header__expand-toggle {
   visibility: visible;
 }
 

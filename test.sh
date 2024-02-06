@@ -1,4 +1,4 @@
-n=1
+n=3
 while [ $n -le 100 ]; do
   n=$(( n * 2 ))
 done

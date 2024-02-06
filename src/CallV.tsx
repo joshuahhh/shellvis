@@ -1,18 +1,13 @@
 import { RawString } from "@automerge/automerge/next";
-import { weakMapCache } from "@engraft/shared/lib/cache.js";
 import * as octicons from "@primer/octicons-react";
-import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
 import path from "path-browserify";
-import React, { Fragment, memo, useMemo } from "react";
-import * as util from "util";
-import { Decoration, addDecorationsToLine } from "../decorations.js";
+import React, { memo, useContext, useEffect } from "react";
 import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "../execution.js";
-import { LineTreeNode, Script, expandObject, getNodeId } from "../mvdan-sh-helpers.js";
+import { getNodeId } from "../mvdan-sh-helpers.js";
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from "../typeset.js";
 import { weakMapCache2 } from "../util.js";
-import styleCss from "./style.css?inline";
-import { Message } from "../tracing.js";
+import { HVContext } from "./HVContext.js";
 
 const { ChevronRightIcon, DiffAddedIcon, DiffIgnoredIcon, DiffModifiedIcon, DiffRemovedIcon, FileSubmoduleIcon, SignOutIcon } = octicons;
 
@@ -120,16 +115,23 @@ export const CallV = memo((props: CallVProps) => {
     );
   }
 
-  return <div key={nodeId} className={`call ${statusClass} ${infoSections.length === 0 ? 'call--no-info-sections' : ''}`}>
+  const { showCallDetails } = useContext(HVContext);
+  const showDetails = showCallDetails && infoSections.length > 0;
+
+  return <div key={nodeId} className={`call ${statusClass} ${!showDetails ? 'call--no-info-sections' : ''}`}>
     <div className="call__code">
       <div className="call__code-background"/>
       <div className="call__code-contents">{contents}</div>
     </div>
-    { infoSections.length > 0 &&
-      <div className="call__info">
-        {infoSections}
+    <div className={`call__info-wrapper ${showDetails ? 'open' : ''}`}>
+      <div style={{overflow: 'hidden'}}>
+        { true &&
+          <div className="call__info">
+            {infoSections}
+          </div>
+        }
       </div>
-    }
+    </div>
   </div>
 });
 

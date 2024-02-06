@@ -1,10 +1,10 @@
 import { AutomergeUrl, Repo } from "@automerge/automerge-repo";
-import { RepoContext, useDocument } from "@automerge/automerge-repo-react-hooks"
-import { Session } from "../types.js";
-import { TraceV } from "./render.js";
-import { Trace } from "../execution.js";
-import { ReactNode, useEffect, useRef, useState } from "react";
 import { BrowserWebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
+import { RepoContext, useDocument } from "@automerge/automerge-repo-react-hooks";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { Trace } from "../execution.js";
+import { Session } from "../types.js";
+import { TraceViewerV } from "./render.js";
 import styleCss from "./style.css?inline";
 
 export function App() {
@@ -71,7 +71,7 @@ function AppWithTraceAutomergeUrl(props: { traceAutomergeUrl: AutomergeUrl }) {
   }
 
   return <>
-    <TraceV trace={oldTraceRef.current} />
+    <TraceViewerV trace={oldTraceRef.current} />
     { !trace &&
       // full-screen loading spinner
       <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start'}}>
