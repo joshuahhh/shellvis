@@ -8,7 +8,6 @@ import { Iteration, Trace, mkExecId } from "../execution.js";
 import { LineTreeNode, Script, expandObject, getNodeId } from "../mvdan-sh-helpers.js";
 import { Message } from "../tracing.js";
 import { CallV } from "./CallV.js";
-import styleCss from "./style.css?inline";
 import * as octicons from "@primer/octicons-react";
 import { Slider } from '@mui/material';
 
@@ -351,7 +350,7 @@ const IterationSliderV = memo((props: {
         marks={iterations.length < 30}
         style={{
           ...sliderStabilization,
-          width: Math.min(Math.max(10 * iterations.length, 15), 200)
+          width: Math.min(Math.max(10 * iterations.length, 0), 200)
         }}
         onMouseDown={(e) => {
           const elem = e.currentTarget as HTMLElement;
