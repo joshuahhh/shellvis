@@ -3,8 +3,9 @@ import { RepoContext, useDocument } from "@automerge/automerge-repo-react-hooks"
 import { Session } from "../types.js";
 import { TraceV } from "./render.js";
 import { Trace } from "../execution.js";
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { BrowserWebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
+import styleCss from "./style.css?inline";
 
 export function App() {
   const repoRef = useRef<Repo>();
@@ -26,13 +27,20 @@ export function App() {
     return () => clearInterval(interval);
   }, []);
 
+  let contents: ReactNode;
+
   if (!sessionAutomergeUrl) {
-    return <div>Loading session document URL from server...</div>
+    contents = <div>Loading session document URL from server...</div>
+  } else {
+    contents = <RepoContext.Provider value={repoRef.current}>
+      <AppWithSessionUrl sessionAutomergeUrl={sessionAutomergeUrl} />
+    </RepoContext.Provider>
   }
 
-  return <RepoContext.Provider value={repoRef.current}>
-    <AppWithSessionUrl sessionAutomergeUrl={sessionAutomergeUrl} />
-  </RepoContext.Provider>
+  return <>
+    <style dangerouslySetInnerHTML={{ __html: styleCss }} />
+    {contents}
+  </>
 }
 
 export function AppWithSessionUrl(props: { sessionAutomergeUrl: AutomergeUrl }) {

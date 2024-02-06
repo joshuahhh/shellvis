@@ -120,11 +120,6 @@ export const TraceV = memo((props: TraceVProps) => {
   </div>;
 
   return <>
-    {/* <script dangerouslySetInnerHTML={{
-      __html: live
-    }} /> */}
-    <style dangerouslySetInnerHTML={{ __html: styleCss }} />
-
     <div style={{fontSize: "80%", marginBottom: 10}}>
       {/* <div>started @ {this.startTime?.toLocaleTimeString()}</div> */}
       {/* <div>updated @ {new Date().toLocaleTimeString()}</div> */}
