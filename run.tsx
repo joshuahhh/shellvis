@@ -2,8 +2,8 @@
 import { dump } from "wtfnode";
 (global as any).dump = dump;
 
-import { RawString } from "@automerge/automerge/next";
 import { DocHandle } from "@automerge/automerge-repo";
+import { RawString } from "@automerge/automerge/next";
 import express from "express";
 import sh from "mvdan-sh";
 import * as child_process from "node:child_process";
@@ -12,12 +12,9 @@ import * as fs from "node:fs/promises";
 import { Server } from "node:http";
 import * as path from "node:path";
 import * as os from "os";
-import { renderToString } from "react-dom/server";
 import * as tmp from "tmp";
-import { WebSocketServer } from "ws";
 import { AutomergeServer, changeAt } from "./automerge.js";
 import { PipeProgress, Trace, mkExecId, parseDeltaLog } from "./execution.js";
-import { OnlyRunLatestJob } from "./job-stuff.js";
 import { Script, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers.js";
 import { Message } from "./tracing.js";
 import { parseTypeset } from "./typeset.js";
@@ -147,9 +144,7 @@ export class Run {
 
   constructor(
     public scriptSrc: string,
-    public broadcast: (data: string) => void,
     public automergeServer: AutomergeServer,
-    public wsHtmlServer: WebSocketServer,
   ) {
     this.traceDoc = this.automergeServer.repo.create({
       scriptSrc,
@@ -300,7 +295,6 @@ export class Run {
       this.traceDoc.change((trace) => {
         trace.exitCode = exitCode;
       });
-      this._scheduleWriteHtml();
       this.stop();
     });
 
@@ -325,17 +319,11 @@ export class Run {
           }
         });
 
-        const changeStdout = changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stdout);
-        const changeStderr = changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stderr);
-
         this.sh2frUploadHandlers[stdoutUploadId] = pipeProgressUploadHandler(
-          changeStdout,
-          () => this._scheduleWriteHtml()
+          changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stdout)
         );
-
         this.sh2frUploadHandlers[stderrUploadId] = pipeProgressUploadHandler(
-          changeStderr,
-          () => this._scheduleWriteHtml()
+          changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stderr)
         );
 
         this.sh2frUploadHandlers[varsEnterUploadId] = async (req, res) => {
@@ -346,7 +334,6 @@ export class Run {
             const execInfo = trace.execInfos[execId];
             execInfo.varsEnterStr = new RawString(varsEnterStr);
           });
-          this._scheduleWriteHtml();
           res.end();
         };
 
@@ -360,7 +347,6 @@ export class Run {
             const execInfo = trace.execInfos[execId];
             execInfo.varsExitStr = new RawString(varsExitStr);
           });
-          this._scheduleWriteHtml();
           res.end();
         };
 
@@ -383,7 +369,6 @@ export class Run {
               deltaLog: parseDeltaLog(deltaLog),
             };
           });
-          this._scheduleWriteHtml();
           res.end();
         };
 
@@ -426,7 +411,6 @@ export class Run {
           });
           const response: string = await onMessage(dataParsed);
           res.send(response);
-          this._scheduleWriteHtml();
           // console.log("sh2fr pipe data parsed", dataParsed)
         } catch (err) {
           FATAL("node error parsing data", err, dataString);
@@ -463,8 +447,6 @@ export class Run {
     this.sh2frServer = this.sh2frExpress.listen(this.sh2frPort, () => {
       console.log(`sh2fr server listening on port ${this.sh2frPort}`)
     })
-
-    this._scheduleWriteHtml();
   }
 
   async stop() {
@@ -483,32 +465,6 @@ export class Run {
         resolve(undefined);
       })
     });
-  }
-
-  onlyRunLatestJob = new OnlyRunLatestJob();
-  _scheduleWriteHtml() {
-    this.onlyRunLatestJob.submitJob(async () => {
-      this._writeHtml();
-    });
-  }
-
-  async _writeHtml() {
-    if (this.wsHtmlServer.clients.size === 0) {
-      // console.log("no html clients, not writing html");
-      return;
-    }
-    // console.log("html client, writing html");
-    const trace = await this.traceDoc.doc();
-    if (!trace) { throw new Error("trace not found"); }
-
-    const html = renderToString(<div>
-      <h1>fun-run trace</h1>
-      <pre>
-        {JSON.stringify(trace, (key, value) => key === 'varsEnter' || key=== 'varsExit' ? undefined : value, 2)}
-      </pre>
-    </div>);
-
-    this.broadcast(html);
   }
 }
 

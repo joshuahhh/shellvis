@@ -1,14 +1,11 @@
 import chokidar from "chokidar";
-import * as fs from "node:fs";
-import WebSocket, { WebSocketServer } from 'ws';
-import yargs from "yargs";
-import { Run } from "./run.js";
-import { AutomergeServer } from "./automerge.js";
-import express from "express";
 import cors from "cors";
+import express from "express";
+import * as fs from "node:fs";
+import yargs from "yargs";
+import { AutomergeServer } from "./automerge.js";
+import { Run } from "./run.js";
 import { Session } from "./types.js";
-import { Server, IncomingMessage, ServerResponse } from "http";
-import { connectWsServer } from "./websocket.js";
 
 console.log("welcome to funrun")
 
@@ -20,39 +17,6 @@ const argv = yargs(process.argv.slice(2))
     })
   )
   .parseSync() as unknown as { script: string };
-
-function wsSend(ws: WebSocket, data: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    ws.send(data, (err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-let output = "";
-async function actuallyBroadcast(data: string): Promise<void> {
-  // console.log('broadcast', +new Date());
-  let sends: Promise<void>[] = [];
-  wsHtmlServer.clients.forEach(function each(client) {
-    if (client.readyState === WebSocket.OPEN) {
-      sends.push(
-        wsSend(client, data).catch((err) => {
-          console.error('wsSend error', err);
-        })
-      );
-    }
-  });
-  await Promise.all(sends);
-}
-
-function broadcast(data: string): void {
-  output = data;
-  actuallyBroadcast(data);
-}
 
 const app = express()
 
@@ -68,18 +32,6 @@ const httpServer = app.listen(PORT, () => {
   // this.#readyResolvers.forEach((resolve) => resolve(true))
 })
 
-const wsHtmlServer = new WebSocketServer({ noServer: true });
-connectWsServer(wsHtmlServer, httpServer, '/html');
-
-wsHtmlServer.on('connection', (ws) => {
-  ws.send(output);
-});
-
-wsHtmlServer.on('error', (err) => {
-  console.error('wsServer error', err);
-});
-
-
 const automergeServer = new AutomergeServer(httpServer, "/automerge");
 const sessionHandle = automergeServer.repo.create<Session>({ traceAutomergeUrl: null });
 
@@ -91,7 +43,7 @@ async function onFile() {
   }
 
   const scriptStr = fs.readFileSync(argv.script, { encoding: 'utf-8' });
-  run = new Run(scriptStr, broadcast, automergeServer, wsHtmlServer);
+  run = new Run(scriptStr, automergeServer);
   sessionHandle.change((session) => {
     session.traceAutomergeUrl = run!.traceDoc.url;
   });
