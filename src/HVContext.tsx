@@ -1,12 +1,12 @@
 import { createContext } from "react";
 
 export type HVContext = {
-  showCallDetails: boolean,
+  detailsMode: 'in-place' | 'on-side' | 'none',
   showMessages: boolean,
 }
 
 export const defaultHVContext: HVContext = {
-  showCallDetails: true,
+  detailsMode: 'in-place',
   showMessages: false,
 };
 

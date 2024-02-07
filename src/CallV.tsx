@@ -115,8 +115,8 @@ export const CallV = memo((props: CallVProps) => {
     );
   }
 
-  const { showCallDetails } = useContext(HVContext);
-  const showDetails = showCallDetails && infoSections.length > 0;
+  const { detailsMode } = useContext(HVContext);
+  const showDetails = (detailsMode === 'in-place') && infoSections.length > 0;
 
   return <div key={nodeId} className={`call ${statusClass} ${!showDetails ? 'call--no-info-sections' : ''}`}>
     <div className="call__code">

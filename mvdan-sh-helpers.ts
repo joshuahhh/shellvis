@@ -248,13 +248,33 @@ export class Script {
   }
 
   srcForNode(node: sh.Node): string {
-    return this.src.slice(node.Pos().Offset(), node.End().Offset());
+    const info = nodePosInfo(node);
+    return this.src.slice(info.pos.offset, info.end.offset);
   }
 
   freshAst(): sh.File {
     return this.parser.Parse(this.src);
   }
 }
+
+// TODO: this is a performance help cuz the Go stuff is slow; not sure how best to handle this
+export const nodePosInfo = weakMapCache((node: sh.Node) => {
+  const pos = node.Pos();
+  const end = node.End();
+  return {
+    pos: {
+      line: pos.Line(),
+      col: pos.Col(),
+      offset: pos.Offset(),
+    },
+    end: {
+      line: end.Line(),
+      col: end.Col(),
+      offset: end.Offset(),
+    },
+  };
+});
+
 
 // LineTreeNode is the kinda dumb way we handle loops right now.
 // It's a static representation of a tree of lines, grouped by loop bodies.

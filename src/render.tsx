@@ -5,7 +5,7 @@ import React, { Fragment, memo, useCallback, useEffect, useMemo } from "react";
 import * as util from "util";
 import { Decoration, addDecorationsToLine } from "../decorations.js";
 import { Iteration, Trace, mkExecId } from "../execution.js";
-import { LineTreeNode, Script, expandObject, getNodeId } from "../mvdan-sh-helpers.js";
+import { LineTreeNode, Script, expandObject, getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
 import { Message } from "../tracing.js";
 import { CallV } from "./CallV.js";
 import * as octicons from "@primer/octicons-react";
@@ -28,13 +28,16 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
       display: 'flex', flexDirection: 'column', gap: 5,
     }}>
       <label>
-        <input
-          type="checkbox"
-          checked={hvContext.showCallDetails}
-          onChange={(e) => setHVContext((hvContext) => ({ ...hvContext, showCallDetails: e.target.checked }))}
-          style={{marginRight: 10}}
-        />
-        Show call details
+        Details mode:
+        <select
+          value={hvContext.detailsMode}
+          onChange={(e) => setHVContext((hvContext) => ({ ...hvContext, detailsMode: e.target.value as any }))}
+          style={{marginLeft: 10}}
+        >
+          <option value="in-place">in-place</option>
+          <option value="on-side">on-side</option>
+          <option value="none">none</option>
+        </select>
       </label>
       <label>
         <input
@@ -156,24 +159,60 @@ const TraceV = memo((props: TraceVProps) => {
     </dl>
   </div>;
 
-  const { showMessages } = React.useContext(HVContext);
+  const { showMessages, detailsMode } = React.useContext(HVContext);
 
-  return <>
-    <div style={{fontSize: "80%", marginBottom: 10}}>
-      {/* <div>started @ {this.startTime?.toLocaleTimeString()}</div> */}
-      {/* <div>updated @ {new Date().toLocaleTimeString()}</div> */}
+  return <div style={{display: 'flex', flexDirection: 'row', gap: 40}}>
+    <div className="left">
+      <div style={{fontSize: "80%", marginBottom: 10}}>
+        {/* <div>started @ {this.startTime?.toLocaleTimeString()}</div> */}
+        {/* <div>updated @ {new Date().toLocaleTimeString()}</div> */}
+      </div>
+
+      {partMain}
+
+      <div className="row" style={{marginTop: 30}}></div>
+
+      {showMessages && partMessages()}
+      {false && partTransformed()}
+      {false && partAST()}
+      {false && partExecInfo()}
+      {false && partForInfo()}
     </div>
+    <div className="right">
+      { detailsMode === 'on-side' && <DetailsOnSide trace={trace} script={script}/> }
+    </div>
+  </div>;
+});
 
-    {partMain}
+const DetailsOnSide = memo((props: {
+  trace: Trace,
+  script: Script,
+}) => {
+  const { trace, script } = props;
 
-    <div className="row" style={{marginTop: 30}}></div>
+  const callExprs = Object.values(script.nodesByTypeById.CallExpr);
 
-    {showMessages && partMessages()}
-    {false && partTransformed()}
-    {false && partAST()}
-    {false && partExecInfo()}
-    {false && partForInfo()}
-  </>;
+  const hvContext = React.useContext(HVContext);
+
+  // TODO: bad use of config context here
+  return <div
+    style={{
+      display: 'flex', flexDirection: 'column', gap: 10,
+      fontFamily: 'monospace',
+    }}
+  >
+    <HVContext.Provider value={{...hvContext, detailsMode: 'in-place'}}>
+      {callExprs.map((callExpr) => {
+        return <CallV
+          key={getNodeId(callExpr)}
+          contents={script.srcForNode(callExpr)}
+          callExpr={callExpr}
+          context={''}
+          trace={trace}
+        />;
+      })}
+    </HVContext.Provider>;
+  </div>;
 });
 
 const MessageV = memo((props: { message: Message, script: Script }) => {
@@ -198,18 +237,6 @@ type LineVProps = {
   i: number,
   context: string,
 }
-
-// TODO: this is a performance help cuz the Go stuff is slow; not sure how best to handle this
-const nodePosInfo = weakMapCache((node: sh.Node) => ({
-  pos: {
-    line: node.Pos().Line(),
-    col: node.Pos().Col(),
-  },
-  end: {
-    line: node.End().Line(),
-    col: node.End().Col(),
-  },
-}));
 
 const LineV = memo((props: LineVProps) => {
   const {script, trace, line, i, context} = props;
