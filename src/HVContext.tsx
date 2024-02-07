@@ -1,7 +1,7 @@
 import { createContext } from "react";
 
 export type HVContext = {
-  detailsMode: 'in-place' | 'on-side' | 'none',
+  detailsMode: 'in-place' | 'on-side' | 'one-by-one' | 'none',
   showMessages: boolean,
 }
 

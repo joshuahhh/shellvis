@@ -37,6 +37,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
         >
           <option value="in-place">in-place</option>
           <option value="on-side">on-side</option>
+          <option value="one-by-one">one-by-one</option>
           <option value="none">none</option>
         </select>
       </label>
