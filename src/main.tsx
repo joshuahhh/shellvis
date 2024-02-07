@@ -29,6 +29,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
         <Route path="/" element={<HomeV/>}/>
         <Route path="/cli" element={<CliV/>}/>
         {/* <Route path="/testbed" element={<Testbed/>}/> */}
+        <Route path="*" element={<>no dice buddy</>}/>
       </Routes>
     </HashRouter>
   </React.StrictMode>
