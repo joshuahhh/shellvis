@@ -26,10 +26,9 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <style dangerouslySetInnerHTML={{ __html: styleCss }} />
     <HashRouter>
       <Routes>
-        <Route path="/" element={<HomeV/>}/>
         <Route path="/cli" element={<CliV/>}/>
         {/* <Route path="/testbed" element={<Testbed/>}/> */}
-        <Route path="*" element={<>no dice buddy</>}/>
+        <Route path="*" element={<HomeV/>}/>
       </Routes>
     </HashRouter>
   </React.StrictMode>
