@@ -17,10 +17,11 @@ type CallVProps = {
   callExpr: sh.CallExpr,
   context: string,
   trace: Trace,
+  className?: string,
 }
 
 export const CallV = memo((props: CallVProps) => {
-  const {contents, callExpr, context, trace} = props;
+  const {contents, callExpr, context, trace, className} = props;
 
   const nodeId = getNodeId(callExpr);
   const execId = mkExecId(context, nodeId);
@@ -118,7 +119,11 @@ export const CallV = memo((props: CallVProps) => {
   const { detailsMode } = useContext(HVContext);
   const showDetails = (detailsMode === 'in-place') && infoSections.length > 0;
 
-  return <div key={nodeId} className={`call ${statusClass} ${!showDetails ? 'call--no-info-sections' : ''}`}>
+  return <div
+    key={nodeId}
+    className={`call ${statusClass} ${!showDetails ? 'call--no-info-sections' : ''} ${className || ''}`}
+    data-exec-id={execId}
+  >
     <div className="call__code">
       <div className="call__code-background"/>
       <div className="call__code-contents">{contents}</div>

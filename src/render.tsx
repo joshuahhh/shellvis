@@ -12,6 +12,7 @@ import * as octicons from "@primer/octicons-react";
 import { Slider } from '@mui/material';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { HVContext, defaultHVContext } from "./HVContext.js";
+import { createPortal } from "react-dom";
 
 type TraceViewerVProps = {
   trace: Trace,
@@ -65,6 +66,9 @@ const parser = sh.syntax.NewParser();
 const TraceV = memo((props: TraceVProps) => {
   const {trace, optionalScript} = props;
 
+  const [ lColumn, setLColumn ] = React.useState<HTMLElement | null>(null);
+  const [ rColumn, setRColumn ] = React.useState<HTMLElement | null>(null);
+
   const script = useMemo(() => {
     // TODO ugly ugly
     try {
@@ -81,13 +85,11 @@ const TraceV = memo((props: TraceVProps) => {
     </div>;
   }
 
-  const partMain = <div>
-    {script.lineTree.map((node, i) =>
-      <Fragment key={i}>
-        {renderLineTreeNode(script, trace, node, '')}
-      </Fragment>
-    )}
-  </div>;
+  const partMain = script.lineTree.map((node, i) =>
+    <Fragment key={i}>
+      {renderLineTreeNode(script, trace, node, '')}
+    </Fragment>
+  );
 
   const partTransformed = () => trace.transformedSrc && <div>
     <h1>transformed</h1>
@@ -161,14 +163,16 @@ const TraceV = memo((props: TraceVProps) => {
 
   const { showMessages, detailsMode } = React.useContext(HVContext);
 
-  return <div style={{display: 'flex', flexDirection: 'row', gap: 40}}>
-    <div className="left">
+  return <div style={{display: 'flex', flexDirection: 'row'}}>
+    <div className="left" style={{minWidth: 0}}>
       <div style={{fontSize: "80%", marginBottom: 10}}>
         {/* <div>started @ {this.startTime?.toLocaleTimeString()}</div> */}
         {/* <div>updated @ {new Date().toLocaleTimeString()}</div> */}
       </div>
 
-      {partMain}
+      <div className="l-column" ref={setLColumn} style={{display: 'flex', flexDirection: 'column', height: 'fit-content'}}>
+        {partMain}
+      </div>
 
       <div className="row" style={{marginTop: 30}}></div>
 
@@ -178,8 +182,10 @@ const TraceV = memo((props: TraceVProps) => {
       {false && partExecInfo()}
       {false && partForInfo()}
     </div>
-    <div className="right">
-      { detailsMode === 'on-side' && <DetailsOnSide trace={trace} script={script}/> }
+    <div className="right" ref={setRColumn} style={{display: 'flex', height: 'fit-content', marginLeft: 40}}>
+      { detailsMode === 'on-side' &&
+        <DetailsOnSide trace={trace} script={script} lColumn={lColumn} rColumn={rColumn}/>
+      }
     </div>
   </div>;
 });
@@ -187,33 +193,144 @@ const TraceV = memo((props: TraceVProps) => {
 const DetailsOnSide = memo((props: {
   trace: Trace,
   script: Script,
+  lColumn: HTMLElement | null,
+  rColumn: HTMLElement | null,
 }) => {
-  const { trace, script } = props;
+  const { trace, script, lColumn, rColumn } = props;
 
   const callExprs = Object.values(script.nodesByTypeById.CallExpr);
 
   const hvContext = React.useContext(HVContext);
 
+  const [ scroll, setScroll ] = React.useState(0);
+
+  useEffect(() => {
+    if (!lColumn || !rColumn) { return; }
+    const lHeight = lColumn.getBoundingClientRect().height;
+    const rHeight = rColumn.getBoundingClientRect().height;
+    const wHeight = window.innerHeight;
+    const update = () => {
+      // as scroll goes from 0 to lHeight - wHeight,
+      // we want to go from 0 to rHeight - lHeight
+      // setScroll(window.scrollY * (rHeight - lHeight) / (lHeight - wHeight));
+      console.log("scroll", window.scrollY / (lHeight - wHeight));
+    };
+    window.addEventListener('scroll', update);
+    return () => window.removeEventListener('scroll', update);
+  }, [lColumn, rColumn])
+
   // TODO: bad use of config context here
-  return <div
-    style={{
-      display: 'flex', flexDirection: 'column', gap: 10,
-      fontFamily: 'monospace',
-    }}
-  >
-    <HVContext.Provider value={{...hvContext, detailsMode: 'in-place'}}>
-      {callExprs.map((callExpr) => {
-        return <CallV
-          key={getNodeId(callExpr)}
+  return (
+    <div className="details-on-side-1" style={{position: 'relative'}}>
+      <div
+        className="details-on-side-2"
+        style={{
+          display: 'flex', flexDirection: 'column', gap: 10,
+          fontFamily: 'monospace',
+          position: 'relative', top: -scroll,
+        }}
+      >
+        <HVContext.Provider value={{...hvContext, detailsMode: 'in-place'}}>
+          {callExprs.map((callExpr) =>
+            <CallOnRightV
+              key={getNodeId(callExpr)}
+              callExpr={callExpr}
+              script={script}
+              trace={trace}
+              scroll={scroll}
+            />
+          )}
+        </HVContext.Provider>
+      </div>
+    </div>
+  );
+});
+
+function boxMinus(a: DOMRect, b: DOMRect) {
+  return {
+    top: a.top - b.top,
+    left: a.left - b.left,
+    bottom: a.bottom - b.top,
+    right: a.right - b.left,
+    width: a.width,
+    height: a.height,
+  };
+}
+type Boxy = ReturnType<typeof boxMinus>;
+
+const CallOnRightV = memo((props: {
+  callExpr: sh.CallExpr,
+  script: Script,
+  trace: Trace,
+  scroll: number,
+}) => {
+  const { callExpr, script, trace, scroll } = props;
+
+  const nodeId = getNodeId(callExpr);
+  const context = '';
+  const execId = mkExecId(context, nodeId);
+
+  const [ rElem, setRElem ] = React.useState<HTMLElement | null>(null);
+
+  const [ rBox, setRBox ] = React.useState<Boxy | null>(null);
+  const [ lBox, setLBox ] = React.useState<Boxy | null>(null);
+
+  useEffect(() => {
+    const lElem = document.querySelector(`[data-exec-id="${execId}"]`);
+    if (!lElem) {
+      console.error(`couldn't find element for execId ${execId}`);
+      return;
+    }
+    const update = () => {
+      setLBox(boxMinus(lElem.getBoundingClientRect(), document.body.getBoundingClientRect()));
+    };
+    update();
+    window.addEventListener('resize', update);
+    const interval = setInterval(update, 1000);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('resize', update);
+    };
+  }, [execId])
+
+  useEffect(() => {
+    if (!rElem) { return; }
+    const update = () => {
+      setRBox(boxMinus(rElem.getBoundingClientRect(), document.body.getBoundingClientRect()));
+    };
+    update();
+    window.addEventListener('resize', update);
+    const interval = setInterval(update, 1000);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('resize', update);
+    };
+  }, [rElem, execId])
+
+  return <>
+    {rBox && lBox && createPortal(
+      <svg style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: -100, overflow: 'visible'}}>
+        <line
+          x1={lBox.right - 5} y1={lBox.top + 10}
+          x2={rBox.left + 5} y2={rBox.top + 10}
+          stroke="hsl(0, 0%, 30%)" strokeWidth="1"/>
+      </svg>,
+      document.body
+    )}
+    {lBox &&
+      <div className="call-wrapper" ref={setRElem} style={{display: 'flex', position: 'absolute', top: lBox.top - 40, width: 1000}}>
+        <CallV
           contents={script.srcForNode(callExpr)}
           callExpr={callExpr}
-          context={''}
+          context={context}
           trace={trace}
-        />;
-      })}
-    </HVContext.Provider>;
-  </div>;
+          className='call--on-right'
+        />
+      </div>
+    }
+  </>;
 });
+
 
 const MessageV = memo((props: { message: Message, script: Script }) => {
   const { message, script } = props;
@@ -257,6 +374,7 @@ const LineV = memo((props: LineVProps) => {
           callExpr={callExpr}
           context={context}
           trace={trace}
+          className={'call--on-left'}
         />
     };
   });
