@@ -6,7 +6,7 @@ import yargs from "yargs";
 import { AutomergeServer } from "./automerge.js";
 import { Run } from "./run.js";
 import { Session } from "./types.js";
-import { ScriptWatcher } from "./ScriptWatcher.js";
+import { ScriptWatcher, ScriptWatcherParams } from "./ScriptWatcher.js";
 
 console.log("welcome to funrun")
 
@@ -36,8 +36,15 @@ const httpServer = app.listen(PORT, () => {
 const automergeServer = new AutomergeServer(httpServer, "/automerge");
 const sessionHandle = automergeServer.repo.create<Session>({ traceAutomergeUrl: null });
 
+const params: ScriptWatcherParams = {
+  path: argv.script,
+  cwd: process.cwd(),
+  env: process.env,
+  // TODO: other stuff
+};
+
 new ScriptWatcher(
-  argv.script,
+  params,
   automergeServer,
   (traceUrl) => {
     sessionHandle.change((session) => {

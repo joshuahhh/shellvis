@@ -131,6 +131,13 @@ function pipeProgressUploadHandler(changePipeProgress: DocHandle<PipeProgress>["
   };
 }
 
+export type RunParams = {
+  scriptSrc: string,
+  cwd: string,
+  env: Record<string, string | undefined>,
+  args?: string,
+}
+
 export class Run {
   sandbox: Sandbox | null = null;
   childProcess: child_process.ChildProcess | null = null;
@@ -143,11 +150,11 @@ export class Run {
   traceDoc: DocHandle<Trace>;
 
   constructor(
-    public scriptSrc: string,
+    public params: RunParams,
     public automergeServer: AutomergeServer,
   ) {
     this.traceDoc = this.automergeServer.repo.create({
-      scriptSrc,
+      scriptSrc: this.params.scriptSrc,
       messageLog: [],
       execInfos: {},
       forInfos: {},
@@ -164,7 +171,7 @@ export class Run {
     // parse
 
     try {
-      this.script = new Script(parser, this.scriptSrc);
+      this.script = new Script(parser, this.params.scriptSrc);
     } catch (e) {
       this.traceDoc.change((trace) => {
         trace.parseError = (e as any).toString();
@@ -273,17 +280,13 @@ export class Run {
       trace.startTime = new Date();
     });
 
-    const cwd = process.cwd();
-    // const cwd = "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old"
-
+    // TODO: we use a second zsh call to parse this.params.args; kinda ugly
     this.childProcess = child_process.spawn(
       'zsh',
-      [ tmpFile.name ],
+      [ '-c', `zsh ${tmpFile.name} ${this.params.args || ''}` ],
       {
-        cwd: path.join(this.sandbox.deltaUnionDir, cwd),
-        env: {
-          ...process.env,
-        },
+        cwd: path.join(this.sandbox.deltaUnionDir, this.params.cwd),
+        env: this.params.env,
         stdio: ['ignore', 'inherit', 'inherit'],
         // stdio: 'ignore',
       }

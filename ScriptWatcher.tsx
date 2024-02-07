@@ -2,20 +2,25 @@ import { AutomergeUrl } from "@automerge/automerge-repo";
 import chokidar from "chokidar";
 import * as fs from "node:fs";
 import { AutomergeServer } from "./automerge.js";
-import { Run } from "./run.js";
+import { Run, RunParams } from "./run.js";
 
 
 // ScriptWatcher is a process that watches a script file and re-runs it when it changes
+
+export type ScriptWatcherParams =
+  Omit<RunParams, 'scriptSrc'> & {
+    path: string,
+  }
 
 export class ScriptWatcher {
   currentRun: Run | null = null;
 
   constructor(
-    readonly path: string,
+    readonly params: ScriptWatcherParams,
     readonly automergeServer: AutomergeServer,
     readonly onNewTrace?: (traceUrl: AutomergeUrl) => void
   ) {
-    chokidar.watch(this.path).on('all', (event, path) => {
+    chokidar.watch(this.params.path).on('all', (event, path) => {
       this._onFile();
     });
   }
@@ -25,8 +30,12 @@ export class ScriptWatcher {
       await this.currentRun.stop();
     }
 
-    const scriptStr = fs.readFileSync(this.path, { encoding: 'utf-8' });
-    this.currentRun = new Run(scriptStr, this.automergeServer);
+    const scriptStr = fs.readFileSync(this.params.path, { encoding: 'utf-8' });
+    const runParams: RunParams = {
+      ...this.params,
+      scriptSrc: scriptStr,
+    }
+    this.currentRun = new Run(runParams, this.automergeServer);
     this.currentRun.start();
     this.onNewTrace && this.onNewTrace(this.currentRun.traceDoc.url);
   }
