@@ -6,6 +6,7 @@ import yargs from "yargs";
 import { AutomergeServer } from "./automerge.js";
 import { Run } from "./run.js";
 import { Session } from "./types.js";
+import { ScriptWatcher } from "./ScriptWatcher.js";
 
 console.log("welcome to funrun")
 
@@ -35,22 +36,12 @@ const httpServer = app.listen(PORT, () => {
 const automergeServer = new AutomergeServer(httpServer, "/automerge");
 const sessionHandle = automergeServer.repo.create<Session>({ traceAutomergeUrl: null });
 
-let run: Run | null = null;
-
-async function onFile() {
-  if (run) {
-    await run.stop();
+new ScriptWatcher(
+  argv.script,
+  automergeServer,
+  (traceUrl) => {
+    sessionHandle.change((session) => {
+      session.traceAutomergeUrl = traceUrl;
+    });
   }
-
-  const scriptStr = fs.readFileSync(argv.script, { encoding: 'utf-8' });
-  run = new Run(scriptStr, automergeServer);
-  sessionHandle.change((session) => {
-    session.traceAutomergeUrl = run!.traceDoc.url;
-  });
-  run.start();
-}
-
-chokidar.watch(argv.script).on('all', (event, path) => {
-  console.log('chokidar event', event, path);
-  onFile();
-});
+);

@@ -1,19 +1,13 @@
 import { AutomergeUrl, Repo } from "@automerge/automerge-repo";
 import { BrowserWebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
 import { RepoContext, useDocument } from "@automerge/automerge-repo-react-hooks";
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, memo, useEffect, useRef, useState } from "react";
 import { Trace } from "../execution.js";
 import { Session } from "../types.js";
 import { TraceViewerV } from "./render.js";
-import styleCss from "./style.css?inline";
+import { WithAutomergeV } from "./WithAutomergeV.js";
 
-export function App() {
-  const repoRef = useRef<Repo>();
-  if (!repoRef.current) {
-    const networkAdapter = new BrowserWebSocketClientAdapter("ws://localhost:8080/automerge", 500);
-    repoRef.current = new Repo({ network: [ networkAdapter ] });
-  }
-
+export const CliV = memo(() => {
   // TODO: should I do something smarter than polling here?
   const [ sessionAutomergeUrl, setSessionAutomergeUrl ] = useState<AutomergeUrl | null>(null);
   useEffect(() => {
@@ -27,23 +21,16 @@ export function App() {
     return () => clearInterval(interval);
   }, []);
 
-  let contents: ReactNode;
-
   if (!sessionAutomergeUrl) {
-    contents = <div>Loading session document URL from server...</div>
+    return <div>Loading session document URL from server...</div>
   } else {
-    contents = <RepoContext.Provider value={repoRef.current}>
-      <AppWithSessionUrl sessionAutomergeUrl={sessionAutomergeUrl} />
-    </RepoContext.Provider>
+    return <WithAutomergeV>
+      <CliWithSessionUrlV sessionAutomergeUrl={sessionAutomergeUrl} />
+    </WithAutomergeV>
   }
+});
 
-  return <>
-    <style dangerouslySetInnerHTML={{ __html: styleCss }} />
-    {contents}
-  </>
-}
-
-export function AppWithSessionUrl(props: { sessionAutomergeUrl: AutomergeUrl }) {
+const CliWithSessionUrlV = memo((props: { sessionAutomergeUrl: AutomergeUrl }) => {
   const { sessionAutomergeUrl } = props
   const [ session ] = useDocument<Session>(sessionAutomergeUrl)
 
@@ -54,10 +41,10 @@ export function AppWithSessionUrl(props: { sessionAutomergeUrl: AutomergeUrl }) 
     return <div>Session document lacks a traceAutomergeUrl!</div>
   }
 
-  return <AppWithTraceAutomergeUrl traceAutomergeUrl={session.traceAutomergeUrl} />
-}
+  return <CliWithTraceAutomergeUrl traceAutomergeUrl={session.traceAutomergeUrl} />
+});
 
-function AppWithTraceAutomergeUrl(props: { traceAutomergeUrl: AutomergeUrl }) {
+const CliWithTraceAutomergeUrl = memo((props: { traceAutomergeUrl: AutomergeUrl }) => {
   const { traceAutomergeUrl } = props
   const [ trace ] = useDocument<Trace>(traceAutomergeUrl)
 
@@ -79,4 +66,4 @@ function AppWithTraceAutomergeUrl(props: { traceAutomergeUrl: AutomergeUrl }) {
       </div>
     }
   </>;
-}
+});

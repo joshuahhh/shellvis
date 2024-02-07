@@ -1,11 +1,9 @@
 // @ts-check
-import fs from "fs"
-import express from "express"
-import { WebSocketServer } from "ws"
 import { DocHandle, PeerId, Repo } from "@automerge/automerge-repo"
 import { NodeWSServerAdapter } from "@automerge/automerge-repo-network-websocket"
-import os from "os"
 import http from "node:http"
+import os from "os"
+import { WebSocketServer } from "ws"
 import { connectWsServer } from "./websocket.js"
 
 export class AutomergeServer {

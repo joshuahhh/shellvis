@@ -14,6 +14,22 @@ body {
   font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
 }
 
+/* Base style for links */
+a {
+  color: #4da6ff;
+}
+
+/* Style for links on hover and focus for better accessibility */
+a:hover, a:focus {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+/* Style for visited links */
+a:visited {
+  color: #BFA2DB;
+}
+
 .output-stderr {
   color: red;
 }
