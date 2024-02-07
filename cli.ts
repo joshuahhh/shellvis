@@ -1,12 +1,9 @@
-import chokidar from "chokidar";
 import cors from "cors";
 import express from "express";
-import * as fs from "node:fs";
 import yargs from "yargs";
-import { AutomergeServer } from "./automerge.js";
-import { Run } from "./run.js";
-import { Session } from "./types.js";
 import { ScriptWatcher, ScriptWatcherParams } from "./ScriptWatcher.js";
+import { AutomergeServer } from "./automerge.js";
+import { Session } from "./types.js";
 
 console.log("welcome to funrun")
 
