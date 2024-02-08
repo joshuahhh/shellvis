@@ -1,10 +1,11 @@
+import { library } from '@fortawesome/fontawesome-svg-core'
+import { faEllipsisVertical, faRotateLeft, faRotateRight } from '@fortawesome/free-solid-svg-icons'
 import React, { memo } from 'react'
 import ReactDOM from 'react-dom/client'
+import { HashRouter, Link, Route, Routes } from "react-router-dom"
 import { CliV } from './CliV.js'
-import { library } from '@fortawesome/fontawesome-svg-core'
-import { faRotateRight, faRotateLeft, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons'
-import { HashRouter, Link, Navigate, Route, Routes, useParams } from "react-router-dom";
-import styleCss from "./style.css?inline";
+import styleCss from "./style.css?inline"
+import { TestbedLinksV, TestbedV } from './TestbedV.js'
 
 library.add(faRotateRight, faRotateLeft, faEllipsisVertical)
 
@@ -15,7 +16,8 @@ const HomeV = memo(() => {
         <Link to="/cli">cli</Link>
       </li>
       <li>
-      <Link to="/testbed">testbed</Link>
+        testbed
+        <TestbedLinksV/>
       </li>
     </ul>
   </>
@@ -27,7 +29,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <HashRouter>
       <Routes>
         <Route path="/cli" element={<CliV/>}/>
-        {/* <Route path="/testbed" element={<Testbed/>}/> */}
+        <Route path="/testbed/:name" element={<TestbedV/>}/>
         <Route path="*" element={<HomeV/>}/>
       </Routes>
     </HashRouter>

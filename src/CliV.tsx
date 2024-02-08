@@ -30,7 +30,7 @@ export const CliV = memo(() => {
   }
 });
 
-const CliWithSessionUrlV = memo((props: { sessionAutomergeUrl: AutomergeUrl }) => {
+export const CliWithSessionUrlV = memo((props: { sessionAutomergeUrl: AutomergeUrl }) => {
   const { sessionAutomergeUrl } = props
   const [ session ] = useDocument<Session>(sessionAutomergeUrl)
 

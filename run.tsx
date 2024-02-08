@@ -9,7 +9,7 @@ import sh from "mvdan-sh";
 import * as child_process from "node:child_process";
 import * as fsOld from "node:fs";
 import * as fs from "node:fs/promises";
-import { Server } from "node:http";
+import { Server, get } from "node:http";
 import * as path from "node:path";
 import * as os from "os";
 import * as tmp from "tmp";
@@ -19,6 +19,7 @@ import { Script, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-hel
 import { Message } from "./tracing.js";
 import { parseTypeset } from "./typeset.js";
 import { FATAL, __dirname } from "./util.js";
+import getPort from "get-port";
 
 type Sandbox = {
   sandboxDir: string,
@@ -86,7 +87,7 @@ function frMsgStmt(message: Message, returnVars?: string): sh.Stmt {
 }
 
 function frUploadStr(uploadId: string) {
-  return `curl -s -X POST -T - http://localhost:1234/upload/${uploadId}`;
+  return `curl -s -X POST -T - http://localhost:$fr_sh2fr_port/upload/${uploadId}`;
 }
 
 async function readWholeStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
@@ -134,7 +135,7 @@ function pipeProgressUploadHandler(changePipeProgress: DocHandle<PipeProgress>["
 export type RunParams = {
   scriptSrc: string,
   cwd: string,
-  env: Record<string, string | undefined>,
+  env: Record<string, string | undefined> | 'process.env',
   args?: string,
 }
 
@@ -280,13 +281,19 @@ export class Run {
       trace.startTime = new Date();
     });
 
+    this.sh2frPort = await getPort();
+
     // TODO: we use a second zsh call to parse this.params.args; kinda ugly
     this.childProcess = child_process.spawn(
       'zsh',
       [ '-c', `zsh ${tmpFile.name} ${this.params.args || ''}` ],
       {
         cwd: path.join(this.sandbox.deltaUnionDir, this.params.cwd),
-        env: this.params.env,
+        env: {
+          ...this.params.env === 'process.env' ? process.env : this.params.env,
+          fr_sh2fr_port: `${this.sh2frPort}`,
+        },
+        // stdio: ['ignore', 'ignore', 'inherit'],
         stdio: ['ignore', 'inherit', 'inherit'],
         // stdio: 'ignore',
       }
@@ -446,7 +453,6 @@ export class Run {
       res.status(404).send(`404 not found`);
     });
 
-    this.sh2frPort = 1234;
     this.sh2frServer = this.sh2frExpress.listen(this.sh2frPort, () => {
       console.log(`sh2fr server listening on port ${this.sh2frPort}`)
     })

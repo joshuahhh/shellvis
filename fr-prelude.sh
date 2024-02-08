@@ -7,13 +7,13 @@ exec {fr_top_stderr}>&2
 
 fr_msg () {
   [ $fr_debug ] && echo -E "sh: fr_msg gonna curl $1" >&$fr_top_stderr;
-  curl -s -d $1 -H "Content-Type: text/plain" -X POST http://localhost:1234;
+  curl -s -d $1 -H "Content-Type: text/plain" -X POST http://localhost:$fr_sh2fr_port;
   [ $fr_debug ] && echo -E "sh: fr_msg curl complete $1" >&$fr_top_stderr;
 }
 
 fr_upload () {
   [ $fr_debug ] && echo -E "sh: fr_upload gonna curl $1" >&$fr_top_stderr;
-  curl -s -H "Content-Type: text/plain" -X POST --data-binary @- http://localhost:1234/upload/$1;
+  curl -s -H "Content-Type: text/plain" -X POST --data-binary @- http://localhost:$fr_sh2fr_port/upload/$1;
   [ $fr_debug ] && echo -E "sh: fr_upload curl complete $1" >&$fr_top_stderr;
 }
 
