@@ -288,13 +288,13 @@ export class Run {
       'zsh',
       [ '-c', `zsh ${tmpFile.name} ${this.params.args || ''}` ],
       {
-        cwd: path.join(this.sandbox.deltaUnionDir, this.params.cwd),
+        cwd: path.join(this.sandbox.deltaUnionDir, path.resolve(this.params.cwd)),
         env: {
           ...this.params.env === 'process.env' ? process.env : this.params.env,
           fr_sh2fr_port: `${this.sh2frPort}`,
         },
-        // stdio: ['ignore', 'ignore', 'inherit'],
-        stdio: ['ignore', 'inherit', 'inherit'],
+        stdio: ['ignore', 'ignore', 'inherit'],
+        // stdio: ['ignore', 'inherit', 'inherit'],
         // stdio: 'ignore',
       }
     );
