@@ -7,6 +7,9 @@ import { CliV } from './CliV.js'
 import styleCss from "./style.css?inline"
 import { TestbedLinksV, TestbedV } from './TestbedV.js'
 
+// for testing
+import "../monotone.js";
+
 library.add(faRotateRight, faRotateLeft, faEllipsisVertical)
 
 const HomeV = memo(() => {
