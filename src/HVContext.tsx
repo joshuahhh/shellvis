@@ -6,8 +6,9 @@ export type HVContext = {
 }
 
 export const defaultHVContext: HVContext = {
-  detailsMode: 'in-place',
+  detailsMode: 'on-side',
   showMessages: false,
 };
 
+// eslint-disable-next-line @typescript-eslint/no-redeclare
 export const HVContext = createContext<HVContext>(defaultHVContext);

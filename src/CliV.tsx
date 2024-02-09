@@ -1,11 +1,10 @@
-import { AutomergeUrl, Repo } from "@automerge/automerge-repo";
-import { BrowserWebSocketClientAdapter } from "@automerge/automerge-repo-network-websocket";
-import { RepoContext, useDocument } from "@automerge/automerge-repo-react-hooks";
-import { ReactNode, memo, useEffect, useRef, useState } from "react";
+import { AutomergeUrl } from "@automerge/automerge-repo";
+import { useDocument } from "@automerge/automerge-repo-react-hooks";
+import { memo, useEffect, useRef, useState } from "react";
 import { Trace } from "../execution.js";
 import { Session } from "../types.js";
-import { TraceViewerV } from "./render.js";
 import { WithAutomergeV } from "./WithAutomergeV.js";
+import { TraceViewerV } from "./render.js";
 
 export const CliV = memo(() => {
   // TODO: should I do something smarter than polling here?

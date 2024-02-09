@@ -1,6 +1,5 @@
+import { RawString } from "@automerge/automerge/next";
 import { Message } from "./tracing.js";
-import { ShellVar, ShellVarChange } from "./typeset.js";
-import { RawString } from "@automerge/automerge/next"
 
 export function mkExecId(context: string, nodeId: string): string {
   return `${context}/${nodeId}`;

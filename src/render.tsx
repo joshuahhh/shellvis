@@ -1,7 +1,7 @@
 import { weakMapCache } from "@engraft/shared/lib/cache.js";
 import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
-import React, { Fragment, memo, useCallback, useEffect, useMemo } from "react";
+import React, { Fragment, memo, useCallback, useContext, useEffect, useMemo } from "react";
 import * as util from "util";
 import { Decoration, addDecorationsToLine } from "../decorations.js";
 import { Iteration, Trace, mkExecId } from "../execution.js";
@@ -77,7 +77,9 @@ const TraceV = memo((props: TraceVProps) => {
     } catch (e) {
       return new Script(parser, '');
     }
-  }, [trace.scriptSrc]);
+  }, [optionalScript, trace.scriptSrc]);
+
+  const { showMessages, detailsMode } = useContext(HVContext);
 
   if (trace.parseError) {
     return <div>
@@ -162,8 +164,6 @@ const TraceV = memo((props: TraceVProps) => {
     </dl>
   </div>;
 
-  const { showMessages, detailsMode } = React.useContext(HVContext);
-
   return <div style={{display: 'flex', flexDirection: 'row'}}>
     <div className="left" style={{minWidth: 0}}>
       <div style={{fontSize: "80%", marginBottom: 10}}>
@@ -211,7 +211,7 @@ const DetailsOnSide = memo((props: {
   useEffect(() => {
     if (!lColumn || !rColumn) { return; }
     const lHeight = lColumn.getBoundingClientRect().height;
-    const rHeight = rColumn.getBoundingClientRect().height;
+    // const rHeight = rColumn.getBoundingClientRect().height;
     const wHeight = window.innerHeight;
     const update = () => {
       // as scroll goes from 0 to lHeight - wHeight,
@@ -223,6 +223,8 @@ const DetailsOnSide = memo((props: {
     return () => window.removeEventListener('scroll', update);
   }, [lColumn, rColumn])
 
+  const [ rColumnContents, setRColumnContents ] = React.useState<HTMLElement | null>(null);
+
   // TODO: bad use of config context here
   return (
     <div className="details-on-side-1" style={{position: 'relative'}}>
@@ -232,8 +234,10 @@ const DetailsOnSide = memo((props: {
           display: 'flex', flexDirection: 'column', gap: 10,
           fontFamily: 'monospace',
           position: 'relative', top: -scroll,
+          transition: 'ease-in 0.2s top',
         }}
       >
+        <div className="details-on-side-3" ref={setRColumnContents}>
         <HVContext.Provider value={{...hvContext, detailsMode: 'in-place'}}>
           {callExprs.map((callExpr) =>
             <CallOnRightV
@@ -241,9 +245,12 @@ const DetailsOnSide = memo((props: {
               callExpr={callExpr}
               script={script}
               trace={trace}
+              setScroll={setScroll}
+              rColumnContents={rColumnContents}
             />
           )}
         </HVContext.Provider>
+        </div>
       </div>
     </div>
   );
@@ -261,24 +268,36 @@ function boxMinus(a: DOMRect, b: DOMRect) {
 }
 type Boxy = ReturnType<typeof boxMinus>;
 
+function topRelativeTo(elem: HTMLElement, container: HTMLElement) {
+  return elem.getBoundingClientRect().top - container.getBoundingClientRect().top;
+}
+
 const CallOnRightV = memo((props: {
   callExpr: sh.CallExpr,
   script: Script,
   trace: Trace,
+  setScroll: (scroll: number) => void,
+  rColumnContents: HTMLElement | null,
 }) => {
-  const { callExpr, script, trace } = props;
+  const { callExpr, script, trace, setScroll, rColumnContents } = props;
 
   const nodeId = getNodeId(callExpr);
   const context = '';
   const execId = mkExecId(context, nodeId);
 
+  const [ lElem, setLElem ] = React.useState<HTMLElement | null>(null);
   const [ rElem, setRElem ] = React.useState<HTMLElement | null>(null);
 
   const [ rBox, setRBox ] = React.useState<Boxy | null>(null);
   const [ lBox, setLBox ] = React.useState<Boxy | null>(null);
 
   useEffect(() => {
-    const lElem = document.querySelector(`[data-exec-id="${execId}"]`);
+    return rafLoop(() => {
+      setLElem(document.querySelector(`[data-exec-id="${execId}"]`) as HTMLElement | null);
+    });
+  }, [execId])
+
+  useEffect(() => {
     if (!lElem) {
       console.error(`couldn't find element for execId ${execId}`);
       return;
@@ -293,7 +312,18 @@ const CallOnRightV = memo((props: {
       cancelLoop();
       window.removeEventListener('resize', update);
     };
-  }, [execId])
+  }, [execId, lElem])
+
+  useEffect(() => {
+    if (!lElem || !rElem || !rColumnContents) { return; }
+    const onLElemHover = () => {
+      setScroll(topRelativeTo(rElem, rColumnContents) - lElem.getBoundingClientRect().top + 40);
+      // setScroll(lElem.getBoundingClientRect().top - 100);
+      console.log("hover");
+    }
+    lElem.addEventListener('mouseenter', onLElemHover);
+    return () => lElem.removeEventListener('mouseenter', onLElemHover);
+  }, [lElem, rColumnContents, rElem, setScroll])
 
   useEffect(() => {
     if (!rElem) { return; }
@@ -314,7 +344,11 @@ const CallOnRightV = memo((props: {
       <svg style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: -100, overflow: 'visible'}}>
         <line
           x1={lBox.right - 5} y1={lBox.top + 10}
-          x2={rBox.left + 5} y2={rBox.top + 10}
+          x2={rBox.left - 20} y2={lBox.top + 10}
+          stroke="hsl(0, 0%, 30%)" strokeWidth="1"/>
+        <line
+          x1={rBox.left - 20} y1={lBox.top + 10}
+          x2={rBox.left + 10} y2={rBox.top + 10}
           stroke="hsl(0, 0%, 30%)" strokeWidth="1"/>
       </svg>,
       document.body

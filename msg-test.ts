@@ -1,9 +1,7 @@
-import { dump } from "wtfnode";
-
 import * as child_process from "node:child_process";
 import * as fs from "node:fs/promises";
-import * as tmp from "tmp";
 import * as net from "node:net";
+import * as tmp from "tmp";
 
 function mkfifo(path: string): void {
   const mkfifoCommand = `mkfifo ${path}`;

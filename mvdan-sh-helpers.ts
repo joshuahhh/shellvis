@@ -196,9 +196,11 @@ type NodeTypes = {
 }
 
 type AssertTrue<A extends true> = A
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NodeTypesAreAllNodes = AssertTrue<
   NodeTypes[keyof NodeTypes] extends sh.Node ? true : false
 >
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NodeTypesAreNotJustNodes = AssertTrue<
   sh.Node extends NodeTypes[keyof NodeTypes] ? false : true
 >

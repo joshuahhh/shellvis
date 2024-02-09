@@ -2,7 +2,7 @@ import { RawString } from "@automerge/automerge/next";
 import * as octicons from "@primer/octicons-react";
 import sh from "mvdan-sh";
 import path from "path-browserify";
-import React, { memo, useContext, useEffect } from "react";
+import React, { memo, useContext } from "react";
 import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "../execution.js";
 import { getNodeId } from "../mvdan-sh-helpers.js";
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from "../typeset.js";

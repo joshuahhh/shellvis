@@ -4,9 +4,6 @@ module.exports = {
   extends: [
     "react-app"
   ],
-  plugins: [
-    "@engraft/refunc-hooks"
-  ],
   settings: {
     'import/resolver': {
       typescript: true
@@ -26,17 +23,5 @@ module.exports = {
         varsIgnorePattern: "^_"
       }
     ],
-    "@engraft/refunc-hooks/exhaustive-deps": "warn",
-    "import/no-restricted-paths": [
-      "error",
-      {
-        zones: [
-          {
-            target: "./test",
-            from: "./src",
-          }
-        ]
-      }
-    ]
   }
 }
