@@ -18,10 +18,11 @@ type CallVProps = {
   context: string,
   trace: Trace,
   className?: string,
+  showHeader?: boolean,
 }
 
 export const CallV = memo((props: CallVProps) => {
-  const {contents, callExpr, context, trace, className} = props;
+  const {contents, callExpr, context, trace, className, showHeader = true} = props;
 
   const nodeId = getNodeId(callExpr);
   const execId = mkExecId(context, nodeId);
@@ -124,17 +125,17 @@ export const CallV = memo((props: CallVProps) => {
     className={`call ${statusClass} ${!showDetails ? 'call--no-info-sections' : ''} ${className || ''}`}
     data-exec-id={execId}
   >
-    <div className="call__code">
-      <div className="call__code-background"/>
-      <div className="call__code-contents">{contents}</div>
-    </div>
+    { showHeader &&
+      <div className="call__code">
+        <div className="call__code-background"/>
+        <div className="call__code-contents">{contents}</div>
+      </div>
+    }
     <div className={`call__info-wrapper ${showDetails ? 'open' : ''}`}>
       <div style={{overflow: 'hidden'}}>
-        { true &&
-          <div className="call__info">
-            {infoSections}
-          </div>
-        }
+        <div className="call__info">
+          {infoSections}
+        </div>
       </div>
     </div>
   </div>

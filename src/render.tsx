@@ -183,7 +183,10 @@ const TraceV = memo((props: TraceVProps) => {
       {false && partExecInfo()}
       {false && partForInfo()}
     </div>
-    <div className="right" ref={setRColumn} style={{display: 'flex', height: 'fit-content', marginLeft: 40}}>
+    <div
+      className="right" ref={setRColumn}
+      style={{display: 'flex', marginLeft: 40}}
+    >
       { detailsMode === 'on-side' &&
         <DetailsOnSide trace={trace} script={script} lColumn={lColumn} rColumn={rColumn}/>
       }
@@ -238,7 +241,6 @@ const DetailsOnSide = memo((props: {
               callExpr={callExpr}
               script={script}
               trace={trace}
-              scroll={scroll}
             />
           )}
         </HVContext.Provider>
@@ -263,9 +265,8 @@ const CallOnRightV = memo((props: {
   callExpr: sh.CallExpr,
   script: Script,
   trace: Trace,
-  scroll: number,
 }) => {
-  const { callExpr, script, trace, scroll } = props;
+  const { callExpr, script, trace } = props;
 
   const nodeId = getNodeId(callExpr);
   const context = '';
@@ -287,9 +288,9 @@ const CallOnRightV = memo((props: {
     };
     update();
     window.addEventListener('resize', update);
-    const interval = setInterval(update, 1000);
+    const cancelLoop = rafLoop(update);
     return () => {
-      clearInterval(interval);
+      cancelLoop();
       window.removeEventListener('resize', update);
     };
   }, [execId])
@@ -301,9 +302,9 @@ const CallOnRightV = memo((props: {
     };
     update();
     window.addEventListener('resize', update);
-    const interval = setInterval(update, 1000);
+    const cancelLoop = rafLoop(update);
     return () => {
-      clearInterval(interval);
+      cancelLoop();
       window.removeEventListener('resize', update);
     };
   }, [rElem, execId])
@@ -319,19 +320,33 @@ const CallOnRightV = memo((props: {
       document.body
     )}
     {lBox &&
-      <div className="call-wrapper" ref={setRElem} style={{display: 'flex', position: 'absolute', top: lBox.top - 40, width: 1000}}>
+      <div
+        className="call-wrapper" ref={setRElem}
+        style={{
+          display: 'flex',
+        }}>
         <CallV
           contents={script.srcForNode(callExpr)}
           callExpr={callExpr}
           context={context}
           trace={trace}
           className='call--on-right'
+          showHeader={false}
         />
       </div>
     }
   </>;
 });
 
+function rafLoop(cb: () => void): () => void {
+  let id: number;
+  function loop() {
+    cb();
+    id = requestAnimationFrame(loop);
+  }
+  id = requestAnimationFrame(loop);
+  return () => cancelAnimationFrame(id);
+}
 
 const MessageV = memo((props: { message: Message, script: Script }) => {
   const { message, script } = props;
