@@ -16,6 +16,11 @@ const examples: Record<string, ScriptWatcherParams> = {
     cwd: ".",
     env: 'process.env',
   },
+  "loops": {
+    path: "./loops.sh",
+    cwd: ".",
+    env: 'process.env',
+  },
   "source-submission": {
     path: "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old/source-submission.fish",
     cwd: "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old",

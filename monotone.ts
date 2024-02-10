@@ -55,7 +55,10 @@ export function layOutIntervals(
   intervals: Interval[]
 ): Record<string, number> {
   // sort by center
-  intervals.sort((a, b) => (a.leftTarget + a.width / 2) - (b.leftTarget + b.width / 2));
+  // intervals.sort((a, b) => (a.leftTarget + a.width / 2) - (b.leftTarget + b.width / 2));
+
+  // sort by target
+  intervals.sort((a, b) => a.leftTarget - b.leftTarget);
 
   // offsets (to turn this into monotonic regression) are partial sums of widths
   const offsets = [0];
@@ -72,6 +75,25 @@ export function layOutIntervals(
   const result: Record<string, number> = {};
   for (let i = 0; i < intervals.length; i++) {
     result[intervals[i].id] = ysMonotone[i] + offsets[i];
+  }
+  return result;
+}
+
+// NOTE: this function ignores weights
+export function layOutIntervalsOneSide(
+  intervals: Interval[]
+): Record<string, number> {
+  // sort by center
+  // intervals.sort((a, b) => (a.leftTarget + a.width / 2) - (b.leftTarget + b.width / 2));
+
+  // sort by target
+  intervals.sort((a, b) => a.leftTarget - b.leftTarget);
+
+  let leftConstraint = -Infinity;
+  const result: Record<string, number> = {};
+  for (const interval of intervals) {
+    result[interval.id] = Math.max(leftConstraint, interval.leftTarget);
+    leftConstraint = result[interval.id] + interval.width;
   }
   return result;
 }

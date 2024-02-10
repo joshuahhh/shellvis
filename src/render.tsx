@@ -1,7 +1,7 @@
 import { weakMapCache } from "@engraft/shared/lib/cache.js";
 import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
-import React, { Fragment, memo, useCallback, useContext, useEffect, useMemo } from "react";
+import React, { Fragment, memo, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import * as util from "util";
 import { Decoration, addDecorationsToLine } from "../decorations.js";
 import { Iteration, Trace, mkExecId } from "../execution.js";
@@ -13,6 +13,8 @@ import { Slider } from '@mui/material';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { HVContext, defaultHVContext } from "./HVContext.js";
 import { createPortal } from "react-dom";
+import { Interval, layOutIntervals, layOutIntervalsOneSide } from "../monotone.js";
+import { useGathering } from "./useGathering.js";
 
 type TraceViewerVProps = {
   trace: Trace,
@@ -39,6 +41,18 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           <option value="on-side">on-side</option>
           <option value="one-by-one">one-by-one</option>
           <option value="none">none</option>
+        </select>
+      </label>
+      <label>
+        On-side layout:
+        <select
+          value={hvContext.onSideLayout}
+          onChange={(e) => setHVContext((hvContext) => ({ ...hvContext, onSideLayout: e.target.value as any }))}
+          style={{marginLeft: 10}}
+        >
+          <option value="smart">smart</option>
+          <option value="mid">mid</option>
+          <option value="dumb">dumb</option>
         </select>
       </label>
       <label>
@@ -204,9 +218,9 @@ const DetailsOnSide = memo((props: {
 
   const callExprs = Object.values(script.nodesByTypeById.CallExpr);
 
-  const hvContext = React.useContext(HVContext);
+  const hvContext = useContext(HVContext);
 
-  const [ scroll, setScroll ] = React.useState(0);
+  const [ scroll, setScroll ] = useState(0);
 
   useEffect(() => {
     if (!lColumn || !rColumn) { return; }
@@ -223,7 +237,19 @@ const DetailsOnSide = memo((props: {
     return () => window.removeEventListener('scroll', update);
   }, [lColumn, rColumn])
 
-  const [ rColumnContents, setRColumnContents ] = React.useState<HTMLElement | null>(null);
+  const [ rColumnContents, setRColumnContents ] = useState<HTMLElement | null>(null);
+
+  const [ intervals, reportInterval ] = useGathering<Interval>();
+
+  const layOutTops = useMemo(() => {
+    if (hvContext.onSideLayout === 'smart') {
+      return layOutIntervals(Object.values(intervals));
+    } else if (hvContext.onSideLayout === 'mid') {
+      return layOutIntervalsOneSide(Object.values(intervals));
+    } else {
+      return null;
+    }
+  }, [hvContext.onSideLayout, intervals]);
 
   // TODO: bad use of config context here
   return (
@@ -247,6 +273,8 @@ const DetailsOnSide = memo((props: {
               trace={trace}
               setScroll={setScroll}
               rColumnContents={rColumnContents}
+              reportInterval={reportInterval}
+              layOutTop={layOutTops?.[getNodeId(callExpr)]}
             />
           )}
         </HVContext.Provider>
@@ -278,8 +306,10 @@ const CallOnRightV = memo((props: {
   trace: Trace,
   setScroll: (scroll: number) => void,
   rColumnContents: HTMLElement | null,
+  reportInterval: (id: string, interval: Interval | undefined) => void,
+  layOutTop: number | undefined,
 }) => {
-  const { callExpr, script, trace, setScroll, rColumnContents } = props;
+  const { callExpr, script, trace, setScroll, rColumnContents, reportInterval, layOutTop } = props;
 
   const nodeId = getNodeId(callExpr);
   const context = '';
@@ -317,7 +347,7 @@ const CallOnRightV = memo((props: {
   useEffect(() => {
     if (!lElem || !rElem || !rColumnContents) { return; }
     const onLElemHover = () => {
-      setScroll(topRelativeTo(rElem, rColumnContents) - lElem.getBoundingClientRect().top + 40);
+      setScroll(topRelativeTo(rElem, rColumnContents) - topRelativeTo(lElem, document.body) + 40);
       // setScroll(lElem.getBoundingClientRect().top - 100);
       console.log("hover");
     }
@@ -337,7 +367,21 @@ const CallOnRightV = memo((props: {
       cancelLoop();
       window.removeEventListener('resize', update);
     };
-  }, [rElem, execId])
+  }, [rElem, execId]);
+
+  useEffect(() => {
+    if (!lBox || !rBox) { return; }
+
+    reportInterval(nodeId, {
+      id: nodeId,
+      leftTarget: lBox.top,
+      width: rBox.height,
+    });
+
+    return () => {
+      reportInterval(nodeId, undefined);
+    }
+  }, [lBox, nodeId, rBox, reportInterval])
 
   return <>
     {rBox && lBox && createPortal(
@@ -358,6 +402,7 @@ const CallOnRightV = memo((props: {
         className="call-wrapper" ref={setRElem}
         style={{
           display: 'flex',
+          ...layOutTop !== undefined && {position: 'absolute', top: layOutTop, width: 500},
         }}>
         <CallV
           contents={script.srcForNode(callExpr)}
