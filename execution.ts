@@ -11,6 +11,7 @@ export type DeltaLogEntry = {
 }
 
 export type ExecInfo = {
+  suppressed: boolean,
   stdout: PipeProgress,
   stderr: PipeProgress,
   enterCwd: string,

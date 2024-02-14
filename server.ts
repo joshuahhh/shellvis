@@ -1,8 +1,9 @@
 import cors from "cors";
 import express from "express";
-import { ScriptWatcher, ScriptWatcherParams } from "./ScriptWatcher.js";
+import * as child_process from "node:child_process";
+import { ScriptWatcher } from "./ScriptWatcher.js";
 import { AutomergeServer } from "./automerge.js";
-import { Session } from "./types.js";
+import { ExecuteRequest, Session } from "./types.js";
 
 console.log("welcome to funrun")
 
@@ -31,4 +32,13 @@ app.post("/new-session", (req, res) => {
     }
   );
   res.send(sessionHandle.url);
+});
+
+app.post("/execute", (req, res) => {
+  const { command, cwd } = req.body as ExecuteRequest;
+  console.log("executing", command);
+  child_process.exec(command, { cwd }, (error, stdout, stderr) => {
+    // TODO: send this stuff back to front end
+  });
+  res.send("ok");
 });

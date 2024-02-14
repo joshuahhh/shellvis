@@ -209,6 +209,20 @@ export function hasNodeType<T extends keyof NodeTypes>(node: sh.Node, nodeType: 
   return sh.syntax.NodeType(node) === nodeType;
 }
 
+export function parseFirstOfType<T extends keyof NodeTypes>(parser: sh.Parser, src: string, nodeType: T): NodeTypes[T] | null {
+  const file = parser.Parse(src);
+  let foundNode: NodeTypes[T] | null = null;
+  myWalk(file, {
+    enter(node) {
+      if (hasNodeType(node, nodeType)) {
+        foundNode = node;
+        return EnterResponse.Abort;
+      }
+    }
+  });
+  return foundNode;
+}
+
 const trackedNodeTypes = [
   "ForClause", "CallExpr", "Stmt"
 ] satisfies (keyof NodeTypes)[];

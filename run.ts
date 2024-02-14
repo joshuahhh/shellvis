@@ -1,3 +1,5 @@
+/* eslint-disable import/first */
+
 // must come first
 import { dump } from "wtfnode";
 (global as any).dump = dump;
@@ -5,21 +7,21 @@ import { dump } from "wtfnode";
 import { DocHandle } from "@automerge/automerge-repo";
 import { RawString } from "@automerge/automerge/next";
 import express from "express";
+import getPort from "get-port";
 import sh from "mvdan-sh";
 import * as child_process from "node:child_process";
 import * as fsOld from "node:fs";
 import * as fs from "node:fs/promises";
-import { Server, get } from "node:http";
+import { Server } from "node:http";
 import * as path from "node:path";
 import * as os from "os";
 import * as tmp from "tmp";
 import { AutomergeServer, changeAt } from "./automerge.js";
 import { PipeProgress, Trace, mkExecId, parseDeltaLog } from "./execution.js";
-import { Script, getNodeId, hasNodeType, myWalk, wrapStmt } from "./mvdan-sh-helpers.js";
+import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } from "./mvdan-sh-helpers.js";
 import { Message } from "./tracing.js";
 import { parseTypeset } from "./typeset.js";
 import { FATAL, __dirname } from "./util.js";
-import getPort from "get-port";
 
 type Sandbox = {
   sandboxDir: string,
@@ -105,9 +107,10 @@ async function readWholeStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
   });
 }
 
-function pathInSandbox(path: string, sandbox: Sandbox): string {
+// null if path is not in sandbox
+function pathInSandbox(path: string, sandbox: Sandbox): string | null {
   if (!path.startsWith(sandbox.deltaUnionDir)) {
-    throw new Error(`path ${path} is not in sandbox`);
+    return null;
   }
   return path.slice(sandbox.deltaUnionDir.length);
 }
@@ -131,6 +134,11 @@ function pipeProgressUploadHandler(changePipeProgress: DocHandle<PipeProgress>["
     });
   };
 }
+
+const suppressedCommands = new Set([
+  "code",
+  "say",
+]);
 
 export type RunParams = {
   scriptSrc: string,
@@ -189,11 +197,22 @@ export class Run {
     myWalk(transformedAst, {
       exit: (node) => {
         if (hasNodeType(node, "Stmt")) {
-          const nodeId = getNodeId(node);
-
           const cmd = node.Cmd;
           if (hasNodeType(cmd, "CallExpr")) {
             const callId = getNodeId(cmd);
+
+            let suppressed = false;
+            if (cmd.Args && cmd.Args[0]?.Parts) {
+              const cmdName = cmd.Args[0].Lit();
+              if (suppressedCommands.has(cmdName)) {
+                const echoWord = parseFirstOfType(parser, "echo", "Word");
+                if (!echoWord) {
+                  throw new Error("couldn't get echo word?");
+                }
+                cmd.Args = [echoWord, ...cmd.Args];
+                suppressed = true;
+              }
+            }
 
             wrapStmt(parser, node, `{
               local fr_stdout fr_stderr fr_vars_enter fr_vars_exit fr_ret >/dev/null;
@@ -201,7 +220,8 @@ export class Run {
                 type: "call-enter",
                 nodeId: callId,
                 context: '$(fr_ctx_str)',
-                cwd: "$PWD"
+                cwd: "$PWD",
+                suppressed,
               }, "fr_stdout fr_stderr fr_vars_enter fr_vars_exit")};
               # echo "sh: got upload ids $fr_stdout $fr_stderr $fr_vars_enter $fr_vars_exit" >&$fr_top_stderr;
               fr-sandbox before-run ${this.sandbox!.deltaDir}
@@ -214,7 +234,7 @@ export class Run {
                 nodeId: callId,
                 context: '$(fr_ctx_str)',
                 cwd: "$PWD",
-                exitCode: RAW("$fr_ret")
+                exitCode: RAW("$fr_ret"),
               }, " fr_delta_log")};
               fr-sandbox after-run ${this.sandbox!.deltaDir} ${this.sandbox!.sandboxDir} - | ${frUploadStr('$fr_delta_log')};
               fr_exitcode $fr_ret;
@@ -292,6 +312,7 @@ export class Run {
         env: {
           ...this.params.env === 'process.env' ? process.env : this.params.env,
           fr_sh2fr_port: `${this.sh2frPort}`,
+          ROOT: this.sandbox.deltaUnionDir,
         },
         stdio: ['ignore', 'ignore', 'inherit'],
         // stdio: ['ignore', 'inherit', 'inherit'],
@@ -317,15 +338,24 @@ export class Run {
         const varsEnterUploadId = `${uploadId++}`;
         const varsExitUploadId = `${uploadId++}`;
 
+        const enterCwd = pathInSandbox(message.cwd, this.sandbox!);
+
+        if (!enterCwd) {
+          console.error("call-enter cwd not in sandbox", message.cwd, "aborting");
+          await this.stop();
+          throw new Error("call-enter cwd not in sandbox");
+        }
+
         const execId = mkExecId(message.context, message.nodeId);
         this.traceDoc.change((trace) => {
           trace.execInfos[execId] = {
             stdout: { data: [], done: false },
             stderr: { data: [], done: false },
-            enterCwd: pathInSandbox(message.cwd, this.sandbox!),
+            enterCwd,
             exitInfo: null,
             varsEnterStr: null,
             varsExitStr: null,
+            suppressed: message.suppressed,
           }
         });
 
@@ -372,10 +402,20 @@ export class Run {
           // console.log("fr: deltaLog upload handler called");
           const deltaLog = (await readWholeStream(req)).toString();
           // console.log("fr: deltaLog upload handler got data", deltaLog);
+
+          const cwd = pathInSandbox(message.cwd, this.sandbox!);
+
+          if (!cwd) {
+            console.error("call-enter cwd not in sandbox", message.cwd, "aborting");
+            await this.stop();
+            throw new Error("call-enter cwd not in sandbox");
+          }
+
+
           this.traceDoc.change((trace) => {
             trace.execInfos[execId].exitInfo = {
               exitCode: message.exitCode,
-              cwd: pathInSandbox(message.cwd, this.sandbox!),
+              cwd,
               deltaLog: parseDeltaLog(deltaLog),
             };
           });

@@ -1,19 +1,19 @@
-import { weakMapCache } from "@engraft/shared/lib/cache.js";
+import { useUpdateProxy } from "@engraft/update-proxy-react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Slider } from '@mui/material';
+import * as octicons from "@primer/octicons-react";
 import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
-import React, { Fragment, memo, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { Fragment, memo, useContext, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import * as util from "util";
 import { Decoration, addDecorationsToLine } from "../decorations.js";
-import { Iteration, Trace, mkExecId } from "../execution.js";
+import { Trace, mkExecId } from "../execution.js";
+import { Interval, layOutIntervals, layOutIntervalsOneSide } from "../monotone.js";
 import { LineTreeNode, Script, expandObject, getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
 import { Message } from "../tracing.js";
 import { CallV } from "./CallV.js";
-import * as octicons from "@primer/octicons-react";
-import { Slider } from '@mui/material';
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { HVContext, defaultHVContext } from "./HVContext.js";
-import { createPortal } from "react-dom";
-import { Interval, layOutIntervals, layOutIntervalsOneSide } from "../monotone.js";
 import { useGathering } from "./useGathering.js";
 
 type TraceViewerVProps = {
@@ -23,6 +23,8 @@ type TraceViewerVProps = {
 
 export const TraceViewerV = memo((props: TraceViewerVProps) => {
   const [ hvContext, setHVContext ] = React.useState<HVContext>(defaultHVContext);
+
+  const hvContextUP = useUpdateProxy(setHVContext);
 
   return <HVContext.Provider value={hvContext}>
     <TraceV {...props} />
@@ -34,7 +36,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
         Details mode:
         <select
           value={hvContext.detailsMode}
-          onChange={(e) => setHVContext((hvContext) => ({ ...hvContext, detailsMode: e.target.value as any }))}
+          onChange={(e) => hvContextUP.detailsMode.$set(e.target.value as any)}
           style={{marginLeft: 10}}
         >
           <option value="in-place">in-place</option>
@@ -47,7 +49,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
         On-side layout:
         <select
           value={hvContext.onSideLayout}
-          onChange={(e) => setHVContext((hvContext) => ({ ...hvContext, onSideLayout: e.target.value as any }))}
+          onChange={(e) => hvContextUP.onSideLayout.$set(e.target.value as any)}
           style={{marginLeft: 10}}
         >
           <option value="smart">smart</option>
@@ -59,10 +61,19 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
         <input
           type="checkbox"
           checked={hvContext.showMessages}
-          onChange={(e) => setHVContext((hvContext) => ({ ...hvContext, showMessages: e.target.checked }))}
+          onChange={(e) => hvContextUP.showMessages.$set(e.target.checked)}
           style={{marginRight: 10}}
         />
         Show messages
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={hvContext.showAST}
+          onChange={(e) => setHVContext((hvContext) => ({ ...hvContext, showAST: e.target.checked }))}
+          style={{marginRight: 10}}
+        />
+        Show AST
       </label>
     </div>
   </HVContext.Provider>;
@@ -93,7 +104,7 @@ const TraceV = memo((props: TraceVProps) => {
     }
   }, [optionalScript, trace.scriptSrc]);
 
-  const { showMessages, detailsMode } = useContext(HVContext);
+  const { showMessages, showAST, detailsMode } = useContext(HVContext);
 
   if (trace.parseError) {
     return <div>
@@ -119,9 +130,7 @@ const TraceV = memo((props: TraceVProps) => {
 
   const partAST = () => <div>
     <h1>ast</h1>
-    <details open={false}>
-      {inspectHtml(expandObject(script.ast))}
-    </details>
+    {inspectHtml(expandObject(script.ast))}
   </div>;
 
   const partMessages = () => <div className="row">
@@ -193,7 +202,7 @@ const TraceV = memo((props: TraceVProps) => {
 
       {showMessages && partMessages()}
       {false && partTransformed()}
-      {false && partAST()}
+      {showAST && partAST()}
       {false && partExecInfo()}
       {false && partForInfo()}
     </div>

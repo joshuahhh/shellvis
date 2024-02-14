@@ -12,12 +12,12 @@ const examples: Record<string, ScriptWatcherParams> = {
     env: 'process.env',
   },
   "test": {
-    path: "./test.sh",
+    path: "./tests/test.sh",
     cwd: ".",
     env: 'process.env',
   },
   "loops": {
-    path: "./loops.sh",
+    path: "./tests/loops.sh",
     cwd: ".",
     env: 'process.env',
   },
@@ -26,6 +26,17 @@ const examples: Record<string, ScriptWatcherParams> = {
     cwd: "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old",
     env: 'process.env',
   },
+  "git-gone": {
+    path: "/Users/joshuah/bin/git-gone",
+    cwd: "/Users/joshuah/Documents/research/shell-live/shell",
+    env: 'process.env',
+    args: "actuallyBroadcast",
+  },
+  "suppression": {
+    path: "./tests/suppression.sh",
+    cwd: ".",
+    env: 'process.env',
+  }
 }
 
 export const TestbedLinksV = memo(() => {

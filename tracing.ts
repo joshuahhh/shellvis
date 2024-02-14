@@ -8,6 +8,7 @@ export type Message =
       nodeId: string,
       context: string,
       cwd: string,
+      suppressed: boolean,
     }
   | {
       type: 'call-exit',

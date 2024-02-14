@@ -156,8 +156,17 @@ pre {
   gap: 10px;
 }
 
+.info-entry__icon {
+  width: 16px;
+  height: 16px;
+}
+
 .info-entry__details {
   opacity: 50%;
+}
+
+.info-entry__contents--no-wrap {
+  white-space: nowrap;
 }
 
 .shell-var-icon {

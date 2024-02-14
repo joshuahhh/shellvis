@@ -1344,6 +1344,20 @@
     react-dom "^18.0.0"
     react-error-boundary "^3.1.4"
 
+"@engraft/update-proxy-react@0.0.7":
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/@engraft/update-proxy-react/-/update-proxy-react-0.0.7.tgz#a0a5da4979317b4961e5549968cc3622234af542"
+  integrity sha512-9Abbdn5fDFwCcjt8jp/rDvP/PPJuYgYcMhQ8lQb/J//hqpq/bV6dOOqHLo5gesBuext4EfsfEYPzA1u3O32Q9A==
+  dependencies:
+    "@engraft/update-proxy" "^0.0.7"
+
+"@engraft/update-proxy@^0.0.7":
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/@engraft/update-proxy/-/update-proxy-0.0.7.tgz#a9cc692dd5862b7f7261897ffe58ec0e25d4d257"
+  integrity sha512-dVginQCtcnoyrD1NuPGjzBgdFgyqTdTcFi00pSuMtd1+Dgn7DMXgWpeciLpXXvAwqA/gs5j1CDNNUGvtbT90iQ==
+  dependencies:
+    immutability-helper "^3.1.1"
+
 "@esbuild/aix-ppc64@0.19.12":
   version "0.19.12"
   resolved "https://registry.yarnpkg.com/@esbuild/aix-ppc64/-/aix-ppc64-0.19.12.tgz#d1bc06aedb6936b3b6d313bf809a5a40387d2b7f"
@@ -3703,6 +3717,11 @@ ignore@^5.2.0:
   version "5.3.1"
   resolved "https://registry.yarnpkg.com/ignore/-/ignore-5.3.1.tgz#5073e554cd42c5b33b394375f538b8593e34d4ef"
   integrity sha512-5Fytz/IraMjqpwfd34ke28PTVMjZjJG2MPn5t7OE4eUCUNf8BAa7b5WUS9/Qvr6mwOQS7Mk6vdsMno5he+T8Xw==
+
+immutability-helper@^3.1.1:
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/immutability-helper/-/immutability-helper-3.1.1.tgz#2b86b2286ed3b1241c9e23b7b21e0444f52f77b7"
+  integrity sha512-Q0QaXjPjwIju/28TsugCHNEASwoCcJSyJV3uO1sOIQGI0jKgm9f41Lvz0DZj3n46cNCyAZTsEYoY4C2bVRUzyQ==
 
 import-fresh@^3.2.1:
   version "3.3.0"

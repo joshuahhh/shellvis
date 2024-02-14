@@ -8,8 +8,9 @@ import { getNodeId } from "../mvdan-sh-helpers.js";
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from "../typeset.js";
 import { weakMapCache2 } from "../util.js";
 import { HVContext } from "./HVContext.js";
+import { ExecuteRequest } from "../types.js";
 
-const { ChevronRightIcon, DiffAddedIcon, DiffIgnoredIcon, DiffModifiedIcon, DiffRemovedIcon, FileSubmoduleIcon, SignOutIcon } = octicons;
+const { ChevronRightIcon, DiffAddedIcon, DiffIgnoredIcon, DiffModifiedIcon, DiffRemovedIcon, FileSubmoduleIcon, SignOutIcon, AlertIcon } = octicons;
 
 
 type CallVProps = {
@@ -38,14 +39,44 @@ export const CallV = memo((props: CallVProps) => {
     : 'call--not-started';
 
   const infoSections: React.ReactNode[] = [];
-  if (execInfo && execInfo.stdout.data.length > 0) {
+  if (execInfo && execInfo.stdout.data.length > 0 && !execInfo.suppressed) {
     infoSections.push(
       <div key="stdout" style={{fontSize: '80%'}}>
         <div className="info-entry">
-          <ChevronRightIcon/>
-          <pre>
-            {execInfo.stdout.data}
-          </pre>
+          <div className="info-entry__icon"><ChevronRightIcon/></div>
+          <div className="info-entry__contents">
+            <pre>
+              {execInfo.stdout.data}
+            </pre>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (execInfo && execInfo.suppressed && execInfo.exitInfo !== null) {
+    infoSections.push(
+      <div key="suppressed" style={{fontSize: '80%'}}>
+        <div className="info-entry">
+          <div className="info-entry__icon"><AlertIcon/></div>
+          <div className="info-entry__contents">
+            <button onClick={async () => {
+              await fetch(
+                "http://localhost:8080/execute",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    command: execInfo.stdout.data.join(''),
+                    cwd: execInfo.enterCwd,
+                  } satisfies ExecuteRequest),
+                }
+              )
+            }}>
+              <pre>
+                {execInfo.stdout.data}
+              </pre>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -54,17 +85,21 @@ export const CallV = memo((props: CallVProps) => {
     infoSections.push(
       <div key="stderr" style={{fontSize: '80%'}}>
         <div className="info-entry" style={{}}>
-          <div style={{position: 'relative', width: 16, height: 16}}>
-            <div style={{position: 'absolute', left: 3}}>
-              <ChevronRightIcon/>
-            </div>
-            <div style={{position: 'absolute', left: -3}}>
-              <ChevronRightIcon/>
+          <div className="info-entry__icon">
+            <div style={{position: 'relative', width: 16, height: 16}}>
+              <div style={{position: 'absolute', left: 3}}>
+                <ChevronRightIcon/>
+              </div>
+              <div style={{position: 'absolute', left: -3}}>
+                <ChevronRightIcon/>
+              </div>
             </div>
           </div>
-          <pre>
-            {execInfo.stderr.data}
-          </pre>
+          <div className="info-entry__contents">
+            <pre>
+              {execInfo.stderr.data}
+            </pre>
+          </div>
         </div>
       </div>,
     );
@@ -79,8 +114,10 @@ export const CallV = memo((props: CallVProps) => {
   if (execExitInfo && execExitInfo.exitCode !== 0) {
     infoSections.push(
       <div key="exitcode" className="info-entry" style={{fontSize: '80%'}}>
-        <SignOutIcon/>
-        <div>
+        <div className="info-entry__icon">
+          <SignOutIcon/>
+        </div>
+        <div className="info-entry__contents">
           exit {execExitInfo.exitCode}
         </div>
       </div>
@@ -161,8 +198,10 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): React.ReactNode
         <div className="info-entry__icon">
           {eventIcons[event] || <DiffIgnoredIcon/>}
         </div>
-        <div className="info-entry__contents">{somePath}</div>
-        <div className="info-entry__details">({event})</div>
+        <div className="info-entry__contents info-entry__contents--no-wrap">
+          {somePath}
+          <span className="info-entry__details">({event})</span>
+        </div>
       </div>
     })}
   </>
@@ -178,20 +217,26 @@ function renderShellVarChange(change: ShellVarChange): React.ReactNode {
   } else if (change.type === 'remove') {
     return <div className="info-entry">
       <div className="info-entry__icon shell-var-icon"><DiffRemovedIcon/></div>
-      <div className="info-entry__contents">{change.oldVar.name}</div>
-      <div className="info-entry__details">(← {change.oldVar.value})</div>
+      <div className="info-entry__contents">
+        {change.oldVar.name}{' '}
+        <div className="info-entry__details">(← {change.oldVar.value})</div>
+      </div>
     </div>;
   } else if (change.type === 'changeValue') {
     return <div className="info-entry">
       <div className="info-entry__icon shell-var-icon"><DiffModifiedIcon/></div>
-      <div className="info-entry__contents">{change.oldVar.name} = {change.newVar.value}</div>
-      <div className="info-entry__details">(← {change.oldVar.value})</div>
+      <div className="info-entry__contents">
+        {change.oldVar.name} = {change.newVar.value}{' '}
+        <div className="info-entry__details">(← {change.oldVar.value})</div>
+      </div>
     </div>;
   } else if (change.type === 'changeAttributes') {
     return <div className="info-entry">
       <div className="info-entry__icon shell-var-icon"><DiffModifiedIcon/></div>
-      <div className="info-entry__contents">{change.newVar.name} attributes: {change.newVar.attributes}</div>
-      <div className="info-entry__details">(← {change.oldVar.attributes})</div>
+      <div className="info-entry__contents">
+        {change.newVar.name} attributes: {change.newVar.attributes}{' '}
+        <div className="info-entry__details">(← {change.oldVar.attributes})</div>
+      </div>
     </div>;
   } else {
     throw new Error(`unknown change type ${(change as any).type}`);
