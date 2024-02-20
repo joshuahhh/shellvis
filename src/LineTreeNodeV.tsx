@@ -3,7 +3,7 @@ import { Slider } from '@mui/material';
 import * as octicons from "@primer/octicons-react";
 import sh from "mvdan-sh";
 import React, { Fragment, memo, useCallback, useContext, useEffect, useState } from "react";
-import { Decoration, addDecorationsToLine } from "../decorations.js";
+import { Decoration, addDecorationsToLine, addDecorationsToLineHelper, addDecorationsToLineStarter } from "../decorations.js";
 import { Iteration, Trace, mkExecId } from "../execution.js";
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
@@ -62,12 +62,27 @@ const LineV = memo((props: LineVProps) => {
   const { script, trace, line, i, context } = props;
   const { detailsMode } = useContext(HVContext);
 
+  const [ nodes, starts, ends ] = addDecorationsToLineStarter(line);
+  const colorDecorations: Decoration[] = script.tokensByLine![i].flatMap((token) => {
+    if (token.settings.foreground){
+      return {
+        start: token.startIndex,
+        end: token.endIndex,
+        decorator: (contents) =>
+          <span style={{color: token.settings.foreground}}>{contents}</span>
+      };
+    } else {
+      return [];
+    }
+  });
+  addDecorationsToLineHelper(nodes, starts, ends, colorDecorations);
+
   const callExprs = Object.values(script.nodesByTypeById.CallExpr);
   const callExprsOnLine = callExprs.filter((callExpr) => {
     // TODO: everything's limited to single lines
     return nodePosInfo(callExpr).pos.line === i + 1;
   });
-  const decorations: Decoration[] = callExprsOnLine.map((callExpr) => {
+  const callDecorations: Decoration[] = callExprsOnLine.map((callExpr) => {
     return {
       start: nodePosInfo(callExpr).pos.col - 1,
       end: nodePosInfo(callExpr).end.col - 1,
@@ -85,10 +100,11 @@ const LineV = memo((props: LineVProps) => {
           />
     };
   });
-  const decoratedLine = addDecorationsToLine(line, decorations);
+  addDecorationsToLineHelper(nodes, starts, ends, callDecorations);
+
   return <div className="line">
     <div className="line__num">{i + 1}</div>
-    <div className="line__contents">{decoratedLine}</div>
+    <div className="line__contents">{nodes}</div>
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
       <div className="line__calls">
         {callExprsOnLine.map((callExpr) =>

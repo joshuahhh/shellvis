@@ -6,13 +6,18 @@ export type Decoration = {
   decorator: (contents: React.ReactNode) => React.ReactNode,
 }
 
-export function addDecorationsToLine(line: string, decorations: Decoration[]): React.ReactNode {
-  // apply smaller decorations first
-  decorations.sort((a, b) => (a.end - a.start) - (b.end - a.start));
-
+export function addDecorationsToLineStarter(line: string) {
   let nodes: React.ReactNode[] = Array.from(line);
   let starts: number[] = rangeIncl(0, line.length - 1);
   let ends: number[] = rangeIncl(1, line.length);
+  return [nodes, starts, ends] as const;
+}
+
+// this mutates nodes/starts/ends
+export function addDecorationsToLineHelper(nodes: React.ReactNode[], starts: number[], ends: number[], decorations: Decoration[]) {
+  // apply smaller decorations first
+  decorations.sort((a, b) => (a.end - a.start) - (b.end - a.start));
+
   for (const decoration of decorations) {
     // find a node with start = decoration.start
     const i = starts.indexOf(decoration.start);
@@ -33,6 +38,11 @@ export function addDecorationsToLine(line: string, decorations: Decoration[]): R
     starts.splice(i + 1, j - i);
     ends.splice(i, j - i);
   }
+}
+
+export function addDecorationsToLine(line: string, decorations: Decoration[]): React.ReactNode {
+  const [nodes, starts, ends] = addDecorationsToLineStarter(line);
+  addDecorationsToLineHelper(nodes, starts, ends, decorations);
   return nodes;
 }
 
