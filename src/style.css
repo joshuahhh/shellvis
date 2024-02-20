@@ -64,20 +64,21 @@ pre {
 
 .line__calls {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: 5px;
   font-family: monospace;
 }
 
 .line__calls .call {
-  margin-bottom: 0px;
+  margin-bottom: 2px;
+  margin-right: 2px;
 }
 
 .trace.detailsMode-grid {
   display: grid;
   grid-template-columns: min-content min-content auto;
-  gap: 10px;
+  gap: 0px;
 }
 
 .trace.detailsMode-grid .line {

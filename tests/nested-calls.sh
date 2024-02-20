@@ -1,5 +1,5 @@
 echo "hi!"
 
-ls | rev
+ls | rev | wc -l
 
 diff <(ls) <(ls ..)

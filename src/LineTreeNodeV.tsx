@@ -72,15 +72,17 @@ const LineV = memo((props: LineVProps) => {
       start: nodePosInfo(callExpr).pos.col - 1,
       end: nodePosInfo(callExpr).end.col - 1,
       decorator: (contents) =>
-        <CallV
-          key={getNodeId(callExpr)}
-          contents={contents}
-          callExpr={callExpr}
-          context={context}
-          trace={trace}
-          className={'call--on-left'}
-          showDetails={detailsMode === 'in-place'}
-        />
+        detailsMode === 'grid'
+        ? <div style={{display: 'inline-block', borderBottom: "1px solid", marginBottom: 2}}>{contents}</div>
+        : <CallV
+            key={getNodeId(callExpr)}
+            contents={contents}
+            callExpr={callExpr}
+            context={context}
+            trace={trace}
+            className={'call--on-left'}
+            showDetails={detailsMode === 'in-place'}
+          />
     };
   });
   const decoratedLine = addDecorationsToLine(line, decorations);

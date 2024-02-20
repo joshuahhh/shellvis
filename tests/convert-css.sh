@@ -12,9 +12,9 @@ fi
 for f in `find "$srcDir" -type f -name "*.css"`; do
   # replace $srcDir with $dstDir
   dstFile="${f/$srcDir/$dstDir}"
-  local jsFilePath="${dstFilePath}.js"
+  jsFilePath="${dstFile}.js"
   echo -n "export default String.raw\`" > "$jsFilePath"
-  cat "$srcFilePath" | sed 's/\$/\${'"'"'$'"'"'}/g; s/`/\${'"'"'`'"'"'}/g' >> "$jsFilePath"
+  cat "$f" | sed 's/\$/\${'"'"'$'"'"'}/g; s/`/\${'"'"'`'"'"'}/g' >> "$jsFilePath"
   echo "\`;" >> "$jsFilePath"
   echo "Converted: $srcFilePath -> $jsFilePath"
 done
