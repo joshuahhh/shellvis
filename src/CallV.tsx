@@ -1,15 +1,14 @@
 import { RawString } from "@automerge/automerge/next";
+import { Tooltip } from "@mui/material";
 import * as octicons from "@primer/octicons-react";
 import sh from "mvdan-sh";
 import path from "path-browserify";
-import React, { memo, useContext } from "react";
+import React, { memo } from "react";
 import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "../execution.js";
 import { getNodeId } from "../mvdan-sh-helpers.js";
+import { ExecuteRequest } from "../types.js";
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from "../typeset.js";
 import { weakMapCache2 } from "../util.js";
-import { HVContext } from "./HVContext.js";
-import { ExecuteRequest } from "../types.js";
-import { Tooltip } from "@mui/material";
 
 type CallVProps = {
   contents: React.ReactNode,
@@ -18,6 +17,7 @@ type CallVProps = {
   trace: Trace,
   className?: string,
   showHeader?: boolean,
+  showDetails?: boolean,
 }
 
 export const InfoIcon = memo((props: {
@@ -32,7 +32,7 @@ export const InfoIcon = memo((props: {
 });
 
 export const CallV = memo((props: CallVProps) => {
-  const {contents, callExpr, context, trace, className, showHeader = true} = props;
+  const {contents, callExpr, context, trace, className, showHeader = true, showDetails} = props;
 
   const nodeId = getNodeId(callExpr);
   const execId = mkExecId(context, nodeId);
@@ -178,9 +178,6 @@ export const CallV = memo((props: CallVProps) => {
       <div style={{fontStyle: 'italic', fontSize: '60%'}}>{nodeId}</div>
     );
   }
-
-  const { detailsMode } = useContext(HVContext);
-  const showDetails = (detailsMode === 'in-place') && infoSections.length > 0;
 
   return <div
     key={nodeId}

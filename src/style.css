@@ -64,7 +64,7 @@ pre {
 
 .trace.detailsMode-grid {
   display: grid;
-  grid-template-columns: min-content auto;
+  grid-template-columns: min-content min-content auto;
   gap: 10px;
 }
 
@@ -78,6 +78,10 @@ pre {
 
 .trace.detailsMode-grid .line__contents {
   grid-column: 2;
+}
+
+.trace.detailsMode-grid .line__calls {
+  grid-column: 3;
 }
 
 .call {
@@ -171,6 +175,7 @@ pre {
 
 .info-entry__details {
   opacity: 50%;
+  margin-left: 10px;
 }
 
 .info-entry__contents--no-wrap {

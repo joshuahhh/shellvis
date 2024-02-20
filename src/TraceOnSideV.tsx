@@ -238,6 +238,7 @@ const CallOnRightV = memo((props: {
           trace={trace}
           className='call--on-right'
           showHeader={false}
+          showDetails={true}
         />
       </div>
     }

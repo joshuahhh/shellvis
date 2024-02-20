@@ -2,11 +2,12 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Slider } from '@mui/material';
 import * as octicons from "@primer/octicons-react";
 import sh from "mvdan-sh";
-import React, { Fragment, memo, useEffect } from "react";
+import React, { Fragment, memo, useContext, useEffect } from "react";
 import { Decoration, addDecorationsToLine } from "../decorations.js";
 import { Trace, mkExecId } from "../execution.js";
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
+import { HVContext } from "./HVContext.js";
 
 
 export type LineTreeNodeVProps = {
@@ -58,7 +59,8 @@ type LineVProps = {
 }
 
 const LineV = memo((props: LineVProps) => {
-  const {script, trace, line, i, context} = props;
+  const { script, trace, line, i, context } = props;
+  const { detailsMode } = useContext(HVContext);
 
   const callExprs = Object.values(script.nodesByTypeById.CallExpr);
   const callExprsOnLine = callExprs.filter((callExpr) => {
@@ -77,6 +79,7 @@ const LineV = memo((props: LineVProps) => {
           context={context}
           trace={trace}
           className={'call--on-left'}
+          showDetails={detailsMode === 'in-place'}
         />
     };
   });
@@ -84,6 +87,21 @@ const LineV = memo((props: LineVProps) => {
   return <div className="line">
     <div className="line__num">{i + 1}</div>
     <div className="line__contents">{decoratedLine}</div>
+    { detailsMode === 'grid' &&
+      <div className="line__calls">
+        {callExprsOnLine.map((callExpr) =>
+          <CallV
+            key={getNodeId(callExpr)}
+            contents={null}
+            callExpr={callExpr}
+            context={context}
+            trace={trace}
+            showHeader={false}
+            showDetails={true}
+          />
+        )}
+      </div>
+    }
   </div>;
 });
 

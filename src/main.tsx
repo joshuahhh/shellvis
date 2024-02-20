@@ -4,13 +4,16 @@ import React, { memo } from 'react'
 import ReactDOM from 'react-dom/client'
 import { HashRouter, Link, Route, Routes } from "react-router-dom"
 import { CliV } from './CliV.js'
-import styleCss from "./style.css?inline"
 import { TestbedLinksV, TestbedV } from './TestbedV.js'
 
-// for testing
-import "../monotone.js";
+import "./style.css"
 
 library.add(faRotateRight, faRotateLeft, faEllipsisVertical)
+
+if (import.meta.hot) {
+  console.log("hot reloading enabled");
+  import.meta.hot.accept();
+}
 
 const HomeV = memo(() => {
   return <>
@@ -28,7 +31,6 @@ const HomeV = memo(() => {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <style dangerouslySetInnerHTML={{ __html: styleCss }} />
     <HashRouter>
       <Routes>
         <Route path="/cli" element={<CliV/>}/>
