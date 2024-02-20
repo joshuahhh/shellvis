@@ -57,17 +57,15 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
     {inspectHtml(expandObject(script.ast))}
   </div>;
 
-  const partMessages = () => <div className="row">
-    <div>
-      <h1>messages</h1>
-      <ul>
-        {trace.messageLog.map((entry, i) =>
-          <li key={i}>
-            <MessageV message={entry} script={script} />
-          </li>
-        )}
-      </ul>
-    </div>
+  const partMessages = () => <div>
+    <h1>messages</h1>
+    <ul>
+      {trace.messageLog.map((entry, i) =>
+        <li key={i}>
+          <MessageV message={entry} script={script} />
+        </li>
+      )}
+    </ul>
   </div>;
 
   const partExecInfo = () => <div>
@@ -114,7 +112,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
   return <HVContext.Provider value={hvContext}>
     <TraceV trace={trace} script={script} />
 
-    <div className="row" style={{marginTop: 30}}></div>
+    <div style={{marginTop: 30}}></div>
 
     {showMessages && partMessages()}
     {false && partTransformed()}
