@@ -22,16 +22,12 @@ export const TraceV = memo((props: TraceVProps) => {
   const [ lColumn, setLColumn ] = React.useState<HTMLElement | null>(null);
   const [ rColumn, setRColumn ] = React.useState<HTMLElement | null>(null);
 
-  const partMain = script.lineTree.map((node, i) =>
-    <Fragment key={i}>
-      <LineTreeNodeV script={script} trace={trace} node={node} context=""/>
-    </Fragment>
-  );
-
   return <div style={{display: 'flex', flexDirection: 'row'}}>
     <div className="left" style={{minWidth: 0}}>
       <div className="l-column" ref={setLColumn} style={{display: 'flex', flexDirection: 'column', height: 'fit-content'}}>
-        {partMain}
+        {script.lineTree.map((node, i) =>
+          <LineTreeNodeV key={i} script={script} trace={trace} node={node} context=""/>
+        )}
       </div>
 
     </div>
