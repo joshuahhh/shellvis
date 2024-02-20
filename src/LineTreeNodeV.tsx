@@ -279,6 +279,7 @@ const LoopBodyV = memo((props: {
           iterationIdx={viewState.collapsedOn}
           varName={varName}
           numIterations={iterations.length}
+          allowExpand={false}
         />
       </div>
       {node.children.map((child, i) =>
@@ -304,8 +305,9 @@ const LoopHeader = memo((props: {
   iterationIdx: number,
   varName: string,
   numIterations: number,
+  allowExpand?: boolean,
 }) => {
-  const { viewState, setViewState, orientation, setOrientation, iteration, iterationIdx, varName, numIterations } = props;
+  const { viewState, setViewState, orientation, setOrientation, iteration, iterationIdx, varName, numIterations, allowExpand = true } = props;
 
   const [ sliderIsDragging, setSliderIsDragging ] = useState(false);
 
@@ -329,19 +331,21 @@ const LoopHeader = memo((props: {
       </div>
     </LockSize>
     <div style={{width: 10}}/>
-    <div
-      className="for-loop-iteration-header__expand-toggle"
-      onClick={toggleExpanded}
-      style={{
-        transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
-        transition: "transform 0.2s",
-      }}
-    >
-      { viewState === 'expanded'
-      ? <octicons.FoldIcon verticalAlign="middle"/>
-      : <octicons.UnfoldIcon verticalAlign="middle"/>
-      }
-    </div>
+    { allowExpand &&
+      <div
+        className="for-loop-iteration-header__expand-toggle"
+        onClick={toggleExpanded}
+        style={{
+          transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
+          transition: "transform 0.2s",
+        }}
+      >
+        { viewState === 'expanded'
+        ? <octicons.FoldIcon verticalAlign="middle"/>
+        : <octicons.UnfoldIcon verticalAlign="middle"/>
+        }
+      </div>
+    }
     { viewState === 'expanded' &&
       <div
         className="for-loop-iteration-header__expand-toggle"
