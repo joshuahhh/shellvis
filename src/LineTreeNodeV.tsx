@@ -2,9 +2,9 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Slider } from '@mui/material';
 import * as octicons from "@primer/octicons-react";
 import sh from "mvdan-sh";
-import React, { Fragment, memo, useContext, useEffect } from "react";
+import React, { Fragment, memo, useCallback, useContext, useEffect, useState } from "react";
 import { Decoration, addDecorationsToLine } from "../decorations.js";
-import { Trace, mkExecId } from "../execution.js";
+import { Iteration, Trace, mkExecId } from "../execution.js";
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
 import { HVContext } from "./HVContext.js";
@@ -87,7 +87,7 @@ const LineV = memo((props: LineVProps) => {
   return <div className="line">
     <div className="line__num">{i + 1}</div>
     <div className="line__contents">{decoratedLine}</div>
-    { detailsMode === 'grid' &&
+    { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
       <div className="line__calls">
         {callExprsOnLine.map((callExpr) =>
           <CallV
@@ -105,6 +105,9 @@ const LineV = memo((props: LineVProps) => {
   </div>;
 });
 
+type LoopViewState = 'expanded' | { collapsedOn: number };
+type LoopOrientation = 'horizontal' | 'vertical';
+
 const LoopBodyV = memo((props: {
   node: LineTreeNode & { type: 'loop-body' },
   script: Script,
@@ -112,6 +115,8 @@ const LoopBodyV = memo((props: {
   context: string,
 }) => {
   const { node, script, trace, context } = props;
+  const { detailsMode } = useContext(HVContext);
+
   const forClause = node.forClause;
   const forNodeId = getNodeId(forClause);
   const forInfo = trace.forInfos[mkExecId(context, forNodeId)];
@@ -120,16 +125,109 @@ const LoopBodyV = memo((props: {
   const forLine = script.lines[forClause.Pos().Line() - 1];
   const forIndent = (forLine.match(/^\s*/)?.[0] || '  ');
 
-  let [ viewState, setViewState ] = React.useState<'expanded' | { collapsedOn: number }>({ collapsedOn: 0 });
-  const [ orientation, setOrientation ] = React.useState<'horizontal' | 'vertical'>('vertical');
+  let [ viewState, setViewState ] = useState<LoopViewState>({ collapsedOn: 0 });
+  const [ orientation, setOrientation ] = useState<LoopOrientation>('horizontal');
 
-  const [ sliderIsDragging, setSliderIsDragging ] = React.useState(false);
+  if (detailsMode === 'in-place') {
+    if (iterations.length === 0) {
+      return <>
+        <div className="line">
+          <div className="line__num"/>
+          <div className="line__contents">
+            <div className="for-loop-iteration-header">
+              <div>{forIndent}</div>
+              <div className="for-loop-iteration-header__label">
+                no iterations
+              </div>
+            </div>
+          </div>
+        </div>
+        {node.children.map((child, i) =>
+          <Fragment key={i}>
+            <DeadLineTreeNodeV script={script} node={child}/>
+          </Fragment>
+        )}
+      </>;
+    }
 
-  if (iterations.length === 0) {
-    return <>
-      <div className="line">
-        <div className="line__num"/>
-        <div className="line__contents">
+    if (viewState === 'expanded') {
+      return <div
+        style={{
+          display: 'flex',
+          flexDirection: orientation === 'horizontal' ? 'row' : 'column',
+          ...orientation === 'horizontal' && {gap: 30},
+          overflowX: 'auto',
+        }}
+      >
+        {iterations.map((iteration, iterationIdx) =>
+          <div key={iteration.counter}>
+            <div className="line">
+              <div className="line__num"/>
+              <div className="line__contents">
+                <div className="indented">
+                  <div>{forIndent}</div>
+                  <LoopHeader
+                    viewState={viewState}
+                    setViewState={setViewState}
+                    orientation={orientation}
+                    setOrientation={setOrientation}
+                    iteration={iteration}
+                    iterationIdx={iterationIdx}
+                    varName={varName}
+                    numIterations={iterations.length}
+                  />
+                </div>
+              </div>
+            </div>
+            {node.children.map((child, i) =>
+              <Fragment key={i}>
+                <LineTreeNodeV
+                  script={script} trace={trace} node={child}
+                  context={`${context}/${forNodeId}-${iteration.counter}`}
+                />
+              </Fragment>
+            )}
+          </div>
+        )}
+      </div>;
+    } else {
+      if (viewState.collapsedOn >= iterations.length) {
+        viewState = { collapsedOn: iterations.length - 1 };
+      }
+      const iteration = iterations[viewState.collapsedOn];
+      return <>
+        <div className="line">
+          <div className="line__num"/>
+          <div className="line__contents">
+            <div className="indented">
+              <div>{forIndent}</div>
+              <LoopHeader
+                viewState={viewState}
+                setViewState={setViewState}
+                orientation={orientation}
+                setOrientation={setOrientation}
+                iteration={iteration}
+                iterationIdx={viewState.collapsedOn}
+                varName={varName}
+                numIterations={iterations.length}
+              />
+            </div>
+          </div>
+        </div>
+        {node.children.map((child, i) =>
+          <Fragment key={i}>
+            <LineTreeNodeV
+              script={script} trace={trace} node={child}
+              context={`${context}/${forNodeId}-${iteration.counter}`}
+            />
+          </Fragment>
+        )}
+      </>;
+    }
+  } else if (detailsMode === 'grid') {
+    if (iterations.length === 0) {
+      return <>
+        <div className="line__calls">
           <div className="for-loop-iteration-header">
             <div>{forIndent}</div>
             <div className="for-loop-iteration-header__label">
@@ -137,118 +235,33 @@ const LoopBodyV = memo((props: {
             </div>
           </div>
         </div>
-      </div>
-      {node.children.map((child, i) =>
-        <Fragment key={i}>
-          <DeadLineTreeNodeV script={script} node={child}/>
-        </Fragment>
-      )}
-    </>;
-  }
+        {node.children.map((child, i) =>
+          <Fragment key={i}>
+            <DeadLineTreeNodeV script={script} node={child}/>
+          </Fragment>
+        )}
+      </>;
+    }
 
-  if (viewState === 'expanded') {
-    return <div
-      style={{
-        display: 'flex',
-        flexDirection: orientation === 'horizontal' ? 'row' : 'column',
-        ...orientation === 'horizontal' && {gap: 30},
-        overflowX: 'auto',
-      }}
-    >
-      {iterations.map((iteration, iterationIdx) =>
-        <div key={iteration.counter}>
-          <div className="line">
-            <div className="line__num"/>
-            <div className="line__contents">
-              <div className="for-loop-iteration-header">
-                <div>{forIndent}</div>
-                <div className="for-loop-iteration-header__label">
-                  {varName} = {iteration.loopVarValue}
-                </div>
-                <div style={{width: 10}}/>
-                <div
-                  className="for-loop-iteration-header__expand-toggle"
-                  onClick={() => setViewState({ collapsedOn: iterationIdx })}
-                  style={{
-                    transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
-                    transition: "transform 0.2s",
-                  }}
-                >
-                  <octicons.FoldIcon verticalAlign="middle"/>
-                </div>
-                <div
-                  className="for-loop-iteration-header__expand-toggle"
-                  onClick={() => setOrientation(orientation === 'horizontal' ? 'vertical' : 'horizontal')}
-                >
-                  <div
-                     style={{
-                      transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
-                      transition: "transform 0.2s",
-                    }}
-                  >
-                    <FontAwesomeIcon icon="ellipsis-vertical" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          {node.children.map((child, i) =>
-            <Fragment key={i}>
-              <LineTreeNodeV
-                script={script} trace={trace} node={child}
-                context={`${context}/${forNodeId}-${iteration.counter}`}
-              />
-            </Fragment>
-          )}
-        </div>
-      )}
-    </div>;
-  } else {
+    if (viewState === 'expanded') {
+      throw new Error("not implemented");
+    }
     if (viewState.collapsedOn >= iterations.length) {
       viewState = { collapsedOn: iterations.length - 1 };
     }
     const iteration = iterations[viewState.collapsedOn];
     return <>
-      <div className="line">
-        <div className="line__num"/>
-        <div className="line__contents">
-          <div className={`for-loop-iteration-header ${sliderIsDragging ? 'for-loop-iteration-header--slider-is-dragging' : ''}`}>
-            <div>{forIndent}</div>
-            <LockSize lock={sliderIsDragging}>
-              <div className="for-loop-iteration-header__label">
-                {varName} = {iteration.loopVarValue}
-              </div>
-            </LockSize>
-            <div style={{width: 10}}/>
-            <div
-              className="for-loop-iteration-header__expand-toggle"
-              onClick={() => setViewState('expanded')}
-              style={{
-                transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
-              }}
-            >
-              <octicons.UnfoldIcon verticalAlign="middle"/>
-            </div>
-            <Slider
-              className="for-loop-iteration-header__slider"
-              size="small"
-              min={0} max={iterations.length - 1} step={1}
-              value={viewState.collapsedOn}
-              onChange={(_, newValue) =>
-                setViewState({ collapsedOn: newValue as number })
-              }
-              marks={iterations.length < 30}
-              style={{
-                width: Math.min(Math.max(10 * iterations.length, 0), 200),
-              }}
-              onMouseDown={() => { setSliderIsDragging(true); }}
-              onChangeCommitted={() => { setSliderIsDragging(false); }}
-            />
-            <div>
-              {viewState.collapsedOn + 1} / {iterations.length}
-            </div>
-          </div>
-        </div>
+      <div className="line__calls">
+        <LoopHeader
+          viewState={viewState}
+          setViewState={setViewState}
+          orientation={orientation}
+          setOrientation={setOrientation}
+          iteration={iteration}
+          iterationIdx={viewState.collapsedOn}
+          varName={varName}
+          numIterations={iterations.length}
+        />
       </div>
       {node.children.map((child, i) =>
         <Fragment key={i}>
@@ -259,7 +272,94 @@ const LoopBodyV = memo((props: {
         </Fragment>
       )}
     </>;
+  } else {
+    return null;
   }
+});
+
+const LoopHeader = memo((props: {
+  viewState: LoopViewState,
+  setViewState: (newState: LoopViewState) => void,
+  orientation: LoopOrientation,
+  setOrientation: (newOrientation: LoopOrientation) => void,
+  iteration: Iteration,
+  iterationIdx: number,
+  varName: string,
+  numIterations: number,
+}) => {
+  const { viewState, setViewState, orientation, setOrientation, iteration, iterationIdx, varName, numIterations } = props;
+
+  const [ sliderIsDragging, setSliderIsDragging ] = useState(false);
+
+  const toggleExpanded = useCallback(() => {
+    if (viewState === 'expanded') {
+      setViewState({ collapsedOn: iterationIdx });
+    } else {
+      setViewState('expanded');
+    }
+  }, [iterationIdx, setViewState, viewState]);
+
+  const toggleOrientation = useCallback(() => {
+    setOrientation(orientation === 'horizontal' ? 'vertical' : 'horizontal');
+  }, [orientation, setOrientation]);
+
+
+  return <div className={`for-loop-iteration-header ${sliderIsDragging ? 'for-loop-iteration-header--slider-is-dragging' : ''}`}>
+    <LockSize lock={sliderIsDragging}>
+      <div className="for-loop-iteration-header__label">
+        {varName} = {iteration.loopVarValue}
+      </div>
+    </LockSize>
+    <div style={{width: 10}}/>
+    <div
+      className="for-loop-iteration-header__expand-toggle"
+      onClick={toggleExpanded}
+      style={{
+        transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
+        transition: "transform 0.2s",
+      }}
+    >
+      { viewState === 'expanded'
+      ? <octicons.FoldIcon verticalAlign="middle"/>
+      : <octicons.UnfoldIcon verticalAlign="middle"/>
+      }
+    </div>
+    { viewState === 'expanded' &&
+      <div
+        className="for-loop-iteration-header__expand-toggle"
+        onClick={toggleOrientation}
+      >
+        <div
+          style={{
+            transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
+            transition: "transform 0.2s",
+          }}
+        >
+          <FontAwesomeIcon icon="ellipsis-vertical" />
+        </div>
+      </div>
+    }
+    { viewState !== 'expanded' && <>
+      <Slider
+        className="for-loop-iteration-header__slider"
+        size="small"
+        min={0} max={numIterations - 1} step={1}
+        value={viewState.collapsedOn}
+        onChange={(_, newValue) =>
+          setViewState({ collapsedOn: newValue as number })
+        }
+        marks={numIterations < 30}
+        style={{
+          width: Math.min(Math.max(10 * numIterations, 0), 200),
+        }}
+        onMouseDown={() => { setSliderIsDragging(true); }}
+        onChangeCommitted={() => { setSliderIsDragging(false); }}
+      />
+      <div>
+        {viewState.collapsedOn + 1} / {numIterations}
+      </div>
+    </>}
+  </div>;
 });
 
 const LockSize = memo((props: {
