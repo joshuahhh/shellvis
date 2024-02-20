@@ -13,6 +13,7 @@ import themeUrl3 from "../dark_vs?url";
 
 export class WebHighlighter {
   private readonly registry: vsctm.Registry;
+  private grammar: vsctm.IGrammar | null = null;
   private rules: ColorRule[] | null = null;
 
   constructor() {
@@ -33,7 +34,7 @@ export class WebHighlighter {
     });
   }
 
-  private async getColorRules() {
+  async init() {
     if (this.rules === null) {
       const themeRules = await Promise.all([themeUrl1, themeUrl2, themeUrl3].map(async (url) => {
         const resp = await fetch(url);
@@ -42,18 +43,17 @@ export class WebHighlighter {
         const rules: ColorRule[] = theme.tokenColors || [];
         return rules;
       }));
-
       this.rules = themeRules.flat(1);
     }
-    return this.rules;
+    if (this.grammar === null) {
+      this.grammar = await this.registry.loadGrammar('source.shell');
+    }
   }
 
-  public async tokenizeLines(lines: string[]) {
-    const grammar = await this.registry.loadGrammar('source.shell');
-    if (!grammar) {
-      throw new Error('Failed to load grammar');
+  public tokenizeLines(lines: string[]) {
+    if (this.grammar === null || this.rules === null) {
+      throw new Error('Not loaded');
     }
-    const rules = await this.getColorRules();
-    return tokenizeLines(lines, grammar, rules);
+    return tokenizeLines(lines, this.grammar, this.rules);
   }
 }

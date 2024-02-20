@@ -180,7 +180,7 @@ export class Run {
     // parse
 
     try {
-      this.script = new Script(parser, this.params.scriptSrc);
+      this.script = new Script(this.params.scriptSrc, parser);
     } catch (e) {
       this.traceDoc.change((trace) => {
         trace.parseError = (e as any).toString();

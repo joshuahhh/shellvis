@@ -23,6 +23,7 @@ export const GrammarTest = memo(() => {
       if (lines === null) {
         return;
       }
+      await highlighter.init();
       const tokensByLine = await highlighter.tokenizeLines(lines);
       setTokensByLine(tokensByLine);
     })();

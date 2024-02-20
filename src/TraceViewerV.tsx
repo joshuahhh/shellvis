@@ -8,19 +8,21 @@ import { Script, expandObject } from "../mvdan-sh-helpers.js";
 import { Message } from "../tracing.js";
 import { HVContext, defaultHVContext } from "./HVContext.js";
 import { TraceV } from "./TraceV.js";
+import { WebHighlighter } from "./WebHighlighter.js";
 
 
 const ansiToHtml = new AnsiToHtml({});
 
 type TraceViewerVProps = {
   trace: Trace,
-  optionalScript?: Script,
 }
 
 const parser = sh.syntax.NewParser();
+const highlighter = new WebHighlighter();
+highlighter.init();
 
 export const TraceViewerV = memo((props: TraceViewerVProps) => {
-  const { trace, optionalScript } = props;
+  const { trace } = props;
 
   const [ hvContext, setHVContext ] = React.useState<HVContext>(defaultHVContext);
   const { showMessages, showAST } = hvContext;
@@ -28,13 +30,8 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
   const hvContextUP = useUpdateProxy(setHVContext);
 
   const script = useMemo(() => {
-    // TODO ugly ugly
-    try {
-      return optionalScript || new Script(parser, trace.scriptSrc);
-    } catch (e) {
-      return new Script(parser, '');
-    }
-  }, [optionalScript, trace.scriptSrc]);
+    return new Script(trace.scriptSrc, parser, highlighter);
+  }, [trace.scriptSrc]);
 
   if (trace.parseError) {
     return <div>

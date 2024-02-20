@@ -2,6 +2,8 @@ import sh from "mvdan-sh";
 import { type Node } from "mvdan-sh";
 import { isObject, rangeIncl } from "./util.js";
 import { weakMapCache } from "@engraft/shared/lib/cache.js";
+import { WebHighlighter } from "./src/WebHighlighter.js";
+import { TokenWithSettings } from "./highlight.js";
 
 export type ParseError = {
   Error(): string,
@@ -233,10 +235,12 @@ export class Script {
   lineTree: LineTreeNode[];
   nodesByTypeById: {[Key in (typeof trackedNodeTypes)[number]]: {[id: string]: NodeTypes[Key]}};
   nodesById: {[id: string]: sh.Node} = {};
+  tokensByLine: TokenWithSettings[][] | null = null;
 
   constructor (
-    private parser: sh.Parser,
     readonly src: string,
+    private parser: sh.Parser,
+    private highlighter?: WebHighlighter,
   ) {
     try {
       this.ast = this.freshAst();
@@ -247,6 +251,10 @@ export class Script {
     this.lines = this.src.split("\n");
 
     this.lineTree = lineTreeNodesFromAst(this.ast, this.lines);
+
+    if (this.highlighter) {
+      this.tokensByLine = this.highlighter.tokenizeLines(this.lines);
+    }
 
     this.nodesByTypeById = Object.fromEntries(trackedNodeTypes.map((nodeType) => [nodeType, {}] as const)) as any;
 
