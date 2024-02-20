@@ -1,7 +1,7 @@
 import { createContext } from "react";
 
 export type HVContext = {
-  detailsMode: 'grid' | 'in-place' | 'on-side' | 'one-by-one' | 'none',
+  detailsMode: 'grid' | 'in-place' | 'on-side',  // todo:  | 'one-by-one' | 'none'
   onSideLayout: 'smart' | 'mid' | 'dumb',
   showMessages: boolean,
   showAST: boolean,
