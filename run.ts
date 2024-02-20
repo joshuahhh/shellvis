@@ -310,7 +310,8 @@ export class Run {
       {
         cwd: path.join(this.sandbox.deltaUnionDir, path.resolve(this.params.cwd)),
         env: {
-          ...this.params.env === 'process.env' ? process.env : this.params.env,
+          ...process.env,  // TODO
+          // ...this.params.env === 'process.env' ? process.env : this.params.env,
           fr_sh2fr_port: `${this.sh2frPort}`,
           ROOT: this.sandbox.deltaUnionDir,
         },

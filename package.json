@@ -56,9 +56,11 @@
     "eslint": "8.56.0",
     "eslint-config-react-app": "7.0.1",
     "eslint-import-resolver-typescript": "3.6.1",
+    "tsx": "4.7.1",
     "typescript": "^5.3.3"
   },
   "scripts": {
-    "dev": "vite"
+    "dev": "vite",
+    "server": "tsx server.ts"
   }
 }

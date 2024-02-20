@@ -36,6 +36,12 @@ const examples: Record<string, ScriptWatcherParams> = {
     path: "./tests/suppression.sh",
     cwd: ".",
     env: 'process.env',
+  },
+  "convert-css": {
+    path: "./tests/convert-css.sh",
+    cwd: "/Users/joshuah/Documents/research/engraft/engraft-repo/packages/core-widgets",
+    env: 'process.env',
+    args: "src lib",
   }
 }
 
