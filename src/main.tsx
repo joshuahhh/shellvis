@@ -7,6 +7,7 @@ import { CliV } from './CliV.js'
 import { TestbedLinksV, TestbedV } from './TestbedV.js'
 
 import "./style.css"
+import { GrammarTest } from './GrammarTest.js'
 
 library.add(faRotateRight, faRotateLeft, faEllipsisVertical)
 
@@ -35,6 +36,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <Routes>
         <Route path="/cli" element={<CliV/>}/>
         <Route path="/testbed/:name" element={<TestbedV/>}/>
+        <Route path="/grammar-test" element={<GrammarTest/>}/>
         <Route path="*" element={<HomeV/>}/>
       </Routes>
     </HashRouter>

@@ -1,0 +1,50 @@
+import { memo, useEffect, useState } from "react";
+import { TokenWithSettings } from "../highlight.js";
+import { WebHighlighter } from "./WebHighlighter.js";
+
+import scriptUrl from "../tests/test.sh?url";
+
+const highlighter = new WebHighlighter();
+
+export const GrammarTest = memo(() => {
+  const [ lines, setLines ] = useState<string[] | null>(null);
+  const [ tokensByLine, setTokensByLine ] = useState<TokenWithSettings[][] | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const text = await (await fetch(scriptUrl)).text();
+      const lines = text.split('\n');
+      setLines(lines);
+    })();
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      if (lines === null) {
+        return;
+      }
+      const tokensByLine = await highlighter.tokenizeLines(lines);
+      setTokensByLine(tokensByLine);
+    })();
+  }, [lines]);
+
+  return <div>
+    <h1>Grammar Test</h1>
+    { tokensByLine === null || lines === null
+      ? <p>Loading...</p>
+      : <pre>
+          {tokensByLine.map((tokens, i) => {
+            return <div key={i} style={{ whiteSpace: 'pre' }}>
+              <span style={{ display: 'inline-block', color: 'gray', width: 30, textAlign: 'right', marginRight: 20 }}>
+                {i + 1}
+              </span>
+              {tokens.map((token, j) => {
+                const style = token.settings.foreground ? { color: token.settings.foreground } : {};
+                return <span key={j} style={style}>{lines[i].substring(token.startIndex, token.endIndex)}</span>;
+              })}
+            </div>;
+          })}
+        </pre>
+    }
+  </div>
+});

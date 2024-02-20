@@ -6,7 +6,8 @@ html {
 }
 
 body {
-  background-color: #333;
+  background-color: #1F1F1F;
+  /* background-color: #333; */
   color: white;
   margin: 0px;
   padding: 40px;
