@@ -1,49 +1,26 @@
-import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
 import React, { Fragment, memo, useContext, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import * as util from "util";
 import { Trace, mkExecId } from "../execution.js";
 import { Interval, layOutIntervals, layOutIntervalsOneSide } from "../monotone.js";
-import { Script, expandObject, getNodeId } from "../mvdan-sh-helpers.js";
-import { Message } from "../tracing.js";
+import { Script, getNodeId } from "../mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
 import { HVContext } from "./HVContext.js";
-import { useGathering } from "./useGathering.js";
 import { LineTreeNodeV } from "./LineTreeNodeV.js";
-
-const ansiToHtml = new AnsiToHtml({});
+import { useGathering } from "./useGathering.js";
 
 type TraceVProps = {
   trace: Trace,
-  optionalScript?: Script,
+  script: Script,
 }
 
-const parser = sh.syntax.NewParser();
-
 export const TraceV = memo((props: TraceVProps) => {
-  const {trace, optionalScript} = props;
+  const { trace, script } = props;
+
+  const { detailsMode } = useContext(HVContext);
 
   const [ lColumn, setLColumn ] = React.useState<HTMLElement | null>(null);
   const [ rColumn, setRColumn ] = React.useState<HTMLElement | null>(null);
-
-  const script = useMemo(() => {
-    // TODO ugly ugly
-    try {
-      return optionalScript || new Script(parser, trace.scriptSrc);
-    } catch (e) {
-      return new Script(parser, '');
-    }
-  }, [optionalScript, trace.scriptSrc]);
-
-  const { showMessages, showAST, detailsMode } = useContext(HVContext);
-
-  if (trace.parseError) {
-    return <div>
-      <h1>parse error</h1>
-      <pre>{trace.parseError}</pre>
-    </div>;
-  }
 
   const partMain = script.lineTree.map((node, i) =>
     <Fragment key={i}>
@@ -51,92 +28,12 @@ export const TraceV = memo((props: TraceVProps) => {
     </Fragment>
   );
 
-  const partTransformed = () => trace.transformedSrc && <div>
-    <h1>transformed</h1>
-    <pre>
-      {trace.transformedSrc.split('\n').map((line, i) =>
-        `${String(i + 1).padStart(3)} ${line}
-      `).join('\n')}
-    </pre>
-  </div>;
-
-  const partAST = () => <div>
-    <h1>ast</h1>
-    {inspectHtml(expandObject(script.ast))}
-  </div>;
-
-  const partMessages = () => <div className="row">
-    <div>
-      <h1>messages</h1>
-      <ul>
-        {trace.messageLog.map((entry, i) =>
-          <li key={i}>
-            <MessageV message={entry} script={script} />
-          </li>
-        )}
-      </ul>
-    </div>
-  </div>;
-
-  const partExecInfo = () => <div>
-    <h1>exec info</h1>
-    <dl>
-      {Object.entries(trace.execInfos).map(([execId, execInfo]) => {
-        const { stdout, stderr, ...rest } = execInfo;
-        return <Fragment key={execId}>
-          <dt>{execId}</dt>
-          <dd>
-            <div><b>stdout</b> {stdout.done && <small>✓</small>}</div>
-            <pre>{stdout.data}</pre>
-            <div><b>stderr</b> {stderr.done && <small>✓</small>}</div>
-            <pre>{stderr.data}</pre>
-            <div><b>rest</b>
-              {inspectHtml(rest)}
-            </div>
-          </dd>
-        </Fragment>
-      })}
-    </dl>
-  </div>;
-
-  const partForInfo = () => <div>
-    <h1>for info</h1>
-    <dl>
-      {Object.entries(trace.forInfos).map(([execId, forInfo]) => {
-        return <Fragment key={execId}>
-          <dt>{execId}</dt>
-          <dd>
-            <div><b>iterations</b></div>
-            <ul>
-              {forInfo.iterations.map((iteration, i) => <li key={i}>
-                <div><b>counter</b> {iteration.counter}</div>
-                <div><b>loopVarValue</b> {iteration.loopVarValue}</div>
-              </li>)}
-            </ul>
-          </dd>
-        </Fragment>
-      })}
-    </dl>
-  </div>;
-
   return <div style={{display: 'flex', flexDirection: 'row'}}>
     <div className="left" style={{minWidth: 0}}>
-      <div style={{fontSize: "80%", marginBottom: 10}}>
-        {/* <div>started @ {this.startTime?.toLocaleTimeString()}</div> */}
-        {/* <div>updated @ {new Date().toLocaleTimeString()}</div> */}
-      </div>
-
       <div className="l-column" ref={setLColumn} style={{display: 'flex', flexDirection: 'column', height: 'fit-content'}}>
         {partMain}
       </div>
 
-      <div className="row" style={{marginTop: 30}}></div>
-
-      {showMessages && partMessages()}
-      {false && partTransformed()}
-      {showAST && partAST()}
-      {false && partExecInfo()}
-      {false && partForInfo()}
     </div>
     <div
       className="right" ref={setRColumn}
@@ -366,25 +263,4 @@ function rafLoop(cb: () => void): () => void {
   }
   id = requestAnimationFrame(loop);
   return () => cancelAnimationFrame(id);
-}
-
-const MessageV = memo((props: { message: Message, script: Script }) => {
-  const { message, script } = props;
-
-  return <div>
-    { message.nodeId &&
-      <div style={{display: 'inline-block', border: '1px solid gray', padding: 4}}>
-        <pre>{script.srcForNode(script.nodesById[message.nodeId])}</pre>
-      </div>
-    }
-    { inspectHtml(message) }
-  </div>
-});
-
-
-
-function inspectHtml(value: any) {
-  return <pre dangerouslySetInnerHTML={{ __html:
-    ansiToHtml.toHtml(util.inspect(value, { showHidden: false, depth: null, colors: true }))
-  }} />;
 }

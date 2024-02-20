@@ -1,14 +1,14 @@
 import { createContext } from "react";
 
 export type HVContext = {
-  detailsMode: 'in-place' | 'on-side' | 'one-by-one' | 'none',
+  detailsMode: 'grid' | 'in-place' | 'on-side' | 'one-by-one' | 'none',
   onSideLayout: 'smart' | 'mid' | 'dumb',
   showMessages: boolean,
   showAST: boolean,
 }
 
 export const defaultHVContext: HVContext = {
-  detailsMode: 'on-side',
+  detailsMode: 'grid',
   onSideLayout: 'smart',
   showMessages: false,
   showAST: false,
