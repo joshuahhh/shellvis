@@ -4,7 +4,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { Trace } from "../execution.js";
 import { Session } from "../types.js";
 import { WithAutomergeV } from "./WithAutomergeV.js";
-import { TraceViewerV } from "./render.js";
+import { TraceViewerV } from "./TraceViewerV.js";
 
 export const CliV = memo(() => {
   // TODO: should I do something smarter than polling here?
