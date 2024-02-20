@@ -137,18 +137,20 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           <option value="on-side">on-side</option>
         </select>
       </label>
-      <label>
-        On-side layout:
-        <select
-          value={hvContext.onSideLayout}
-          onChange={(e) => hvContextUP.onSideLayout.$set(e.target.value as any)}
-          style={{marginLeft: 10}}
-        >
-          <option value="smart">smart</option>
-          <option value="mid">mid</option>
-          <option value="dumb">dumb</option>
-        </select>
-      </label>
+      { hvContext.detailsMode === 'on-side' &&
+        <label>
+          On-side layout:
+          <select
+            value={hvContext.onSideLayout}
+            onChange={(e) => hvContextUP.onSideLayout.$set(e.target.value as any)}
+            style={{marginLeft: 10}}
+          >
+            <option value="smart">smart</option>
+            <option value="mid">mid</option>
+            <option value="dumb">dumb</option>
+          </select>
+        </label>
+      }
       <label>
         <input
           type="checkbox"
