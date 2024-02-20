@@ -9,9 +9,7 @@ import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from "
 import { weakMapCache2 } from "../util.js";
 import { HVContext } from "./HVContext.js";
 import { ExecuteRequest } from "../types.js";
-
-const { ChevronRightIcon, DiffAddedIcon, DiffIgnoredIcon, DiffModifiedIcon, DiffRemovedIcon, FileSubmoduleIcon, SignOutIcon, AlertIcon } = octicons;
-
+import { Tooltip } from "@mui/material";
 
 type CallVProps = {
   contents: React.ReactNode,
@@ -21,6 +19,17 @@ type CallVProps = {
   className?: string,
   showHeader?: boolean,
 }
+
+export const InfoIcon = memo((props: {
+  title: string,
+  children: React.ReactNode,
+}) => {
+  return <Tooltip title={props.title} arrow>
+    <div>
+      {props.children}
+    </div>
+  </Tooltip>
+});
 
 export const CallV = memo((props: CallVProps) => {
   const {contents, callExpr, context, trace, className, showHeader = true} = props;
@@ -43,7 +52,11 @@ export const CallV = memo((props: CallVProps) => {
     infoSections.push(
       <div key="stdout" style={{fontSize: '80%'}}>
         <div className="info-entry">
-          <div className="info-entry__icon"><ChevronRightIcon/></div>
+          <div className="info-entry__icon">
+            <InfoIcon title="stdout">
+              <octicons.ChevronRightIcon/>
+            </InfoIcon>
+          </div>
           <div className="info-entry__contents">
             <pre>
               {execInfo.stdout.data}
@@ -53,11 +66,40 @@ export const CallV = memo((props: CallVProps) => {
       </div>
     );
   }
+  if (execInfo && execInfo.stderr.data.length > 0) {
+    infoSections.push(
+      <div key="stderr" style={{fontSize: '80%'}}>
+        <div className="info-entry" style={{}}>
+          <div className="info-entry__icon">
+            <InfoIcon title="stderr">
+              <div style={{position: 'relative', width: 16, height: 16}}>
+                <div style={{position: 'absolute', left: 3}}>
+                  <octicons.ChevronRightIcon/>
+                </div>
+                <div style={{position: 'absolute', left: -3}}>
+                  <octicons.ChevronRightIcon/>
+                </div>
+              </div>
+            </InfoIcon>
+          </div>
+          <div className="info-entry__contents">
+            <pre>
+              {execInfo.stderr.data}
+            </pre>
+          </div>
+        </div>
+      </div>,
+    );
+  }
   if (execInfo && execInfo.suppressed && execInfo.exitInfo !== null) {
     infoSections.push(
       <div key="suppressed" style={{fontSize: '80%'}}>
         <div className="info-entry">
-          <div className="info-entry__icon"><AlertIcon/></div>
+          <div className="info-entry__icon">
+            <InfoIcon title="effect">
+              <octicons.AlertIcon/>
+            </InfoIcon>
+          </div>
           <div className="info-entry__contents">
             <button onClick={async () => {
               await fetch(
@@ -81,29 +123,6 @@ export const CallV = memo((props: CallVProps) => {
       </div>
     );
   }
-  if (execInfo && execInfo.stderr.data.length > 0) {
-    infoSections.push(
-      <div key="stderr" style={{fontSize: '80%'}}>
-        <div className="info-entry" style={{}}>
-          <div className="info-entry__icon">
-            <div style={{position: 'relative', width: 16, height: 16}}>
-              <div style={{position: 'absolute', left: 3}}>
-                <ChevronRightIcon/>
-              </div>
-              <div style={{position: 'absolute', left: -3}}>
-                <ChevronRightIcon/>
-              </div>
-            </div>
-          </div>
-          <div className="info-entry__contents">
-            <pre>
-              {execInfo.stderr.data}
-            </pre>
-          </div>
-        </div>
-      </div>,
-    );
-  }
   if (execExitInfo && execExitInfo.deltaLog.length > 0) {
     infoSections.push(
       <div key="deltalog" style={{fontSize: '80%'}}>
@@ -115,7 +134,9 @@ export const CallV = memo((props: CallVProps) => {
     infoSections.push(
       <div key="exitcode" className="info-entry" style={{fontSize: '80%'}}>
         <div className="info-entry__icon">
-          <SignOutIcon/>
+          <InfoIcon title="exit code">
+            <octicons.SignOutIcon/>
+          </InfoIcon>
         </div>
         <div className="info-entry__contents">
           exit {execExitInfo.exitCode}
@@ -125,10 +146,14 @@ export const CallV = memo((props: CallVProps) => {
   }
   if (execExitInfo && execExitInfo.cwd !== execInfo.enterCwd) {
     infoSections.push(
-      <div key="cwd" style={{fontSize: '80%'}} title={execExitInfo.cwd}>
+      <div key="cwd" style={{fontSize: '80%'}}>
         <div className="info-entry">
-          <FileSubmoduleIcon/>
-          {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
+          <InfoIcon title="change dir">
+            <octicons.FileSubmoduleIcon/>
+          </InfoIcon>
+          <div title={execExitInfo.cwd}>
+            {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
+          </div>
         </div>
       </div>
     );
@@ -180,11 +205,11 @@ export const CallV = memo((props: CallVProps) => {
 
 
 const eventIcons: Record<string, React.ReactNode> = {
-  'deleted': <DiffRemovedIcon />,
-  'new dir': <DiffAddedIcon />,
-  'modified': <DiffModifiedIcon />,
-  'dir replaced with file': <DiffModifiedIcon />,
-  'new file': <DiffAddedIcon />,
+  'deleted': <InfoIcon title="deleted"><octicons.DiffRemovedIcon /></InfoIcon>,
+  'new dir': <InfoIcon title="dir added"><octicons.DiffAddedIcon /></InfoIcon>,
+  'modified': <InfoIcon title="modified"><octicons.DiffModifiedIcon /></InfoIcon>,
+  'dir replaced with file': <InfoIcon title="dir to file"><octicons.DiffModifiedIcon /></InfoIcon>,
+  'new file': <InfoIcon title="file added"><octicons.DiffAddedIcon /></InfoIcon>,
 }
 
 // TODO: make into component?
@@ -196,7 +221,7 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): React.ReactNode
       }
       return <div key={somePath} className="info-entry">
         <div className="info-entry__icon">
-          {eventIcons[event] || <DiffIgnoredIcon/>}
+          {eventIcons[event] || <InfoIcon title={event}><octicons.DiffIgnoredIcon/></InfoIcon>}
         </div>
         <div className="info-entry__contents info-entry__contents--no-wrap">
           {somePath}
@@ -211,12 +236,20 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): React.ReactNode
 function renderShellVarChange(change: ShellVarChange): React.ReactNode {
   if (change.type === 'add') {
     return <div className="info-entry">
-      <div className="info-entry__icon shell-var-icon"><DiffAddedIcon/></div>
+      <div className="info-entry__icon shell-var-icon">
+        <InfoIcon title="var add">
+          <octicons.DiffAddedIcon/>
+        </InfoIcon>
+      </div>
       <div className="info-entry__contents">{change.newVar.name} = {change.newVar.value}</div>
     </div>;
   } else if (change.type === 'remove') {
     return <div className="info-entry">
-      <div className="info-entry__icon shell-var-icon"><DiffRemovedIcon/></div>
+      <div className="info-entry__icon shell-var-icon">
+        <InfoIcon title="var remove">
+          <octicons.DiffRemovedIcon/>
+        </InfoIcon>
+      </div>
       <div className="info-entry__contents">
         {change.oldVar.name}{' '}
         <div className="info-entry__details">(← {change.oldVar.value})</div>
@@ -224,7 +257,11 @@ function renderShellVarChange(change: ShellVarChange): React.ReactNode {
     </div>;
   } else if (change.type === 'changeValue') {
     return <div className="info-entry">
-      <div className="info-entry__icon shell-var-icon"><DiffModifiedIcon/></div>
+      <div className="info-entry__icon shell-var-icon">
+        <InfoIcon title="var change">
+          <octicons.DiffModifiedIcon/>
+        </InfoIcon>
+      </div>
       <div className="info-entry__contents">
         {change.oldVar.name} = {change.newVar.value}{' '}
         <div className="info-entry__details">(← {change.oldVar.value})</div>
@@ -232,7 +269,11 @@ function renderShellVarChange(change: ShellVarChange): React.ReactNode {
     </div>;
   } else if (change.type === 'changeAttributes') {
     return <div className="info-entry">
-      <div className="info-entry__icon shell-var-icon"><DiffModifiedIcon/></div>
+      <div className="info-entry__icon shell-var-icon">
+        <InfoIcon title="var change attrib">
+          <octicons.DiffModifiedIcon/>
+        </InfoIcon>
+      </div>
       <div className="info-entry__contents">
         {change.newVar.name} attributes: {change.newVar.attributes}{' '}
         <div className="info-entry__details">(← {change.oldVar.attributes})</div>

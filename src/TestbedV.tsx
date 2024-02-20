@@ -11,6 +11,11 @@ const examples: Record<string, ScriptWatcherParams> = {
     cwd: ".",
     env: 'process.env',
   },
+  "info-types": {
+    path: "./tests/info-types.sh",
+    cwd: ".",
+    env: 'process.env',
+  },
   "test": {
     path: "./tests/test.sh",
     cwd: ".",
