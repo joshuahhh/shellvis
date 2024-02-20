@@ -40,16 +40,6 @@ pre {
   padding: 0px;
 }
 
-.row {
-  display: flex;
-  flex-direction: row;
-}
-
-.row > * {
-  flex-grow: 1;
-  flex-basis: 0;
-}
-
 .line {
   display: flex;
   flex-direction: row;
@@ -70,6 +60,24 @@ pre {
   flex-basis: 0;
   white-space: pre;
   font-family: monospace;
+}
+
+.trace.detailsMode-grid {
+  display: grid;
+  grid-template-columns: min-content auto;
+  gap: 10px;
+}
+
+.trace.detailsMode-grid .line {
+  display: contents;
+}
+
+.trace.detailsMode-grid .line__num {
+  grid-column: 1;
+}
+
+.trace.detailsMode-grid .line__contents {
+  grid-column: 2;
 }
 
 .call {
