@@ -118,7 +118,7 @@ pre {
 }
 
 .call.call--done-success > .call__code > .call__code-background {
-  background-color: rgba(60, 110, 60);
+  background-color: hsl(120, 29%, 15%);
 }
 
 /* .call.call-done-success {
@@ -126,7 +126,7 @@ pre {
 } */
 
 .call.call--done-failure > .call__code > .call__code-background {
-  background-color: rgba(220, 60, 60);
+  background-color: hsl(0, 70%, 22%);
 }
 
 /* .call.call-done-failure {

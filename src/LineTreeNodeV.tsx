@@ -3,7 +3,7 @@ import { Slider } from '@mui/material';
 import * as octicons from "@primer/octicons-react";
 import sh from "mvdan-sh";
 import React, { Fragment, memo, useCallback, useContext, useEffect, useState } from "react";
-import { Decoration, addDecorationsToLine, addDecorationsToLineHelper, addDecorationsToLineStarter } from "../decorations.js";
+import { Decoration, addDecorationsToLineHelper, addDecorationsToLineStarter } from "../decorations.js";
 import { Iteration, Trace, mkExecId } from "../execution.js";
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
@@ -62,7 +62,7 @@ const LineV = memo((props: LineVProps) => {
   const { script, trace, line, i, context } = props;
   const { detailsMode } = useContext(HVContext);
 
-  const [ nodes, starts, ends ] = addDecorationsToLineStarter(line);
+  let [ nodes, starts, ends ] = addDecorationsToLineStarter(line);
   const colorDecorations: Decoration[] = script.tokensByLine![i].flatMap((token) => {
     if (token.settings.foreground){
       return {
@@ -83,9 +83,10 @@ const LineV = memo((props: LineVProps) => {
     return nodePosInfo(callExpr).pos.line === i + 1;
   });
   const callDecorations: Decoration[] = callExprsOnLine.map((callExpr) => {
+    const posInfo = nodePosInfo(callExpr);
     return {
-      start: nodePosInfo(callExpr).pos.col - 1,
-      end: nodePosInfo(callExpr).end.col - 1,
+      start: posInfo.pos.col - 1,
+      end: posInfo.end.line > posInfo.pos.line ? line.length : posInfo.end.col - 1,
       decorator: (contents) =>
         detailsMode === 'grid'
         ? <div style={{display: 'inline-block', borderBottom: "1px solid", marginBottom: 2}}>{contents}</div>
@@ -100,7 +101,14 @@ const LineV = memo((props: LineVProps) => {
           />
     };
   });
-  addDecorationsToLineHelper(nodes, starts, ends, callDecorations);
+  try {
+    addDecorationsToLineHelper(nodes, starts, ends, callDecorations);
+  } catch (e) {
+    // TODO: not great logic
+    // TODO: and shouldn't happen in the first place
+    [ nodes, starts, ends ] = addDecorationsToLineStarter(line);
+    addDecorationsToLineHelper(nodes, starts, ends, callDecorations);
+  }
 
   return <div className="line">
     <div className="line__num">{i + 1}</div>
