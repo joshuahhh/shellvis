@@ -5,7 +5,7 @@ import sh from "mvdan-sh";
 import path from "path-browserify";
 import React, { Fragment, ReactNode, memo, useContext } from "react";
 import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "../execution.js";
-import { getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
+import { Script, getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
 import { ExecuteRequest } from "../types.js";
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from "../typeset.js";
 import { weakMapCache2 } from "../util.js";
@@ -13,16 +13,6 @@ import classNames from "classnames";
 import { count } from "@engraft/shared/lib/count.js";
 import { HVContext } from "./HVContext.js";
 
-
-type CallVProps = {
-  contents: ReactNode,
-  callExpr: sh.CallExpr,
-  context: string,
-  trace: Trace,
-  className?: string,
-  showHeader?: boolean,
-  showDetails?: boolean,
-}
 
 export const InfoEntryIcon = memo((props: {
   title: string,
@@ -46,8 +36,20 @@ type InfoProviderProps = {
 
 let infoProviders: InfoProvider[] = [];
 
+type CallVProps = {
+  contents: ReactNode,
+  callExpr: sh.CallExpr,
+  context: string,
+  trace: Trace,
+  script: Script,
+  className?: string,
+  showHeader?: boolean,
+  showLabel?: boolean,
+  showDetails?: boolean,
+}
+
 export const CallV = memo((props: CallVProps) => {
-  const {contents, callExpr, context, trace, className, showHeader = true, showDetails} = props;
+  const {contents, callExpr, context, trace, script, className, showHeader = true, showLabel = false, showDetails} = props;
 
   const nodeId = getNodeId(callExpr);
   const execId = mkExecId(context, nodeId);
@@ -79,29 +81,39 @@ export const CallV = memo((props: CallVProps) => {
     ? false
     : !isInSelection;
 
-  return <div
-    key={nodeId}
-    className={`call ${statusClass} ${!showDetails ? 'call--no-info-sections' : ''} ${className || ''}`}
-    data-exec-id={execId}
-  >
-    { showHeader &&
-      <div className="call__code">
-        <div className="call__code-background"/>
-        <div className="call__code-contents">{contents}</div>
-      </div>
-    }
-    <div className={`call__info-wrapper ${showDetails ? 'open' : ''}`}>
-      <div style={{overflow: 'hidden'}}>
-        <div className="call__info" style={{fontSize: '80%'}}>
-          { execInfo && infoProviders.map((provider, i) =>
-            <Fragment key={i}>
-              {provider({ short, execInfo })}
-            </Fragment>
-          )}
+  return (
+    <div
+      className={`call-outside`}
+    >
+      { showLabel &&
+        <div className="call-outside__label">
+          {script.srcForNode(callExpr)}
+        </div>
+      }
+      <div
+        className={`call ${statusClass} ${!showDetails ? 'call--no-info-sections' : ''} ${className || ''}`}
+        data-exec-id={execId}
+      >
+        { showHeader &&
+          <div className="call__code">
+            <div className="call__code-background"/>
+            <div className="call__code-contents">{contents}</div>
+          </div>
+        }
+        <div className={`call__info-wrapper ${showDetails ? 'open' : ''}`}>
+          <div style={{overflow: 'hidden'}}>
+            <div className="call__info" style={{fontSize: '80%'}}>
+              { execInfo && infoProviders.map((provider, i) =>
+                <Fragment key={i}>
+                  {provider({ short, execInfo })}
+                </Fragment>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  );
 });
 
 // stdout & stderr
@@ -113,7 +125,11 @@ function infoProviderForStream(stream: 'stdout' | 'stderr'): InfoProvider {
       if (short) {
         const text = data.join();
         const numLines = (text.match(/\n./g)?.length || 0) + 1;
-        contents = count(numLines, "line", "lines");
+        if (numLines === 1) {
+          contents = <pre>{text}</pre>;
+        } else {
+          contents = count(numLines, "line", "lines");
+        }
       } else {
         contents = <pre>{data}</pre>;
       }

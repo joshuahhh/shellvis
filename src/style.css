@@ -72,8 +72,8 @@ pre {
 }
 
 .line__calls .call {
-  margin-bottom: 2px;
-  margin-right: 2px;
+  margin-bottom: 4px;
+  margin-right: 4px;
 }
 
 .trace.detailsMode-grid {
@@ -249,4 +249,14 @@ pre {
 .indented {
   display: flex;
   flex-direction: row;
+}
+
+.call-outside {
+  display: flex;
+  flex-direction: column;
+}
+
+.call-outside__label {
+  color: #999;
+  font-size: 80%;
 }

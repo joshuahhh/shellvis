@@ -121,8 +121,10 @@ const LineV = memo((props: LineVProps) => {
             contents={null}
             callExpr={callExpr}
             context={context}
+            script={script}
             trace={trace}
             showHeader={false}
+            showLabel={callExprsOnLine.length > 1}
             showDetails={true}
           />
         )}
