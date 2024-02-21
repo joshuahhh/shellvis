@@ -13,6 +13,9 @@ body {
   padding: 40px 10px 0px 10px;
   line-height: 20px;
   font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+
+  /* TODO: hmmm */
+  overflow-x: hidden;
 }
 
 /* Base style for links */
