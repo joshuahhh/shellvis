@@ -53,7 +53,12 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
   }, [hvContextUP.selections, trace.path]);
 
   const script = useMemo(() => {
-    return new Script(trace.scriptSrc, parser, highlighter);
+    try {
+      return new Script(trace.scriptSrc, parser, highlighter);
+    } catch (e) {
+      // TODO: this won't actually be used, cuz trace has a parse error too
+      return new Script(`# parse error: ${(e as any).message}`, parser, highlighter);
+    }
   }, [trace.scriptSrc]);
 
   if (trace.parseError) {
