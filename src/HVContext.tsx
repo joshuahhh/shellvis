@@ -7,6 +7,7 @@ export type HVContext = {
   showMessages: boolean,
   showTrace: boolean,
   showAST: boolean,
+  abbreviateInfo: 'never' | 'always' | 'outside-selection',
   // and now we begin to abuse this for more than just settings...
   selections: vscode.Selection[],
 }
@@ -17,6 +18,7 @@ export const defaultHVContext: HVContext = {
   showMessages: false,
   showTrace: false,
   showAST: false,
+  abbreviateInfo: 'outside-selection',
   selections: [],
 };
 

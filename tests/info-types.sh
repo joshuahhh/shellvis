@@ -24,8 +24,10 @@ function append() {
   echo "hi" >> hi
 }
 append
+# multiple
+mv hi hi2
 # delete
-rm hi
+rm hi2
 # new folder
 mkdir hi
 # remove folder

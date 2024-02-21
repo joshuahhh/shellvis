@@ -12,6 +12,7 @@ import { WebHighlighter } from "./WebHighlighter.js";
 import { WebSocketListener, WebSocketListenerEvent } from "./WebSocketListener.js";
 import { AutomergeUrl } from "@automerge/automerge-repo";
 import * as vscode from 'vscode';
+import { ExecuteRequest } from "../types.js";
 
 const ansiToHtml = new AnsiToHtml({});
 
@@ -189,6 +190,18 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           </label>
         }
         <label>
+          Abbreviate info:
+          <select
+            value={hvContext.abbreviateInfo}
+            onChange={(e) => hvContextUP.abbreviateInfo.$set(e.target.value as any)}
+            style={{marginLeft: 10}}
+          >
+            <option value="never">never</option>
+            <option value="outside-selection">outside-selection</option>
+            <option value="always">always</option>
+          </select>
+        </label>
+        <label>
           <input
             type="checkbox"
             checked={hvContext.showMessages}
@@ -215,6 +228,23 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           />
           Show trace
         </label>
+        <button
+          onClick={async () => {
+            await fetch(
+              "http://localhost:8080/execute",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  command: `code ${trace.path}`,
+                  cwd: ".",
+                } satisfies ExecuteRequest),
+              }
+            )
+          }}
+        >
+          Open in VS Code
+        </button>
         <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
           session {sessionAutomergeUrl}
         </div>
