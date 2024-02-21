@@ -195,7 +195,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           </label>
         }
         <label>
-          Abbreviate info:
+          Abbreviate:
           <select
             value={hvContext.abbreviateInfo}
             onChange={(e) => hvContextUP.abbreviateInfo.$set(e.target.value as any)}

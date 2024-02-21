@@ -89,7 +89,7 @@ const LineV = memo((props: LineVProps) => {
       end: posInfo.end.line > posInfo.pos.line ? line.length : posInfo.end.col - 1,
       decorator: (contents) =>
         detailsMode === 'grid'
-        ? <div style={{display: 'inline-block', borderBottom: "1px solid", marginBottom: 2}}>{contents}</div>
+        ? <div className="call-in-code">{contents}</div>
         : <CallV
             key={getNodeId(callExpr)}
             contents={contents}

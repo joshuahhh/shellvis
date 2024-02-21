@@ -268,7 +268,7 @@ infoProviders.push(({ short, execInfo }) => {
     const varsDiffRelevant = varsDiff.filter((change) => {
       return !ignoredShellVarNames.includes(shellVarChangeVarName(change));
     });
-    if (short) {
+    if (short && varsDiffRelevant.length > 1) {
       let typeCounts: Record<ShellVarChange["type"], number> = {
         add: 0,
         remove: 0,
@@ -375,7 +375,7 @@ function renderShellVarChange(change: ShellVarChange): ReactNode {
   }
   return <div className="info-entry">
     {varChangeIcons[change.type]}
-    <div className="info-entry__contents">
+    <div className="info-entry__contents info-entry__contents--no-wrap">
       {contents}
     </div>
   </div>;

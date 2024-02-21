@@ -65,11 +65,12 @@ export const TestbedLinksV = memo(() => {
 
 export const TestbedV = memo(() => {
   const { name } = useParams();
-  const params: ScriptWatcherParams = (examples as any)[name as any];
+  const params: ScriptWatcherParams | undefined = (examples as any)[name as any];
   const [ sessionAutomergeUrl, setSessionAutomergeUrl ] = useState<AutomergeUrl | null>(null);
 
   // TODO: do proper cleanup so this strict-mode cheat isn't required
   useEffect(() => {
+    if (!params) { return; }
     const check = async () => {
       const sessionAutomergeUrlRequest = await fetch(
         "http://localhost:8080/new-session",
@@ -85,7 +86,9 @@ export const TestbedV = memo(() => {
     check();
   }, [params]);
 
-  if (!sessionAutomergeUrl) {
+  if (!params) {
+    return <div>Example <code>{name}</code> not found</div>;
+  } else if (!sessionAutomergeUrl) {
     return <div>Loading session document URL from server...</div>
   } else {
     return <WithAutomergeV>
