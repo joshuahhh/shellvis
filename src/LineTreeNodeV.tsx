@@ -8,7 +8,6 @@ import { Iteration, Trace, mkExecId } from "../execution.js";
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
 import { HVContext } from "./HVContext.js";
-import { TbScriptX } from "react-icons/tb";
 
 
 export type LineTreeNodeVProps = {
