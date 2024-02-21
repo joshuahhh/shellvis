@@ -111,11 +111,14 @@ const LineV = memo((props: LineVProps) => {
     addDecorationsToLineHelper(nodes, starts, ends, callDecorations);
   }
 
+  // count /s in context
+  const depth = context.match(/\//g)?.length || 0;
+
   return <div className="line" data-line={i}>
     <div className="line__num">{i + 1}</div>
     <div className="line__contents">{nodes}</div>
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
-      <div className="line__calls">
+      <div className="line__calls" style={{paddingLeft: depth * 20}}>
         {callExprsOnLine.map((callExpr) =>
           <CallV
             key={getNodeId(callExpr)}
@@ -255,9 +258,11 @@ const LoopBodyV = memo((props: {
       </>;
     }
   } else if (detailsMode === 'grid') {
+    const depth = context.match(/\//g)?.length || 0;
+
     if (iterations.length === 0) {
       return <>
-        <div className="line__calls" data-line={forLineNum}>
+        <div className="line__calls" style={{paddingLeft: depth * 20}} data-line={forLineNum}>
           <div className="for-loop-iteration-header">
             <div>{forIndent}</div>
             <div className="for-loop-iteration-header__label">
@@ -281,7 +286,7 @@ const LoopBodyV = memo((props: {
     }
     const iteration = iterations[viewState.collapsedOn];
     return <>
-      <div className="line__calls" data-line={forLineNum}>
+      <div className="line__calls" style={{paddingLeft: depth * 20}} data-line={forLineNum}>
         <LoopHeader
           viewState={viewState}
           setViewState={setViewState}
@@ -342,7 +347,6 @@ const LoopHeader = memo((props: {
         {varName} = {iteration.loopVarValue}
       </div>
     </LockSize>
-    <div style={{width: 10}}/>
     { allowExpand &&
       <div
         className="for-loop-iteration-header__expand-toggle"
@@ -384,12 +388,12 @@ const LoopHeader = memo((props: {
         }
         marks={numIterations < 30}
         style={{
-          width: Math.min(Math.max(10 * numIterations, 0), 200),
+          width: Math.min(Math.max(10 * numIterations, 0), 100),
         }}
         onMouseDown={() => { setSliderIsDragging(true); }}
         onChangeCommitted={() => { setSliderIsDragging(false); }}
       />
-      <div>
+      <div className="for-loop-iteration-header__counts">
         {viewState.collapsedOn + 1} / {numIterations}
       </div>
     </>}

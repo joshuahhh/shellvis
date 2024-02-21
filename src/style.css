@@ -219,9 +219,11 @@ pre {
 
 .for-loop-iteration-header__label {
   font-size: 80%;
-  font-weight: bold;
-  background-color: #ccc;
-  color: #444;
+  /* font-weight: bold; */
+  /* background-color: #ccc;
+  color: #444; */
+  background-color: #1976d2;
+  color: white;
   padding: 0px 5px;
   width: fit-content;
 }
@@ -240,6 +242,10 @@ pre {
 .for-loop-iteration-header__slider {
   margin: 0px 15px;
   padding: 0px;
+}
+
+.for-loop-iteration-header__counts {
+  color: hsl(210, 79%, 60%);
 }
 
 .line.line--dead {
