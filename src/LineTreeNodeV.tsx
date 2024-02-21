@@ -8,6 +8,7 @@ import { Iteration, Trace, mkExecId } from "../execution.js";
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
 import { HVContext } from "./HVContext.js";
+import { TbScriptX } from "react-icons/tb";
 
 
 export type LineTreeNodeVProps = {
@@ -96,6 +97,7 @@ const LineV = memo((props: LineVProps) => {
             callExpr={callExpr}
             context={context}
             trace={trace}
+            script={script}
             className={'call--on-left'}
             showDetails={detailsMode === 'in-place'}
           />
