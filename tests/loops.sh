@@ -16,5 +16,5 @@ for i in {1..3}; do
 done
 
 for n in *; do
-  echo "n=$n"
+  file $n
 done
