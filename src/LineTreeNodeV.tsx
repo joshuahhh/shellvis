@@ -37,7 +37,7 @@ const DeadLineTreeNodeV = memo((props: DeadLineTreeNodeVProps) => {
 
   if (node.type === 'line') {
     // TODO: duplication from LineV
-    return <div className="line line--dead">
+    return <div className="line line--dead" data-line={node.lineNumStart - 1}>
       <div className="line__num">{node.lineNumStart}</div>
       <div className="line__contents">{node.line}</div>
     </div>;
@@ -110,7 +110,7 @@ const LineV = memo((props: LineVProps) => {
     addDecorationsToLineHelper(nodes, starts, ends, callDecorations);
   }
 
-  return <div className="line">
+  return <div className="line" data-line={i}>
     <div className="line__num">{i + 1}</div>
     <div className="line__contents">{nodes}</div>
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
@@ -148,7 +148,8 @@ const LoopBodyV = memo((props: {
   const forInfo = trace.forInfos[mkExecId(context, forNodeId)];
   const iterations = forInfo?.iterations || [];
   const varName = (forClause.Loop as sh.WordIter).Name!.Value;
-  const forLine = script.lines[forClause.Pos().Line() - 1];
+  const forLineNum = forClause.Pos().Line() - 1;
+  const forLine = script.lines[forLineNum];
   const forIndent = (forLine.match(/^\s*/)?.[0] || '  ');
 
   let [ viewState, setViewState ] = useState<LoopViewState>({ collapsedOn: 0 });
@@ -157,7 +158,7 @@ const LoopBodyV = memo((props: {
   if (detailsMode === 'in-place') {
     if (iterations.length === 0) {
       return <>
-        <div className="line">
+        <div className="line" data-line={forLineNum}>
           <div className="line__num"/>
           <div className="line__contents">
             <div className="for-loop-iteration-header">
@@ -187,7 +188,7 @@ const LoopBodyV = memo((props: {
       >
         {iterations.map((iteration, iterationIdx) =>
           <div key={iteration.counter}>
-            <div className="line">
+            <div className="line" data-line={forLineNum}>
               <div className="line__num"/>
               <div className="line__contents">
                 <div className="indented">
@@ -222,7 +223,7 @@ const LoopBodyV = memo((props: {
       }
       const iteration = iterations[viewState.collapsedOn];
       return <>
-        <div className="line">
+        <div className="line" data-line={forLineNum}>
           <div className="line__num"/>
           <div className="line__contents">
             <div className="indented">
@@ -253,7 +254,7 @@ const LoopBodyV = memo((props: {
   } else if (detailsMode === 'grid') {
     if (iterations.length === 0) {
       return <>
-        <div className="line__calls">
+        <div className="line__calls" data-line={forLineNum}>
           <div className="for-loop-iteration-header">
             <div>{forIndent}</div>
             <div className="for-loop-iteration-header__label">
@@ -277,7 +278,7 @@ const LoopBodyV = memo((props: {
     }
     const iteration = iterations[viewState.collapsedOn];
     return <>
-      <div className="line__calls">
+      <div className="line__calls" data-line={forLineNum}>
         <LoopHeader
           viewState={viewState}
           setViewState={setViewState}

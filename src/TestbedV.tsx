@@ -1,7 +1,7 @@
+import { AutomergeUrl } from "@automerge/automerge-repo";
+import { memo, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ScriptWatcherParams } from "../ScriptWatcher.js";
-import { AutomergeUrl } from "@automerge/automerge-repo";
-import { memo, useState, useRef, useEffect } from "react";
 import { CliWithSessionUrlV } from "./CliV.js";
 import { WithAutomergeV } from "./WithAutomergeV.js";
 
@@ -69,12 +69,7 @@ export const TestbedV = memo(() => {
   const [ sessionAutomergeUrl, setSessionAutomergeUrl ] = useState<AutomergeUrl | null>(null);
 
   // TODO: do proper cleanup so this strict-mode cheat isn't required
-  const checked = useRef(false);
   useEffect(() => {
-    if (checked.current) {
-      return;
-    }
-    checked.current = true;
     const check = async () => {
       const sessionAutomergeUrlRequest = await fetch(
         "http://localhost:8080/new-session",

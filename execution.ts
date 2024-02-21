@@ -53,6 +53,7 @@ export function parseDeltaLog(log: string): DeltaLogEntry[] {
 }
 
 export type Trace = {
+  path: string | null,
   scriptSrc: string,
   execInfos: Record<string, ExecInfo>,
   forInfos: Record<string, ForInfo>,

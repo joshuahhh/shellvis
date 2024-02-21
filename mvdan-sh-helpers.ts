@@ -305,6 +305,7 @@ export const nodePosInfo = weakMapCache((node: sh.Node) => {
 
 export type LineTreeNode =
   // note: lineNumEnd is exclusive, not inclusive
+  // also note: these are 1-indexed line numbers
   { lineNumStart: number, lineNumEnd: number } & (
     | { type: 'line', line: string }
     | { type: 'loop-body', forClause: sh.ForClause, children: LineTreeNode[] }

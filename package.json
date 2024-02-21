@@ -53,6 +53,7 @@
     "@types/node": "^20.10.6",
     "@types/react-dom": "^18.2.18",
     "@types/serve-handler": "^6.1.4",
+    "@types/vscode": "1.86.0",
     "@types/ws": "^8.5.10",
     "@types/wtfnode": "^0.7.3",
     "@types/yargs": "^17.0.32",

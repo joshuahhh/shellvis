@@ -1,7 +1,7 @@
 import { useUpdateProxy } from "@engraft/update-proxy-react";
 import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
-import React, { Fragment, memo, useMemo } from "react";
+import React, { Fragment, memo, useEffect, useMemo } from "react";
 import * as util from "util";
 import { Trace } from "../execution.js";
 import { Script, expandObject } from "../mvdan-sh-helpers.js";
@@ -9,11 +9,15 @@ import { Message } from "../tracing.js";
 import { HVContext, defaultHVContext } from "./HVContext.js";
 import { TraceV } from "./TraceV.js";
 import { WebHighlighter } from "./WebHighlighter.js";
-
+import { WebSocketListener, WebSocketListenerEvent } from "./WebSocketListener.js";
+import { AutomergeUrl } from "@automerge/automerge-repo";
+import * as vscode from 'vscode';
 
 const ansiToHtml = new AnsiToHtml({});
 
 type TraceViewerVProps = {
+  sessionAutomergeUrl: AutomergeUrl,
+  traceAutomergeUrl: AutomergeUrl,
   trace: Trace,
 }
 
@@ -22,12 +26,28 @@ const highlighter = new WebHighlighter();
 highlighter.init();
 
 export const TraceViewerV = memo((props: TraceViewerVProps) => {
-  const { trace } = props;
+  const { sessionAutomergeUrl, traceAutomergeUrl, trace } = props;
 
   const [ hvContext, setHVContext ] = React.useState<HVContext>(defaultHVContext);
-  const { showMessages, showAST } = hvContext;
-
   const hvContextUP = useUpdateProxy(setHVContext);
+  const { showMessages, showAST, showTrace } = hvContext;
+
+  useEffect(() => {
+    const listener = new WebSocketListener(`ws://localhost:5999`);
+    const onMessage = (e: Event) => {
+      const messageEvent = e as WebSocketListenerEvent & { type: "message" };
+      const vsEvent: vscode.TextEditorSelectionChangeEvent = JSON.parse(messageEvent.data);
+      if (vsEvent.textEditor.document.fileName !== trace.path) { return; }
+      const selections = vsEvent.selections as vscode.Selection[];  // TODO: readonly nonsense w/UP
+      hvContextUP.selections.$set(selections);
+    };
+    listener.addEventListener('message', onMessage);
+    return () => {
+      // TODO: idk
+      listener.removeEventListener('message', onMessage);
+      listener.close();
+    };
+  }, [hvContextUP.selections, trace.path]);
 
   const script = useMemo(() => {
     return new Script(trace.scriptSrc, parser, highlighter);
@@ -52,6 +72,11 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
   const partAST = () => <div>
     <h1>ast</h1>
     {inspectHtml(expandObject(script.ast))}
+  </div>;
+
+  const partTrace = () => <div>
+    <h1>trace</h1>
+    {inspectHtml(expandObject(trace))}
   </div>;
 
   const partMessages = () => <div>
@@ -114,11 +139,13 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
     {showMessages && partMessages()}
     {false && partTransformed()}
     {showAST && partAST()}
+    {showTrace && partTrace()}
     {false && partExecInfo()}
     {false && partForInfo()}
     <div style={{
       position: 'fixed', bottom: 20, right: 20,
       display: 'flex', flexDirection: 'column', gap: 5,
+      textAlign: 'right',
     }}>
       <label>
         Details mode:
@@ -159,11 +186,26 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
         <input
           type="checkbox"
           checked={hvContext.showAST}
-          onChange={(e) => setHVContext((hvContext) => ({ ...hvContext, showAST: e.target.checked }))}
+          onChange={(e) => hvContextUP.showAST.$set(e.target.checked)}
           style={{marginRight: 10}}
         />
         Show AST
       </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={hvContext.showTrace}
+          onChange={(e) => hvContextUP.showTrace.$set(e.target.checked)}
+          style={{marginRight: 10}}
+        />
+        Show trace
+      </label>
+      <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
+        session {sessionAutomergeUrl}
+      </div>
+      <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
+        trace {traceAutomergeUrl}
+      </div>
     </div>
   </HVContext.Provider>;
 });

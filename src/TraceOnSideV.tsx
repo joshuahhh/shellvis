@@ -9,6 +9,7 @@ import { HVContext } from "./HVContext.js";
 import { LineTreeNodeV } from "./LineTreeNodeV.js";
 import { useGathering } from "./useGathering.js";
 import { TraceVProps } from "./TraceV.js";
+import { rafLoop } from "./rafLoop.js";
 
 
 export const TraceOnSideV = memo((props: TraceVProps) => {
@@ -244,13 +245,3 @@ const CallOnRightV = memo((props: {
     }
   </>;
 });
-
-function rafLoop(cb: () => void): () => void {
-  let id: number;
-  function loop() {
-    cb();
-    id = requestAnimationFrame(loop);
-  }
-  id = requestAnimationFrame(loop);
-  return () => cancelAnimationFrame(id);
-}

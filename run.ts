@@ -141,6 +141,7 @@ const suppressedCommands = new Set([
 ]);
 
 export type RunParams = {
+  path: string | null,
   scriptSrc: string,
   cwd: string,
   env: Record<string, string | undefined> | 'process.env',
@@ -163,6 +164,7 @@ export class Run {
     public automergeServer: AutomergeServer,
   ) {
     this.traceDoc = this.automergeServer.repo.create({
+      path: this.params.path,
       scriptSrc: this.params.scriptSrc,
       messageLog: [],
       execInfos: {},

@@ -29,7 +29,9 @@ export const CliV = memo(() => {
   }
 });
 
-export const CliWithSessionUrlV = memo((props: { sessionAutomergeUrl: AutomergeUrl }) => {
+export const CliWithSessionUrlV = memo((props: {
+  sessionAutomergeUrl: AutomergeUrl
+}) => {
   const { sessionAutomergeUrl } = props
   const [ session ] = useDocument<Session>(sessionAutomergeUrl)
 
@@ -40,11 +42,17 @@ export const CliWithSessionUrlV = memo((props: { sessionAutomergeUrl: AutomergeU
     return <div>Session document lacks a traceAutomergeUrl!</div>
   }
 
-  return <CliWithTraceAutomergeUrl traceAutomergeUrl={session.traceAutomergeUrl} />
+  return <CliWithTraceAutomergeUrl
+    sessionAutomergeUrl={sessionAutomergeUrl}
+    traceAutomergeUrl={session.traceAutomergeUrl}
+  />
 });
 
-const CliWithTraceAutomergeUrl = memo((props: { traceAutomergeUrl: AutomergeUrl }) => {
-  const { traceAutomergeUrl } = props
+const CliWithTraceAutomergeUrl = memo((props: {
+  sessionAutomergeUrl: AutomergeUrl,
+  traceAutomergeUrl: AutomergeUrl,
+}) => {
+  const { sessionAutomergeUrl, traceAutomergeUrl } = props
   const [ trace ] = useDocument<Trace>(traceAutomergeUrl)
 
   const oldTraceRef = useRef<Trace>();
@@ -57,7 +65,11 @@ const CliWithTraceAutomergeUrl = memo((props: { traceAutomergeUrl: AutomergeUrl 
   }
 
   return <>
-    <TraceViewerV trace={oldTraceRef.current} />
+    <TraceViewerV
+      sessionAutomergeUrl={sessionAutomergeUrl}
+      traceAutomergeUrl={traceAutomergeUrl}
+      trace={oldTraceRef.current}
+    />
     { !trace &&
       // full-screen loading spinner
       <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', justifyContent: 'center', alignItems: 'flex-start'}}>
