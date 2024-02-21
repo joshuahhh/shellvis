@@ -78,7 +78,7 @@ pre {
 
 .trace.detailsMode-grid {
   display: grid;
-  grid-template-columns: min-content min-content auto;
+  grid-template-columns: fit-content(0%) auto auto;
   gap: 0px;
 }
 
@@ -92,6 +92,8 @@ pre {
 
 .trace.detailsMode-grid .line__contents {
   grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .trace.detailsMode-grid .line__calls {

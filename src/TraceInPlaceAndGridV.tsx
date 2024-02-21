@@ -56,9 +56,21 @@ export const TraceInPlaceAndGridV = memo((props: TraceVProps) => {
 
     setTimeout(() => {
       if (backgroundElem) {
-        backgroundElem.scrollIntoView({block: 'center'});
+        const backgroundBox = backgroundElem.getBoundingClientRect();
+        const topMargin = 100;
+        const bottomMargin = 50;
+        if (backgroundBox.top < topMargin) {
+          const top = backgroundElem.getBoundingClientRect().top;
+          window.scrollBy(0, top - topMargin);
+        }
+        if (backgroundBox.bottom > window.innerHeight - bottomMargin) {
+          const bottom = backgroundElem.getBoundingClientRect().bottom;
+          window.scrollBy(0, bottom - window.innerHeight + bottomMargin);
+        }
+        // previously...
+        // backgroundElem.scrollIntoView({block: 'center'});
       }
-    });
+    }, 0);
 
     return rafLoop(update);
   }, [backgroundElem, selections, traceElem]);
@@ -80,7 +92,7 @@ export const TraceInPlaceAndGridV = memo((props: TraceVProps) => {
           height: backgroundPos.height,
           backgroundColor: 'hsl(0, 0%, 20%)',
           zIndex: -100,
-          transition: 'top 0.05s, height 0.05s',
+          // transition: 'top 0.05s, height 0.05s',
         }}
       />
     }
