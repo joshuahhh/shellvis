@@ -33,7 +33,7 @@ export class WebSocketListener extends EventTarget {
     };
 
     this.ws.onerror = (err) => {
-      console.error('Socket encountered error: ', err, 'Closing socket');
+      // console.error('Socket encountered error: ', err, 'Closing socket');
       this.ws?.close();
     };
   }

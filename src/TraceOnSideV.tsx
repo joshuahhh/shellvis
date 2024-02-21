@@ -237,6 +237,7 @@ const CallOnRightV = memo((props: {
           callExpr={callExpr}
           context={context}
           trace={trace}
+          script={script}
           className='call--on-right'
           showHeader={false}
           showDetails={true}

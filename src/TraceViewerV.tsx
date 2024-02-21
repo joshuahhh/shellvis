@@ -36,7 +36,6 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
   const { showMessages, showAST, showTrace } = hvContext;
 
   useEffect(() => {
-    const listener = new WebSocketListener(`ws://localhost:5999`);
     const onMessage = (e: Event) => {
       const messageEvent = e as WebSocketListenerEvent & { type: "message" };
       const vsEvent: vscode.TextEditorSelectionChangeEvent = JSON.parse(messageEvent.data);
@@ -44,11 +43,18 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
       const selections = vsEvent.selections as vscode.Selection[];  // TODO: readonly nonsense w/UP
       hvContextUP.selections.$set(selections);
     };
-    listener.addEventListener('message', onMessage);
+    const listeners: WebSocketListener[] = [];
+    for (let i = 5900; i < 5905; i++) {
+      const listener = new WebSocketListener(`ws://localhost:${i}`);
+      listener.addEventListener('message', onMessage);
+      listeners.push(listener);
+    }
     return () => {
       // TODO: idk
-      listener.removeEventListener('message', onMessage);
-      listener.close();
+      for (const listener of listeners) {
+        listener.removeEventListener('message', onMessage);
+        listener.close();
+      }
     };
   }, [hvContextUP.selections, trace.path]);
 
@@ -249,6 +255,23 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           }}
         >
           Open in VS Code
+        </button>
+        <button
+          onClick={async () => {
+            await fetch(
+              "http://localhost:8080/execute",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  command: `open -R ${trace.path}`,
+                  cwd: ".",
+                } satisfies ExecuteRequest),
+              }
+            )
+          }}
+        >
+          Open in Finder
         </button>
         <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
           session {sessionAutomergeUrl}

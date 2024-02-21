@@ -188,10 +188,13 @@ infoProviders.push(({ execInfo }) => {
 });
 
 // delta log
+const eventNames: Record<string, string> = {
+  'deleted': 'file/dir deleted'
+}
 infoProviders.push(({ short, execInfo }) => {
   const execExitInfo = execInfo?.exitInfo;
   if (execExitInfo && execExitInfo.deltaLog.length > 0) {
-    if (short) {
+    if (short && execExitInfo.deltaLog.length > 1) {
       let eventCounts: {[event: string]: number} = {
         'new file': 0,
         'new dir': 0,
@@ -211,7 +214,7 @@ infoProviders.push(({ short, execInfo }) => {
         {Object.entries(eventCounts).map(([event, count]) => {
           if (count > 0) {
             return <Fragment key={event}>
-              <InfoEntryIcon title={event}>
+              <InfoEntryIcon title={eventNames[event] || event}>
                 {eventIcons[event] || <InfoEntryIcon title={event}><octicons.DiffIgnoredIcon/></InfoEntryIcon>}
               </InfoEntryIcon>
               <div className="info-entry__contents">
@@ -303,9 +306,9 @@ infoProviders.push(({ short, execInfo }) => {
 });
 
 const eventIcons: Record<string, ReactNode> = {
-  'deleted': <InfoEntryIcon title="deleted"><octicons.DiffRemovedIcon /></InfoEntryIcon>,
+  'deleted': <InfoEntryIcon title="file/dir deleted"><octicons.DiffRemovedIcon /></InfoEntryIcon>,
   'new dir': <InfoEntryIcon title="dir added"><octicons.DiffAddedIcon /></InfoEntryIcon>,
-  'modified': <InfoEntryIcon title="modified"><octicons.DiffModifiedIcon /></InfoEntryIcon>,
+  'modified': <InfoEntryIcon title="file modified"><octicons.DiffModifiedIcon /></InfoEntryIcon>,
   'dir replaced with file': <InfoEntryIcon title="dir to file"><octicons.DiffModifiedIcon /></InfoEntryIcon>,
   'new file': <InfoEntryIcon title="file added"><octicons.DiffAddedIcon /></InfoEntryIcon>,
 }
@@ -318,7 +321,7 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): ReactNode {
         somePath = path.relative(baseDir, somePath);
       }
       return <div key={somePath} className="info-entry">
-        {eventIcons[event] || <InfoEntryIcon title={event}><octicons.DiffIgnoredIcon/></InfoEntryIcon>}
+        {eventIcons[event] || <InfoEntryIcon title={eventNames[event] || event}><octicons.DiffIgnoredIcon/></InfoEntryIcon>}
         <div className="info-entry__contents info-entry__contents--no-wrap">
           {somePath}
           <span className="info-entry__details">({event})</span>

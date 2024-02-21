@@ -52,7 +52,12 @@ const examples: Record<string, ScriptWatcherParams> = {
     cwd: "/Users/joshuah/Documents/research/engraft/engraft-repo/packages/core-widgets",
     env: 'process.env',
     args: "src lib",
-  }
+  },
+  "demo-1": {
+    path: "./demo-pics/script.sh",
+    cwd: "./demo-pics",
+    env: 'process.env',
+  },
 }
 
 export const TestbedLinksV = memo(() => {
