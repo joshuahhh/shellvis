@@ -192,6 +192,7 @@ pre {
 .info-entry__icon {
   width: 16px;
   height: 16px;
+  position: relative;
 }
 
 .info-entry__details {
