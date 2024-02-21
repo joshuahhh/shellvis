@@ -86,8 +86,8 @@ export const TraceInPlaceAndGridV = memo((props: TraceVProps) => {
         ref={setBackgroundElem}
         style={{
           position: 'absolute',
-          width: 'calc(100% + 200px)',
-          left: -100,
+          width: 'calc(400vw)',
+          left: '-100vw',
           top: backgroundPos.top,
           height: backgroundPos.height,
           backgroundColor: 'hsl(0, 0%, 20%)',

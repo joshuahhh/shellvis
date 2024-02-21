@@ -28,6 +28,8 @@ highlighter.init();
 export const TraceViewerV = memo((props: TraceViewerVProps) => {
   const { sessionAutomergeUrl, traceAutomergeUrl, trace } = props;
 
+  const [ showSettings, setShowSettings ] = React.useState(false);
+
   const [ hvContext, setHVContext ] = React.useState<HVContext>(defaultHVContext);
   const hvContextUP = useUpdateProxy(setHVContext);
   const { showMessages, showAST, showTrace } = hvContext;
@@ -143,69 +145,83 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
     {false && partExecInfo()}
     {false && partForInfo()}
     <div style={{
-      position: 'fixed', bottom: 20, right: 20,
+      position: 'fixed', bottom: 10, right: 10,
       display: 'flex', flexDirection: 'column', gap: 5,
       textAlign: 'right',
+      background: '#111',
+      padding: 10,
+      borderRadius: 10,
     }}>
-      <label>
-        Details mode:
-        <select
-          value={hvContext.detailsMode}
-          onChange={(e) => hvContextUP.detailsMode.$set(e.target.value as any)}
-          style={{marginLeft: 10}}
-        >
-          <option value="grid">grid</option>
-          <option value="in-place">in-place</option>
-          <option value="on-side">on-side</option>
-        </select>
-      </label>
-      { hvContext.detailsMode === 'on-side' &&
+      <div
+        style={{
+          position: showSettings ? 'absolute' : 'static', top: 10, left: 10,
+          cursor: 'pointer',
+        }}
+        onClick={() => setShowSettings(!showSettings)}
+      >
+        🟣
+      </div>
+      { showSettings && <>
         <label>
-          On-side layout:
+          Details mode:
           <select
-            value={hvContext.onSideLayout}
-            onChange={(e) => hvContextUP.onSideLayout.$set(e.target.value as any)}
+            value={hvContext.detailsMode}
+            onChange={(e) => hvContextUP.detailsMode.$set(e.target.value as any)}
             style={{marginLeft: 10}}
           >
-            <option value="smart">smart</option>
-            <option value="mid">mid</option>
-            <option value="dumb">dumb</option>
+            <option value="grid">grid</option>
+            <option value="in-place">in-place</option>
+            <option value="on-side">on-side</option>
           </select>
         </label>
-      }
-      <label>
-        <input
-          type="checkbox"
-          checked={hvContext.showMessages}
-          onChange={(e) => hvContextUP.showMessages.$set(e.target.checked)}
-          style={{marginRight: 10}}
-        />
-        Show messages
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={hvContext.showAST}
-          onChange={(e) => hvContextUP.showAST.$set(e.target.checked)}
-          style={{marginRight: 10}}
-        />
-        Show AST
-      </label>
-      <label>
-        <input
-          type="checkbox"
-          checked={hvContext.showTrace}
-          onChange={(e) => hvContextUP.showTrace.$set(e.target.checked)}
-          style={{marginRight: 10}}
-        />
-        Show trace
-      </label>
-      <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
-        session {sessionAutomergeUrl}
-      </div>
-      <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
-        trace {traceAutomergeUrl}
-      </div>
+        { hvContext.detailsMode === 'on-side' &&
+          <label>
+            On-side layout:
+            <select
+              value={hvContext.onSideLayout}
+              onChange={(e) => hvContextUP.onSideLayout.$set(e.target.value as any)}
+              style={{marginLeft: 10}}
+            >
+              <option value="smart">smart</option>
+              <option value="mid">mid</option>
+              <option value="dumb">dumb</option>
+            </select>
+          </label>
+        }
+        <label>
+          <input
+            type="checkbox"
+            checked={hvContext.showMessages}
+            onChange={(e) => hvContextUP.showMessages.$set(e.target.checked)}
+            style={{marginRight: 10}}
+          />
+          Show messages
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={hvContext.showAST}
+            onChange={(e) => hvContextUP.showAST.$set(e.target.checked)}
+            style={{marginRight: 10}}
+          />
+          Show AST
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={hvContext.showTrace}
+            onChange={(e) => hvContextUP.showTrace.$set(e.target.checked)}
+            style={{marginRight: 10}}
+          />
+          Show trace
+        </label>
+        <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
+          session {sessionAutomergeUrl}
+        </div>
+        <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
+          trace {traceAutomergeUrl}
+        </div>
+      </>}
     </div>
   </HVContext.Provider>;
 });

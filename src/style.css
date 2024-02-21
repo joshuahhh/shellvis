@@ -77,7 +77,7 @@ pre {
 }
 
 .trace.detailsMode-grid {
-  display: grid;
+  display: inline-grid;
   grid-template-columns: fit-content(0%) auto auto;
   gap: 0px;
 }
