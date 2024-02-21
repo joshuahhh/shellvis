@@ -168,6 +168,8 @@ pre {
 
 .line__calls .call__info {
   padding: 5px;
+  min-height: 30px;
+  min-width: 30px;
 }
 
 .call__info-wrapper {
