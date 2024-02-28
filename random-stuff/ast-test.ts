@@ -1,6 +1,5 @@
 import sh from "mvdan-sh";
-import * as util from "node:util";
-import { myWalk, wrapStmt } from "./mvdan-sh-helpers.js";
+import { myWalk, wrapStmt } from "../src/shared/mvdan-sh-helpers.js";
 
 const parser = sh.syntax.NewParser();
 const parsedScript = parser.Parse(`

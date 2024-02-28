@@ -1,8 +1,8 @@
 import { AutomergeUrl } from "@automerge/automerge-repo";
 import { useDocument } from "@automerge/automerge-repo-react-hooks";
 import { memo, useEffect, useRef, useState } from "react";
-import { Trace } from "../execution.js";
-import { Session } from "../types.js";
+import { Trace } from "../shared/execution.js";
+import { Session } from "../shared/types.js";
 import { WithAutomergeV } from "./WithAutomergeV.js";
 import { TraceViewerV } from "./TraceViewerV.js";
 

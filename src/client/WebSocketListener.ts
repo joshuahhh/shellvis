@@ -1,9 +1,12 @@
-export type WebSocketListenerEvent = Event & (
-  | { type: 'message', data: string }
-);
+import { TypedEventTarget } from '../shared/TypedEventTarget.js';
 
-// TODO: make this typed
-export class WebSocketListener extends EventTarget {
+// this is for retrying ws connections
+
+type EventMap = {
+  message: MessageEvent<string>,
+};
+
+export class WebSocketListener extends (EventTarget as TypedEventTarget<EventMap>) {
   ws: WebSocket | null = null;
   timeout: NodeJS.Timeout | null = null;
 

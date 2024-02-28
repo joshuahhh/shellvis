@@ -1,9 +1,9 @@
 import sh from "mvdan-sh";
 import React, { Fragment, memo, useContext, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Trace, mkExecId } from "../execution.js";
-import { Interval, layOutIntervals, layOutIntervalsOneSide } from "../monotone.js";
-import { Script, getNodeId } from "../mvdan-sh-helpers.js";
+import { Trace, mkExecId } from "../shared/execution.js";
+import { Interval, layOutIntervals, layOutIntervalsOneSide } from "../shared/monotone.js";
+import { Script, getNodeId } from "../shared/mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
 import { HVContext } from "./HVContext.js";
 import { LineTreeNodeV } from "./LineTreeNodeV.js";

@@ -12,8 +12,6 @@ export function FATAL(...args: any[]): never {
   process.exit(1);
 }
 
-export const __dirname = new URL('.', import.meta.url).pathname;
-
 export function weakMapCache2<Arg1 extends object, Arg2 extends object, Return>(
   f: (arg1: Arg1, arg2: Arg2) => Return
 ): (arg1: Arg1, arg2: Arg2) => Return {

@@ -1,5 +1,8 @@
 import { weakMapCache2 } from "./util.js";
 
+// here, "typeset" refers to the bash command that tells you things about
+// variables
+
 export type ShellVar = {
   name: string,
   attributes: string[],

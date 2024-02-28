@@ -1,9 +1,9 @@
 import cors from "cors";
 import express from "express";
 import yargs from "yargs";
-import { ScriptWatcher, ScriptWatcherParams } from "./ScriptWatcher.js";
+import { ScriptWatcher } from "./ScriptWatcher.js";
 import { AutomergeServer } from "./automerge.js";
-import { Session } from "./types.js";
+import { ScriptWatcherParams, Session } from "../shared/types.js";
 
 console.log("welcome to funrun")
 

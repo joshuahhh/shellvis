@@ -2,7 +2,7 @@ import sh from "mvdan-sh";
 import { type Node } from "mvdan-sh";
 import { isObject, rangeIncl } from "./util.js";
 import { weakMapCache } from "@engraft/shared/lib/cache.js";
-import { WebHighlighter } from "./src/WebHighlighter.js";
+import { WebHighlighter } from "../client/WebHighlighter.js";
 import { TokenWithSettings } from "./highlight.js";
 
 export type ParseError = {

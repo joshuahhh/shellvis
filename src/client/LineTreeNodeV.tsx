@@ -3,9 +3,9 @@ import { Slider } from '@mui/material';
 import * as octicons from "@primer/octicons-react";
 import sh from "mvdan-sh";
 import React, { Fragment, memo, useCallback, useContext, useEffect, useState } from "react";
-import { Decoration, addDecorationsToLineHelper, addDecorationsToLineStarter } from "../decorations.js";
-import { Iteration, Trace, mkExecId } from "../execution.js";
-import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../mvdan-sh-helpers.js";
+import { Decoration, addDecorationsToLineHelper, addDecorationsToLineStarter } from "./decorations.js";
+import { Iteration, Trace, mkExecId } from "../shared/execution.js";
+import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../shared/mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
 import { HVContext } from "./HVContext.js";
 

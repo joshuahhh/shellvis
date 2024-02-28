@@ -1,6 +1,6 @@
 import { memo, useContext } from "react";
-import { Trace } from "../execution.js";
-import { Script } from "../mvdan-sh-helpers.js";
+import { Trace } from "../shared/execution.js";
+import { Script } from "../shared/mvdan-sh-helpers.js";
 import { HVContext } from "./HVContext.js";
 import { TraceInPlaceAndGridV } from "./TraceInPlaceAndGridV.js";
 import { TraceOnSideV } from "./TraceOnSideV.js";

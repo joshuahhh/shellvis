@@ -1,12 +1,12 @@
 import onigWasmUrl from "vscode-oniguruma/release/onig.wasm?url";
 import * as vsctm from 'vscode-textmate';
 import JSON5 from 'json5';
-import { ColorRule, getOnigLib, tokenizeLines } from "../highlight.js";
+import { ColorRule, getOnigLib, tokenizeLines } from "../shared/highlight.js";
 
-import grammarUrl from "../shell-unix-bash.tmLanguage.json?url";
-import themeUrl1 from "../dark_modern?url";
-import themeUrl2 from "../dark_plus?url";
-import themeUrl3 from "../dark_vs?url";
+import grammarUrl from "../shared/vendor-vscode/shell-unix-bash.tmLanguage.json?url";
+import themeUrl1 from "../shared/vendor-vscode/dark_modern?url";
+import themeUrl2 from "../shared/vendor-vscode/dark_plus?url";
+import themeUrl3 from "../shared/vendor-vscode/dark_vs?url";
 
 
 // this is just a wrapper around highlight.ts with some stuff fetched

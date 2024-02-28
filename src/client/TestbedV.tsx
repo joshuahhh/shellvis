@@ -1,33 +1,33 @@
 import { AutomergeUrl } from "@automerge/automerge-repo";
 import { memo, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ScriptWatcherParams } from "../ScriptWatcher.js";
+import { ScriptWatcherParams } from "../shared/types.js";
 import { CliWithSessionUrlV } from "./CliV.js";
 import { WithAutomergeV } from "./WithAutomergeV.js";
 
 const examples: Record<string, ScriptWatcherParams> = {
   "minimal": {
-    path: "./tests/minimal.sh",
+    path: "./examples/minimal.sh",
     cwd: ".",
     env: 'process.env',
   },
   "info-types": {
-    path: "./tests/info-types.sh",
+    path: "./examples/info-types.sh",
     cwd: ".",
     env: 'process.env',
   },
   "nested-calls": {
-    path: "./tests/nested-calls.sh",
+    path: "./examples/nested-calls.sh",
     cwd: ".",
     env: 'process.env',
   },
   "test": {
-    path: "./tests/test.sh",
+    path: "./examples/test.sh",
     cwd: ".",
     env: 'process.env',
   },
   "loops": {
-    path: "./tests/loops.sh",
+    path: "./examples/loops.sh",
     cwd: ".",
     env: 'process.env',
   },
@@ -43,19 +43,19 @@ const examples: Record<string, ScriptWatcherParams> = {
     args: "actuallyBroadcast",
   },
   "suppression": {
-    path: "./tests/suppression.sh",
+    path: "./examples/suppression.sh",
     cwd: ".",
     env: 'process.env',
   },
   "convert-css": {
-    path: "./tests/convert-css.sh",
+    path: "./examples/convert-css.sh",
     cwd: "/Users/joshuah/Documents/research/engraft/engraft-repo/packages/core-widgets",
     env: 'process.env',
     args: "src lib",
   },
   "demo-1": {
-    path: "./demo-pics/script.sh",
-    cwd: "./demo-pics",
+    path: "./examples/pics/script.sh",
+    cwd: "./examples/pics",
     env: 'process.env',
   },
 }

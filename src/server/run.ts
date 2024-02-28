@@ -17,11 +17,12 @@ import * as path from "node:path";
 import * as os from "os";
 import * as tmp from "tmp";
 import { AutomergeServer, changeAt } from "./automerge.js";
-import { PipeProgress, Trace, mkExecId, parseDeltaLog } from "./execution.js";
-import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } from "./mvdan-sh-helpers.js";
-import { Message } from "./tracing.js";
-import { parseTypeset } from "./typeset.js";
-import { FATAL, __dirname } from "./util.js";
+import { PipeProgress, Trace, mkExecId, parseDeltaLog } from "../shared/execution.js";
+import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } from "../shared/mvdan-sh-helpers.js";
+import { Message } from "../shared/tracing.js";
+import { parseTypeset } from "../shared/typeset.js";
+import { FATAL } from "../shared/util.js";
+import { RunParams } from "../shared/types.js";
 
 type Sandbox = {
   sandboxDir: string,
@@ -139,14 +140,6 @@ const suppressedCommands = new Set([
   "code",
   "say",
 ]);
-
-export type RunParams = {
-  path: string | null,
-  scriptSrc: string,
-  cwd: string,
-  env: Record<string, string | undefined> | 'process.env',
-  args?: string,
-}
 
 export class Run {
   sandbox: Sandbox | null = null;
@@ -278,7 +271,9 @@ export class Run {
       }
     });
 
-    const frPreludeSrc = await fs.readFile(path.join(__dirname, 'fr-prelude.sh'), { encoding: 'utf-8' });
+    console.log("this is server/run.ts");
+
+    const frPreludeSrc = await fs.readFile(new URL('fr-prelude.sh', import.meta.url), { encoding: 'utf-8' });
 
     this.transformedSrc = [frPreludeSrc, printer.Print(transformedAst)].join("\n\n");
 

@@ -3,7 +3,7 @@ import express from "express";
 import * as child_process from "node:child_process";
 import { ScriptWatcher } from "./ScriptWatcher.js";
 import { AutomergeServer } from "./automerge.js";
-import { ExecuteRequest, Session } from "./types.js";
+import { ExecuteRequest, Session } from "../shared/types.js";
 
 console.log("welcome to funrun")
 

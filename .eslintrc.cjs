@@ -23,5 +23,20 @@ module.exports = {
         varsIgnorePattern: "^_"
       }
     ],
+    "import/no-restricted-paths": [
+      "error",
+      {
+        zones: [
+          {
+            target: "./server",
+            from: "./client",
+          },
+          {
+            target: "./client",
+            from: "./server",
+          },
+        ]
+      }
+    ],
   }
 }

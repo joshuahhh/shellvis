@@ -1,8 +1,10 @@
 import { memo, useEffect, useState } from "react";
-import { TokenWithSettings } from "../highlight.js";
+import { TokenWithSettings } from "../shared/highlight.js";
 import { WebHighlighter } from "./WebHighlighter.js";
+import scriptUrl from "../../examples/test.sh?url";
 
-import scriptUrl from "../tests/test.sh?url";
+
+// just a syntax highlighting test
 
 const highlighter = new WebHighlighter();
 

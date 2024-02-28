@@ -1,18 +1,18 @@
+import { AutomergeUrl } from "@automerge/automerge-repo";
 import { useUpdateProxy } from "@engraft/update-proxy-react";
 import AnsiToHtml from "ansi-to-html";
 import sh from "mvdan-sh";
 import React, { Fragment, memo, useEffect, useMemo } from "react";
 import * as util from "util";
-import { Trace } from "../execution.js";
-import { Script, expandObject } from "../mvdan-sh-helpers.js";
-import { Message } from "../tracing.js";
+import * as vscode from 'vscode';
+import { Trace } from "../shared/execution.js";
+import { Script, expandObject } from "../shared/mvdan-sh-helpers.js";
+import { Message } from "../shared/tracing.js";
+import { ExecuteRequest } from "../shared/types.js";
 import { HVContext, defaultHVContext } from "./HVContext.js";
 import { TraceV } from "./TraceV.js";
+import { VSCodeListener } from "./VSCodeListener.js";
 import { WebHighlighter } from "./WebHighlighter.js";
-import { WebSocketListener, WebSocketListenerEvent } from "./WebSocketListener.js";
-import { AutomergeUrl } from "@automerge/automerge-repo";
-import * as vscode from 'vscode';
-import { ExecuteRequest } from "../types.js";
 
 const ansiToHtml = new AnsiToHtml({});
 
@@ -36,25 +36,19 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
   const { showMessages, showAST, showTrace } = hvContext;
 
   useEffect(() => {
-    const onMessage = (e: Event) => {
-      const messageEvent = e as WebSocketListenerEvent & { type: "message" };
-      const vsEvent: vscode.TextEditorSelectionChangeEvent = JSON.parse(messageEvent.data);
+    console.log("hi");
+
+    const vsCodeListener = new VSCodeListener();
+    const onMessage = (e: MessageEvent<string>) => {
+      const vsEvent: vscode.TextEditorSelectionChangeEvent = JSON.parse(e.data);
       if (vsEvent.textEditor.document.fileName !== trace.path) { return; }
-      const selections = vsEvent.selections as vscode.Selection[];  // TODO: readonly nonsense w/UP
-      hvContextUP.selections.$set(selections);
+      hvContextUP.selections.$set(vsEvent.selections as vscode.Selection[]);
     };
-    const listeners: WebSocketListener[] = [];
-    for (let i = 5900; i < 5905; i++) {
-      const listener = new WebSocketListener(`ws://localhost:${i}`);
-      listener.addEventListener('message', onMessage);
-      listeners.push(listener);
-    }
+    vsCodeListener.addEventListener('message', onMessage);
+
     return () => {
-      // TODO: idk
-      for (const listener of listeners) {
-        listener.removeEventListener('message', onMessage);
-        listener.close();
-      }
+      vsCodeListener.removeEventListener('message', onMessage);
+      vsCodeListener.close();
     };
   }, [hvContextUP.selections, trace.path]);
 
