@@ -31,4 +31,9 @@ interface IntermediateEventTarget<EventMap> extends EventTarget {
     callback: EventListenerOrEventListenerObject | null,
     options?: EventListenerOptions | boolean
   ): void;
+
+  // TODO: this doesn't check type fields
+  dispatchEvent<K extends keyof EventMap>(
+    event: EventMap[K] extends Event ? EventMap[K] : never
+  ): boolean;
 }

@@ -13,7 +13,7 @@ export type ExecuteRequest = {
 }
 
 export type RunParams = {
-  path: string | null,
+  path: string | null,  // pretty sure this is just for debug; to put path in AM doc
   scriptSrc: string,
   cwd: string,
   env: Record<string, string | undefined> | 'process.env',

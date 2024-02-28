@@ -34,7 +34,7 @@ export class ScriptWatcher {
       ...this.params,
       scriptSrc: scriptStr,
     }
-    this.currentRun = new Run(runParams, this.automergeServer);
+    this.currentRun = new Run(runParams, this.automergeServer.repo);
     this.currentRun.start();
     this.onNewTrace && this.onNewTrace(this.currentRun.traceDoc.url);
   }

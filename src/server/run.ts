@@ -4,7 +4,7 @@
 import { dump } from "wtfnode";
 (global as any).dump = dump;
 
-import { DocHandle } from "@automerge/automerge-repo";
+import { DocHandle, Repo } from "@automerge/automerge-repo";
 import { RawString } from "@automerge/automerge/next";
 import express from "express";
 import getPort from "get-port";
@@ -16,13 +16,14 @@ import { Server } from "node:http";
 import * as path from "node:path";
 import * as os from "os";
 import * as tmp from "tmp";
-import { AutomergeServer, changeAt } from "./automerge.js";
+import { TypedEventTarget } from "../shared/TypedEventTarget.js";
 import { PipeProgress, Trace, mkExecId, parseDeltaLog } from "../shared/execution.js";
 import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } from "../shared/mvdan-sh-helpers.js";
 import { Message } from "../shared/tracing.js";
+import { RunParams } from "../shared/types.js";
 import { parseTypeset } from "../shared/typeset.js";
 import { FATAL } from "../shared/util.js";
-import { RunParams } from "../shared/types.js";
+import { changeAt } from "./automerge.js";
 
 type Sandbox = {
   sandboxDir: string,
@@ -141,7 +142,11 @@ const suppressedCommands = new Set([
   "say",
 ]);
 
-export class Run {
+type EventMap = {
+  close: Event,
+}
+
+export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   sandbox: Sandbox | null = null;
   childProcess: child_process.ChildProcess | null = null;
   transformedSrc: string | null = null;
@@ -154,9 +159,11 @@ export class Run {
 
   constructor(
     public params: RunParams,
-    public automergeServer: AutomergeServer,
+    public repo: Repo,
   ) {
-    this.traceDoc = this.automergeServer.repo.create({
+    super();
+
+    this.traceDoc = this.repo.create({
       path: this.params.path,
       scriptSrc: this.params.scriptSrc,
       messageLog: [],
@@ -325,6 +332,7 @@ export class Run {
         trace.exitCode = exitCode;
       });
       this.stop();
+      this.dispatchEvent(new Event("close"));
     });
 
     let uploadId = 0;
@@ -494,6 +502,8 @@ export class Run {
     this.sh2frServer = this.sh2frExpress.listen(this.sh2frPort, () => {
       console.log(`sh2fr server listening on port ${this.sh2frPort}`)
     })
+
+    console.log("bottom");
   }
 
   async stop() {
@@ -512,6 +522,19 @@ export class Run {
         resolve(undefined);
       })
     });
+  }
+
+  async isClosedPromise() {
+    const trace = await this.traceDoc.doc();
+    if (trace && trace.exitCode !== null) {
+      return;
+    } else {
+      return new Promise((resolve) => {
+        this.addEventListener('close', () => {
+          resolve(undefined);
+        });
+      });
+    }
   }
 }
 
