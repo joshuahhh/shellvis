@@ -53,8 +53,13 @@ const examples: Record<string, ScriptWatcherParams> = {
     env: 'process.env',
     args: "src lib",
   },
-  "demo-1": {
+  "pics": {
     path: "./examples/pics/script.sh",
+    cwd: "./examples/pics",
+    env: 'process.env',
+  },
+  "pics-finished": {
+    path: "./examples/pics/finished.sh",
     cwd: "./examples/pics",
     env: 'process.env',
   },
