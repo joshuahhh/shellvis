@@ -9,7 +9,7 @@ import { Script, getNodeId, nodePosInfo } from "../shared/mvdan-sh-helpers.js";
 import { ExecuteRequest } from "../shared/types.js";
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from "../shared/typeset.js";
 import { weakMapCache2 } from "../shared/util.js";
-import classNames from "classnames";
+import clsx from "clsx";
 import { count } from "@engraft/shared/lib/count.js";
 import { HVContext } from "./HVContext.js";
 
@@ -20,7 +20,7 @@ export const InfoEntryIcon = memo((props: {
   className?: string,
 }) => {
   const { title, children, className } = props;
-  return <Tooltip title={title} placement="top" arrow className={classNames('info-entry__icon', className)}>
+  return <Tooltip title={title} placement="top" arrow className={clsx('info-entry__icon', className)}>
     <div>
       {children}
     </div>
