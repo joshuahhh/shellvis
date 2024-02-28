@@ -36,8 +36,6 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
   const { showMessages, showAST, showTrace } = hvContext;
 
   useEffect(() => {
-    console.log("hi");
-
     const vsCodeListener = new VSCodeListener();
     const onMessage = (e: MessageEvent<string>) => {
       const vsEvent: vscode.TextEditorSelectionChangeEvent = JSON.parse(e.data);
@@ -48,7 +46,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
 
     return () => {
       vsCodeListener.removeEventListener('message', onMessage);
-      vsCodeListener.close();
+      // vsCodeListener.close();
     };
   }, [hvContextUP.selections, trace.path]);
 

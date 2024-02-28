@@ -1,5 +1,7 @@
 import { WebSocketListener } from "./WebSocketListener.js";
 
+// TODO: I guess the better reusable unit would be
+
 // eslint-disable-next-line no-restricted-globals
 const workerGlobal = self as unknown as SharedWorkerGlobalScope;
 

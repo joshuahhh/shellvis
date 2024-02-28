@@ -21,14 +21,13 @@ export class VSCodeListener extends (EventTarget as TypedEventTarget<EventMap>) 
     );
 
     this.worker.port.addEventListener('message', (e) => {
-      console.log('VSCodeListener got message', e.data);
       this.dispatchEvent(new MessageEvent('message', { data: e.data }));
     });
 
     this.worker.port.start();
   }
 
-  close() {
-    this.worker.port.postMessage('close');
-  }
+  // close() {
+  //   this.worker.port.postMessage('close');
+  // }
 }
