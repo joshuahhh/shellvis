@@ -38,4 +38,8 @@ export class ScriptWatcher {
     this.currentRun.start();
     this.onNewTrace && this.onNewTrace(this.currentRun.traceDoc.url);
   }
+
+  restart() {
+    this._onFile();
+  }
 }

@@ -21,6 +21,7 @@ const httpServer = app.listen(PORT, () => {
 const automergeServer = new AutomergeServer(httpServer, "/automerge");
 
 const sessionUrlCache: {[paramsStr: string]: string} = {};
+const watchers: {[sessionUrl: string]: ScriptWatcher} = {};
 
 app.post("/new-session", (req, res) => {
   const paramsStr = JSON.stringify(req.body);
@@ -28,7 +29,8 @@ app.post("/new-session", (req, res) => {
   if (sessionUrl === undefined) {
     console.log("params not found; creating new session")
     const sessionHandle = automergeServer.repo.create<Session>({ traceAutomergeUrl: null });
-    new ScriptWatcher(
+    sessionUrl = sessionUrlCache[paramsStr] = sessionHandle.url;
+    watchers[sessionUrl] = new ScriptWatcher(
       req.body,
       automergeServer,
       (traceUrl) => {
@@ -37,11 +39,23 @@ app.post("/new-session", (req, res) => {
         });
       }
     );
-    sessionUrl = sessionUrlCache[paramsStr] = sessionHandle.url;
   } else {
     console.log("params found; using existing session")
   }
   res.send(sessionUrl);
+});
+
+app.post("/restart/:sessionUrl", (req, res) => {
+  console.log("restarting", req.params.sessionUrl);
+  const watcher = watchers[req.params.sessionUrl];
+  if (watcher) {
+    console.log("  session found")
+    watcher.restart();
+    res.send("ok");
+  } else {
+    console.log("  session not found")
+    res.status(404).send("session not found");
+  }
 });
 
 app.post("/execute", (req, res) => {

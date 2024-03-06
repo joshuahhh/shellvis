@@ -148,6 +148,24 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
     {showTrace && partTrace()}
     {false && partExecInfo()}
     {false && partForInfo()}
+
+
+    <button
+      style={{
+        position: 'fixed', top: 10, right: 10,
+        display: 'flex', flexDirection: 'column', gap: 5,
+        textAlign: 'right',
+      }}
+      onClick={async () => {
+        await fetch(
+          `http://localhost:8080/restart/${sessionAutomergeUrl}`,
+          { method: "POST" }
+        );
+      }}
+    >
+      restart
+    </button>
+
     <div style={{
       position: 'fixed', bottom: 10, right: 10,
       display: 'flex', flexDirection: 'column', gap: 5,
