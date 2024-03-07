@@ -151,7 +151,6 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   childProcess: child_process.ChildProcess | null = null;
   transformedSrc: string | null = null;
   sh2frPort: number | null = null;
-  sh2frExpress: express.Express | null = null;
   sh2frServer: Server | null = null;
   sh2frUploadHandlers: Record<string, (req: express.Request, res: express.Response) => void> = {};
   script: Script | null = null;
@@ -449,11 +448,11 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       return "\n";
     }
 
-    this.sh2frExpress = express()
+    const sh2frExpress = express()
 
-    this.sh2frExpress.use('/', express.raw({ type: "*/*" }))
+    sh2frExpress.use('/', express.raw({ type: "*/*" }))
 
-    this.sh2frExpress.post('/', async (req, res) => {
+    sh2frExpress.post('/', async (req, res) => {
       const dataString = req.body.toString();
       // TODO: this might be naive; a message might be split across events?
       const lines = dataString.trim().split("\n");
@@ -473,11 +472,11 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       }
     })
 
-    this.sh2frExpress.post('/upload/', (req, res) => {
+    sh2frExpress.post('/upload/', (req, res) => {
       res.status(404).send(`missing uploadId\n`);
     });
 
-    this.sh2frExpress.post('/upload/:uploadId', (req, res) => {
+    sh2frExpress.post('/upload/:uploadId', (req, res) => {
       // console.log("fr: upload", req.params.uploadId);
 
       const uploadHandler = this.sh2frUploadHandlers[req.params.uploadId];
@@ -492,13 +491,13 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       delete this.sh2frUploadHandlers[req.params.uploadId];
     });
 
-    this.sh2frExpress.get('*', (req, res) => {
+    sh2frExpress.get('*', (req, res) => {
       // log and 404
       console.log("fr: 404", req.url);
       res.status(404).send(`404 not found`);
     });
 
-    this.sh2frServer = this.sh2frExpress.listen(this.sh2frPort, () => {
+    this.sh2frServer = sh2frExpress.listen(this.sh2frPort, () => {
       console.log(`sh2fr server listening on port ${this.sh2frPort}`)
     })
 
