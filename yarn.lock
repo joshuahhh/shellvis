@@ -4963,6 +4963,11 @@ regjsparser@^0.9.1:
   dependencies:
     jsesc "~0.5.0"
 
+remeda@1.47.0:
+  version "1.47.0"
+  resolved "https://registry.yarnpkg.com/remeda/-/remeda-1.47.0.tgz#d8b357d0984ff7c316b91fba28c33b1d50e7d9e2"
+  integrity sha512-NhB81y1itYfqF4AYnZW5nq/ukkVtuWrEmmowkkF6MSjSdjiQpYo0khK/h4mNSWjZX50WZHOU5sX80Bd2mw2RRQ==
+
 require-directory@^2.1.1:
   version "2.1.1"
   resolved "https://registry.yarnpkg.com/require-directory/-/require-directory-2.1.1.tgz#8c64ad5fd30dab1c976e2344ffe7f792a6a6df42"
