@@ -3,10 +3,11 @@ import { normalizeIndent } from "@engraft/shared/lib/normalizeIndent.js";
 import sh from "mvdan-sh";
 import { assert, describe, expect, it } from "vitest";
 import { Run } from "../src/server/run.js";
-import { Trace, mkExecId } from "../src/shared/execution.js";
+import { ForInfo, Trace, mkExecId } from "../src/shared/execution.js";
 import { Script } from "../src/shared/mvdan-sh-helpers.js";
 import R from "remeda";
 import path from "node:path";
+// import { inspect } from "node:util";
 
 const cwd = process.cwd();
 
@@ -67,8 +68,8 @@ describe('Run', () => {
     }, repo);
     const trace = await runAndGetTrace(run);
 
-    const badExec = mkExecId("", callExprIdWithSrc("echo hello", run.script!));
-    expect(trace.execInfos[badExec].stdout.data.join("\n"))
+    const badExecId = mkExecId("", callExprIdWithSrc("echo hello", run.script!));
+    expect(trace.execInfos[badExecId].stdout.data.join("\n"))
       .toEqual("hello\n");
   });
 
@@ -87,8 +88,8 @@ describe('Run', () => {
     }, repo);
     const trace = await runAndGetTrace(run);
 
-    const badExec = mkExecId("", callExprIdWithSrc("bad", run.script!));
-    expect(trace.execInfos[badExec].stderr.data.join("\n"))
+    const badExecId = mkExecId("", callExprIdWithSrc("bad", run.script!));
+    expect(trace.execInfos[badExecId].stderr.data.join("\n"))
       .toEqual("bad\n");
   });
 
@@ -104,14 +105,14 @@ describe('Run', () => {
     }, repo);
     const trace = await runAndGetTrace(run);
 
-    const yesExec = mkExecId("", callExprIdWithSrc("yes hello", run.script!));
-    expect(trace.execInfos[yesExec].stdout.data.join("\n")
+    const yesExecId = mkExecId("", callExprIdWithSrc("yes hello", run.script!));
+    expect(trace.execInfos[yesExecId].stdout.data.join("\n")
       .startsWith(R.range(0, 10).map(() => `hello\n`).join(""))).toBeTruthy();
-    const revExec = mkExecId("", callExprIdWithSrc("rev", run.script!));
-    expect(trace.execInfos[revExec].stdout.data.join("\n")
+    const revExecId = mkExecId("", callExprIdWithSrc("rev", run.script!));
+    expect(trace.execInfos[revExecId].stdout.data.join("\n")
       .startsWith(R.range(0, 10).map(() => `olleh\n`).join(""))).toBeTruthy();
-    const headExec = mkExecId("", callExprIdWithSrc("head -10", run.script!));
-    expect(trace.execInfos[headExec].stdout.data.join("\n"))
+    const headExecId = mkExecId("", callExprIdWithSrc("head -10", run.script!));
+    expect(trace.execInfos[headExecId].stdout.data.join("\n"))
       .toBe(R.range(0, 10).map(() => `olleh\n`).join(""));
   });
 
@@ -127,8 +128,8 @@ describe('Run', () => {
     }, repo);
     const trace = await runAndGetTrace(run);
 
-    const touchExec = mkExecId("", callExprIdWithSrc("touch testfile.txt", run.script!));
-    expect(trace.execInfos[touchExec].exitInfo!.deltaLog).toEqual([
+    const touchExecId = mkExecId("", callExprIdWithSrc("touch testfile.txt", run.script!));
+    expect(trace.execInfos[touchExecId].exitInfo!.deltaLog).toEqual([
       { event: "new file", path: path.resolve(cwd, "testfile.txt") }
     ]);
   });
@@ -145,11 +146,47 @@ describe('Run', () => {
     }, repo);
     const trace = await runAndGetTrace(run);
 
-    const rmExec = mkExecId("", callExprIdWithSrc("rm package.json", run.script!));
-    expect(trace.execInfos[rmExec].exitInfo!.deltaLog).toEqual([
+    const rmExecId = mkExecId("", callExprIdWithSrc("rm package.json", run.script!));
+    expect(trace.execInfos[rmExecId].exitInfo!.deltaLog).toEqual([
       { event: "deleted", path: path.resolve(cwd, "package.json") }
     ]);
   });
 
+  // TODO: can't think of a function that modifies files lol
   it.todo('file modification works');
+
+  it('for loops work', async () => {
+    const repo = new Repo({ network: [] });
+    const run = new Run({
+      path: "DUMMY-PATH",
+      cwd,
+      env: process.env,
+      scriptSrc: normalizeIndent`
+        for i in {1..3}; do
+          echo $i
+        done
+      `,
+    }, repo);
+    const trace = await runAndGetTrace(run);
+
+    const forInfos = Object.entries(trace.forInfos);
+    if (forInfos.length !== 1) {
+      assert.fail(`expected 1 for loop, got ${forInfos.length}`);
+    }
+    const [forId, forInfo] = forInfos[0];
+
+    expect(forInfo).toEqual({
+      iterations: [
+        { counter: 0, loopVarValue: "1" },
+        { counter: 1, loopVarValue: "2" },
+        { counter: 2, loopVarValue: "3" },
+      ]
+    } satisfies ForInfo);
+
+    for (const iteration of forInfo.iterations) {
+      const echoExecId = mkExecId(`${forId}-${iteration.counter}`, callExprIdWithSrc(`echo $i`, run.script!));
+      expect(trace.execInfos[echoExecId].stdout.data.join("\n"))
+        .toEqual(`${iteration.loopVarValue}\n`);
+    }
+  });
 });
