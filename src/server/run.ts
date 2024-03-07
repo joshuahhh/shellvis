@@ -75,11 +75,11 @@ function parseStmt(s: string): sh.Stmt {
   return stmts[0];
 }
 
-function frMsgStr(message: Message, returnVars: string = "fr_dummy") {
+function frMsgStr(message: Message, returnVars: string | null = null) {
   const messageStr = JSON.stringify(message)
     .replaceAll(new RegExp(`"${RAW("(.*?)")}"`, "g"), (_, p1) => p1)
     .replaceAll('"', '\\"');
-  return `fr_msg "${messageStr}" | read -r ${returnVars}`;
+  return `fr_msg "${messageStr}"${returnVars === null ? ' >/dev/null' :` | read -r ${returnVars}`}`;
 }
 
 function RAW(str: string): any {
@@ -224,21 +224,21 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
                 context: '$(fr_ctx_str)',
                 cwd: "$PWD",
                 suppressed,
-              }, "fr_stdout fr_stderr fr_vars_enter fr_vars_exit")};
+              }, "fr_stdout fr_stderr fr_vars_enter fr_vars_exit fr_delta_log")};
               # echo "sh: got upload ids $fr_stdout $fr_stderr $fr_vars_enter $fr_vars_exit" >&$fr_top_stderr;
               fr-sandbox before-run ${this.sandbox!.deltaDir}
               fr_typeset | ${frUploadStr('$fr_vars_enter')};
               ___ 1>&1 1> >(${frUploadStr('$fr_stdout')}) 2>&2 2> >(${frUploadStr('$fr_stderr')});
               fr_ret=$?;
               fr_typeset | ${frUploadStr('$fr_vars_exit')};
+              fr-sandbox after-run ${this.sandbox!.deltaDir} ${this.sandbox!.sandboxDir} - | ${frUploadStr('$fr_delta_log')};
               ${frMsgStr({
                 type: "call-exit",
                 nodeId: callId,
                 context: '$(fr_ctx_str)',
                 cwd: "$PWD",
                 exitCode: RAW("$fr_ret"),
-              }, " fr_delta_log")};
-              fr-sandbox after-run ${this.sandbox!.deltaDir} ${this.sandbox!.sandboxDir} - | ${frUploadStr('$fr_delta_log')};
+              })};
               fr_exitcode $fr_ret;
             }`);
           } else if (hasNodeType(cmd, "ForClause")) {
@@ -343,6 +343,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
         const stderrUploadId = `${uploadId++}`;
         const varsEnterUploadId = `${uploadId++}`;
         const varsExitUploadId = `${uploadId++}`;
+        const deltaLogId = `${uploadId++}`;
 
         const enterCwd = pathInSandbox(message.cwd, this.sandbox!);
 
@@ -361,6 +362,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
             exitInfo: null,
             varsEnterStr: null,
             varsExitStr: null,
+            deltaLog: null,
             suppressed: message.suppressed,
           }
         });
@@ -396,39 +398,36 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           res.end();
         };
 
-        return `${stdoutUploadId} ${stderrUploadId} ${varsEnterUploadId} ${varsExitUploadId}\n`;
-      } else if (message.type === "call-exit") {
-        const execId = mkExecId(message.context, message.nodeId);
-
-        // console.log("fr: stmt-exit", execId);
-
-        const deltaLogId = `${uploadId++}`;
-
         this.sh2frUploadHandlers[deltaLogId] = async (req, res) => {
-          // console.log("fr: deltaLog upload handler called");
-          const deltaLog = (await readWholeStream(req)).toString();
-          // console.log("fr: deltaLog upload handler got data", deltaLog);
-
-          const cwd = pathInSandbox(message.cwd, this.sandbox!);
-
-          if (!cwd) {
-            console.error("call-enter cwd not in sandbox", message.cwd, "aborting");
-            await this.stop();
-            throw new Error("call-enter cwd not in sandbox");
-          }
-
-
+          const deltaLogStr = (await readWholeStream(req)).toString();
           this.traceDoc.change((trace) => {
-            trace.execInfos[execId].exitInfo = {
-              exitCode: message.exitCode,
-              cwd,
-              deltaLog: parseDeltaLog(deltaLog),
-            };
+            trace.execInfos[execId].deltaLog = parseDeltaLog(deltaLogStr);
           });
+
           res.end();
         };
 
-        return `${deltaLogId}\n`;
+        return `${stdoutUploadId} ${stderrUploadId} ${varsEnterUploadId} ${varsExitUploadId} ${deltaLogId}\n`;
+      } else if (message.type === "call-exit") {
+        const execId = mkExecId(message.context, message.nodeId);
+
+        const cwd = pathInSandbox(message.cwd, this.sandbox!);
+
+        if (!cwd) {
+          console.error("call-exit cwd not in sandbox", message.cwd, "aborting");
+          await this.stop();
+          throw new Error("call-exit cwd not in sandbox");
+        }
+
+        this.traceDoc.change((trace) => {
+          trace.execInfos[execId].exitInfo = {
+            exitCode: message.exitCode,
+            cwd,
+          };
+        });
+        // console.log("fr: stmt-exit", execId);
+
+        return "\n";
       } else if (message.type === "for-body-enter") {
         const execId = mkExecId(message.context, message.nodeId);
         const trace = await this.traceDoc.doc();

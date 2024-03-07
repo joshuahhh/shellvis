@@ -129,7 +129,7 @@ describe('Run', () => {
     const trace = await runAndGetTrace(run);
 
     const touchExecId = mkExecId("", callExprIdWithSrc("touch testfile.txt", run.script!));
-    expect(trace.execInfos[touchExecId].exitInfo!.deltaLog).toEqual([
+    expect(trace.execInfos[touchExecId].deltaLog).toEqual([
       { event: "new file", path: path.resolve(cwd, "testfile.txt") }
     ]);
   });
@@ -147,7 +147,7 @@ describe('Run', () => {
     const trace = await runAndGetTrace(run);
 
     const rmExecId = mkExecId("", callExprIdWithSrc("rm package.json", run.script!));
-    expect(trace.execInfos[rmExecId].exitInfo!.deltaLog).toEqual([
+    expect(trace.execInfos[rmExecId].deltaLog).toEqual([
       { event: "deleted", path: path.resolve(cwd, "package.json") }
     ]);
   });

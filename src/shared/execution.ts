@@ -18,10 +18,10 @@ export type ExecInfo = {
   exitInfo: {
     exitCode: number,
     cwd: string,
-    deltaLog: DeltaLogEntry[],
   } | null,
   varsEnterStr: RawString | null,
   varsExitStr: RawString | null,  // TODO: put in exitInfo? idk
+  deltaLog: DeltaLogEntry[] | null,  // TODO: put in exitInfo? idk
 }
 
 export type PipeProgress = {

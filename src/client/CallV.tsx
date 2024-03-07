@@ -192,9 +192,9 @@ const eventNames: Record<string, string> = {
   'deleted': 'file/dir deleted'
 }
 infoProviders.push(({ short, execInfo }) => {
-  const execExitInfo = execInfo?.exitInfo;
-  if (execExitInfo && execExitInfo.deltaLog.length > 0) {
-    if (short && execExitInfo.deltaLog.length > 1) {
+  const deltaLog = execInfo?.deltaLog;
+  if (deltaLog && deltaLog.length > 0) {
+    if (short && deltaLog.length > 1) {
       let eventCounts: {[event: string]: number} = {
         'new file': 0,
         'new dir': 0,
@@ -203,7 +203,7 @@ infoProviders.push(({ short, execInfo }) => {
         'dir replaced with file': 0,
         'other': 0,
       };
-      for (const entry of execExitInfo.deltaLog) {
+      for (const entry of deltaLog) {
         if (entry.event in eventCounts) {
           eventCounts[entry.event] += 1;
         } else {
@@ -227,7 +227,7 @@ infoProviders.push(({ short, execInfo }) => {
         })}
       </div>;
     } else {
-      return renderDeltaLog(execExitInfo.deltaLog, execInfo.enterCwd);
+      return renderDeltaLog(deltaLog, execInfo.enterCwd);
     }
   }
 });
