@@ -225,12 +225,12 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
                 suppressed,
               }, "fr_stdout fr_stderr fr_vars_enter fr_vars_exit fr_delta_log")};
               # echo "sh: got upload ids $fr_stdout $fr_stderr $fr_vars_enter $fr_vars_exit" >&$fr_top_stderr;
-              fr-sandbox before-run ${this.sandbox!.deltaDir}
+              fr-sandbox before-run $fr_sandbox_delta_dir
               fr_typeset | ${frUploadStr('$fr_vars_enter')};
               ___ 1>&1 1> >(${frUploadStr('$fr_stdout')}) 2>&2 2> >(${frUploadStr('$fr_stderr')});
               fr_ret=$?;
               fr_typeset | ${frUploadStr('$fr_vars_exit')};
-              fr-sandbox after-run ${this.sandbox!.deltaDir} ${this.sandbox!.sandboxDir} - | ${frUploadStr('$fr_delta_log')};
+              fr-sandbox after-run $fr_sandbox_delta_dir $fr_sandbox_sandbox_dir - | ${frUploadStr('$fr_delta_log')};
               ${frMsgStr({
                 type: "call-exit",
                 nodeId: callId,
@@ -316,6 +316,8 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           ...process.env,  // TODO
           // ...this.params.env === 'process.env' ? process.env : this.params.env,
           fr_sh2fr_port: `${this.sh2frPort}`,
+          fr_sandbox_delta_dir: this.sandbox.deltaDir,
+          fr_sandbox_sandbox_dir: this.sandbox.sandboxDir,
           ROOT: this.sandbox.deltaUnionDir,
         },
         stdio: ['ignore', 'ignore', 'inherit'],
