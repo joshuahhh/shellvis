@@ -68,8 +68,8 @@ const examples: Record<string, ScriptWatcherParams> = {
     cwd: "./examples/pics",
     env: 'process.env',
   },
-  "ininite-pipes": {
-    path: "./examples/ininite-pipes.sh",
+  "infinite-pipes": {
+    path: "./examples/infinite-pipes.sh",
     cwd: ".",
     env: 'process.env',
   },
