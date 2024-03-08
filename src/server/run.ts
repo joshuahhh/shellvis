@@ -6,15 +6,14 @@ import { dump } from "wtfnode";
 
 import { DocHandle, Repo } from "@automerge/automerge-repo";
 import { RawString } from "@automerge/automerge/next";
-import express from "express";
 import getPort from "get-port";
 import sh from "mvdan-sh";
 import * as child_process from "node:child_process";
 import * as fsOld from "node:fs";
 import * as fs from "node:fs/promises";
-import { Server } from "node:http";
+import * as net from "node:net";
+import * as os from "node:os";
 import * as path from "node:path";
-import * as os from "os";
 import * as tmp from "tmp";
 import { TypedEventTarget } from "../shared/TypedEventTarget.js";
 import { PipeProgress, Trace, mkExecId, parseDeltaLog } from "../shared/execution.js";
@@ -90,23 +89,43 @@ function frMsgStmt(message: Message, returnVars?: string): sh.Stmt {
   return parseStmt(frMsgStr(message, returnVars))
 }
 
-function frUploadStr(uploadId: string) {
-  return `curl -s -X POST -T - http://localhost:$fr_sh2fr_port/upload/${uploadId}`;
+// from https://2ality.com/2019/11/nodejs-streams-async-iteration.html
+async function* chunksToLines(chunkIterable: AsyncIterable<string>): AsyncGenerator<string, void, undefined> {
+  let previous = '';
+  for await (const chunk of chunkIterable) {
+    // console.log("chunksToLines", chunk)
+    let startSearch = previous.length;
+    previous += chunk;
+    while (true) {
+      const eolIndex = previous.indexOf('\n', startSearch);
+      if (eolIndex < 0) break;
+      // line includes the EOL
+      const line = previous.slice(0, eolIndex+1);
+      yield line;
+      previous = previous.slice(eolIndex+1);
+      startSearch = 0;
+    }
+  }
+  if (previous.length > 0) {
+    yield previous;
+  }
 }
 
-async function readWholeStream(stream: NodeJS.ReadableStream): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const buffers: Buffer[] = [];
-    stream.on('data', (data: Buffer) => {
-      buffers.push(data);
-    });
-    stream.on('end', () => {
-      resolve(Buffer.concat(buffers));
-    });
-    stream.on('error', (err) => {
-      reject(err);
-    });
-  });
+async function nextAsserted(ait: AsyncIterator<string, void>, msg?: string): Promise<string> {
+  const result = await ait.next();
+  if (!result.done) {
+    return result.value;
+  } else {
+    throw new Error(msg ?? "nextAsserted hit end of stream");
+  }
+}
+
+async function joinIterable(ait: AsyncIterable<string>): Promise<string> {
+  const result: string[] = [];
+  for await (const chunk of ait) {
+    result.push(chunk);
+  }
+  return result.join("");
 }
 
 // null if path is not in sandbox
@@ -118,22 +137,19 @@ function pathInSandbox(path: string, sandbox: Sandbox): string | null {
 }
 
 function pipeProgressUploadHandler(changePipeProgress: DocHandle<PipeProgress>["change"], onUpdate?: () => void):
-  (req: express.Request, res: express.Response) => void {
-  return (req, res) => {
-    req.setEncoding('utf8');
-    req.on('data', (data) => {
+  (lines: AsyncIterable<string>) => Promise<void>
+{
+  return async (lines) => {
+    for await (const line of lines) {
       changePipeProgress((pipeProgress) => {
-        pipeProgress.data.push(data);
+        pipeProgress.data.push(line);
       });
       onUpdate && onUpdate();
+    }
+    changePipeProgress((pipeProgress) => {
+      pipeProgress.done = true;
     });
-    req.on('end', () => {
-      changePipeProgress((pipeProgress) => {
-        pipeProgress.done = true;
-      });
-      onUpdate && onUpdate();
-      res.end();
-    });
+    onUpdate && onUpdate();
   };
 }
 
@@ -151,8 +167,8 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   childProcess: child_process.ChildProcess | null = null;
   transformedSrc: string | null = null;
   sh2frPort: number | null = null;
-  sh2frServer: Server | null = null;
-  sh2frUploadHandlers: Record<string, (req: express.Request, res: express.Response) => void> = {};
+  sh2frServer: net.Server | null = null;
+  sh2frUploadHandlers: Record<string, (lines: AsyncIterable<string>) => Promise<void>> = {};
   script: Script | null = null;
   traceDoc: DocHandle<Trace>;
 
@@ -216,7 +232,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
             }
 
             wrapStmt(parser, node, `{
-              local fr_stdout fr_stderr fr_vars_enter fr_vars_exit fr_ret >/dev/null;
+              local fr_stdout fr_stderr fr_vars_enter fr_vars_exit fr_delta_log fr_ret >/dev/null;
               ${frMsgStr({
                 type: "call-enter",
                 nodeId: callId,
@@ -226,11 +242,11 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
               }, "fr_stdout fr_stderr fr_vars_enter fr_vars_exit fr_delta_log")};
               # echo "sh: got upload ids $fr_stdout $fr_stderr $fr_vars_enter $fr_vars_exit" >&$fr_top_stderr;
               fr-sandbox before-run $fr_sandbox_delta_dir
-              fr_typeset | ${frUploadStr('$fr_vars_enter')};
-              ___ 1>&1 1> >(${frUploadStr('$fr_stdout')}) 2>&2 2> >(${frUploadStr('$fr_stderr')});
-              fr_ret=$?;
-              fr_typeset | ${frUploadStr('$fr_vars_exit')};
-              fr-sandbox after-run $fr_sandbox_delta_dir $fr_sandbox_sandbox_dir - | ${frUploadStr('$fr_delta_log')};
+              fr_typeset > >(fr_upload $fr_vars_enter)
+              ___ 1>&1 1> >(fr_upload $fr_stdout) 2>&2 2> >(fr_upload $fr_stderr)
+              fr_ret=$?
+              fr_typeset > >(fr_upload $fr_vars_exit)
+              fr-sandbox after-run $fr_sandbox_delta_dir $fr_sandbox_sandbox_dir - > >(fr_upload $fr_delta_log);
               ${frMsgStr({
                 type: "call-exit",
                 nodeId: callId,
@@ -375,19 +391,18 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stderr)
         );
 
-        this.sh2frUploadHandlers[varsEnterUploadId] = async (req, res) => {
-          const varsEnterTypeset = (await readWholeStream(req)).toString();
+        this.sh2frUploadHandlers[varsEnterUploadId] = async (lines) => {
+          const varsEnterTypeset = await joinIterable(lines);
           const varsEnter = parseTypeset(varsEnterTypeset);
           const varsEnterStr = JSON.stringify(varsEnter);
           this.traceDoc.change((trace) => {
             const execInfo = trace.execInfos[execId];
             execInfo.varsEnterStr = new RawString(varsEnterStr);
           });
-          res.end();
         };
 
-        this.sh2frUploadHandlers[varsExitUploadId] = async (req, res) => {
-          const varsExitTypeset = (await readWholeStream(req)).toString();
+        this.sh2frUploadHandlers[varsExitUploadId] = async (lines) => {
+          const varsExitTypeset = await joinIterable(lines);
           const varsExit = parseTypeset(varsExitTypeset);
           const varsExitStr = JSON.stringify(varsExit);
           const trace = await this.traceDoc.doc();
@@ -396,16 +411,13 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
             const execInfo = trace.execInfos[execId];
             execInfo.varsExitStr = new RawString(varsExitStr);
           });
-          res.end();
         };
 
-        this.sh2frUploadHandlers[deltaLogId] = async (req, res) => {
-          const deltaLogStr = (await readWholeStream(req)).toString();
+        this.sh2frUploadHandlers[deltaLogId] = async (lines) => {
+          const deltaLogStr = await joinIterable(lines);
           this.traceDoc.change((trace) => {
             trace.execInfos[execId].deltaLog = parseDeltaLog(deltaLogStr);
           });
-
-          res.end();
         };
 
         return `${stdoutUploadId} ${stderrUploadId} ${varsEnterUploadId} ${varsExitUploadId} ${deltaLogId}\n`;
@@ -450,60 +462,54 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       return "\n";
     }
 
-    const sh2frExpress = express()
-
-    sh2frExpress.use('/', express.raw({ type: "*/*" }))
-
-    sh2frExpress.post('/', async (req, res) => {
-      const dataString = req.body.toString();
-      // TODO: this might be naive; a message might be split across events?
-      const lines = dataString.trim().split("\n");
-      // console.log(`fr: ${lines.length} messages received`);
-      for (const line of lines) {
+    this.sh2frServer = net.createServer();
+    this.sh2frServer.listen(this.sh2frPort, () => {
+      console.log(`sh2fr server listening on port ${this.sh2frPort}`)
+    });
+    this.sh2frServer.on('connection', async (socket) => {
+      socket.setEncoding('utf-8');
+      const lines = chunksToLines(socket);
+      const firstLine = await nextAsserted(lines, 'no first line given to sh2fr');
+      if (firstLine === "message\n") {
+        const secondLine = await nextAsserted(lines, 'first line `message` but no second line');
         try {
-          const dataParsed = JSON.parse(line);
+          const dataParsed = JSON.parse(secondLine);
           this.traceDoc.change((trace) => {
             trace.messageLog.push(dataParsed);
           });
           const response: string = await onMessage(dataParsed);
-          res.send(response);
-          // console.log("sh2fr pipe data parsed", dataParsed)
+          socket.write(response);
+          socket.end();
         } catch (err) {
-          FATAL("node error parsing data", err, dataString);
+          FATAL("trouble parsing message contents", err, secondLine);
         }
+      } else if (firstLine.startsWith("upload ")) {
+        const match = firstLine.match(/^upload (\d+)\n$/);  // currently uploadIds are integers
+        if (!match) {
+          FATAL("unexpected upload line", firstLine);
+        }
+        const uploadId = match[1];
+
+        const uploadHandler = this.sh2frUploadHandlers[uploadId];
+
+        if (!uploadHandler) {
+          FATAL("upload handler not found for", uploadId);
+        }
+
+        uploadHandler(lines);
+
+        delete this.sh2frUploadHandlers[uploadId];
+
+        // console.log(`sh2fr: upload ${uploadId} complete`)
+      } else {
+        FATAL("unexpected first line sent to sh2fr:", firstLine);
       }
-    })
-
-    sh2frExpress.post('/upload/', (req, res) => {
-      res.status(404).send(`missing uploadId\n`);
     });
 
-    sh2frExpress.post('/upload/:uploadId', (req, res) => {
-      // console.log("fr: upload", req.params.uploadId);
-
-      const uploadHandler = this.sh2frUploadHandlers[req.params.uploadId];
-
-      if (!uploadHandler) {
-        res.status(404).send(`upload handler not found for ${req.params.uploadId}\n`);
-        return;
-      }
-
-      uploadHandler(req, res);
-
-      delete this.sh2frUploadHandlers[req.params.uploadId];
+    process.once('exit', () => {
+      console.log('exit event!');
+      this.stop();
     });
-
-    sh2frExpress.get('*', (req, res) => {
-      // log and 404
-      console.log("fr: 404", req.url);
-      res.status(404).send(`404 not found`);
-    });
-
-    this.sh2frServer = sh2frExpress.listen(this.sh2frPort, () => {
-      console.log(`sh2fr server listening on port ${this.sh2frPort}`)
-    })
-
-    console.log("bottom");
   }
 
   async stop() {
@@ -537,7 +543,3 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
     }
   }
 }
-
-// setInterval(() => {
-//   console.log('alive');
-// }, 3000);

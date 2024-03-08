@@ -68,9 +68,34 @@ describe('Run', () => {
     }, repo);
     const trace = await runAndGetTrace(run);
 
-    const badExecId = mkExecId("", callExprIdWithSrc("echo hello", run.script!));
-    expect(trace.execInfos[badExecId].stdout.data.join("\n"))
+    const echoExecId = mkExecId("", callExprIdWithSrc("echo", run.script!));
+    expect(trace.execInfos[echoExecId]).toBeDefined();
+    expect(trace.execInfos[echoExecId].stdout.data.join(""))
       .toEqual("hello\n");
+    expect(trace.execInfos[echoExecId].stderr.data.join(""))
+      .toEqual("");
+  });
+
+  it('stdout from function works', async () => {
+    const repo = new Repo({ network: [] });
+    const run = new Run({
+      path: "DUMMY-PATH",
+      cwd,
+      env: process.env,
+      scriptSrc: normalizeIndent`
+        function good() {
+          echo "hello"
+        }
+        good
+      `,
+    }, repo);
+    const trace = await runAndGetTrace(run);
+
+    const goodExecId = mkExecId("", callExprIdWithSrc("good", run.script!));
+    expect(trace.execInfos[goodExecId].stdout.data.join(""))
+      .toEqual("hello\n");
+    expect(trace.execInfos[goodExecId].stderr.data.join(""))
+      .toEqual("");
   });
 
   it('stderr works', async () => {
@@ -89,7 +114,9 @@ describe('Run', () => {
     const trace = await runAndGetTrace(run);
 
     const badExecId = mkExecId("", callExprIdWithSrc("bad", run.script!));
-    expect(trace.execInfos[badExecId].stderr.data.join("\n"))
+    expect(trace.execInfos[badExecId].stdout.data.join(""))
+      .toEqual("");
+    expect(trace.execInfos[badExecId].stderr.data.join(""))
       .toEqual("bad\n");
   });
 
@@ -106,13 +133,13 @@ describe('Run', () => {
     const trace = await runAndGetTrace(run);
 
     const jotExecId = mkExecId("", callExprIdWithSrc("jot", run.script!));
-    expect(trace.execInfos[jotExecId].stdout.data.join("\n"))
+    expect(trace.execInfos[jotExecId].stdout.data.join(""))
       .toBe(R.range(0, 10).map(() => `hello\n`).join(""));
     const revExecId = mkExecId("", callExprIdWithSrc("rev", run.script!));
-    expect(trace.execInfos[revExecId].stdout.data.join("\n"))
+    expect(trace.execInfos[revExecId].stdout.data.join(""))
       .toBe(R.range(0, 10).map(() => `olleh\n`).join(""));
     const trExecId = mkExecId("", callExprIdWithSrc("tr", run.script!));
-    expect(trace.execInfos[trExecId].stdout.data.join("\n"))
+    expect(trace.execInfos[trExecId].stdout.data.join(""))
       .toBe(R.range(0, 10).map(() => `OLLEH\n`).join(""));
   });
 
@@ -185,7 +212,7 @@ describe('Run', () => {
 
     for (const iteration of forInfo.iterations) {
       const echoExecId = mkExecId(`${forId}-${iteration.counter}`, callExprIdWithSrc(`echo $i`, run.script!));
-      expect(trace.execInfos[echoExecId].stdout.data.join("\n"))
+      expect(trace.execInfos[echoExecId].stdout.data.join(""))
         .toEqual(`${iteration.loopVarValue}\n`);
     }
   });

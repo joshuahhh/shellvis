@@ -5,16 +5,25 @@ exec {fr_top_stderr}>&2
 
 # messaging to fr
 
+zmodload zsh/net/tcp
+
 fr_msg () {
   [ $fr_debug ] && echo -E "sh: fr_msg gonna curl $1" >&$fr_top_stderr;
-  curl -s -d $1 -H "Content-Type: text/plain" -X POST http://localhost:$fr_sh2fr_port;
+  ztcp localhost $fr_sh2fr_port
+  fr_sh2fr_fd=$REPLY
+  echo "message" >/dev/fd/$fr_sh2fr_fd
+  echo $1 >/dev/fd/$fr_sh2fr_fd
+  cat /dev/fd/$fr_sh2fr_fd
+  ztcp -c $fr_sh2fr_fd
   [ $fr_debug ] && echo -E "sh: fr_msg curl complete $1" >&$fr_top_stderr;
 }
 
 fr_upload () {
-  [ $fr_debug ] && echo -E "sh: fr_upload gonna curl $1" >&$fr_top_stderr;
-  curl -s -H "Content-Type: text/plain" -X POST --data-binary @- http://localhost:$fr_sh2fr_port/upload/$1;
-  [ $fr_debug ] && echo -E "sh: fr_upload curl complete $1" >&$fr_top_stderr;
+  ztcp localhost $fr_sh2fr_port
+  fr_sh2fr_fd=$REPLY
+  echo "upload $1" >/dev/fd/$fr_sh2fr_fd
+  cat >/dev/fd/$fr_sh2fr_fd
+  ztcp -c $fr_sh2fr_fd
 }
 
 # maintaining 'context'

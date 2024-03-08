@@ -130,7 +130,13 @@ export function myWalk (
 // make sure that templateStr is a bare command, no top-level redirects or nothing
 // (cuz we need to take on stmt's redirects!)
 export function wrapStmt(parser: sh.Parser, stmt: sh.Stmt, templateStr: string): void {
-  const templateNode = parser.Parse(templateStr, "template");
+  let templateNode: sh.File;
+  try {
+    templateNode = parser.Parse(templateStr, "template");
+  } catch (e) {
+    console.error(e);
+    throw new Error((e as ParseError).Error());
+  }
 
   // now we walk, looking for the smallest statement containing ___
   myWalk(templateNode, {
