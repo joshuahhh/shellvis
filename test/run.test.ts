@@ -24,7 +24,7 @@ async function runAndGetTrace(run: Run): Promise<Trace> {
 function callExprIdWithSrc(src: string, script: Script) {
   const matches =
     Object.entries(script.nodesById)
-    .filter(([_, node]) => script.srcForNode(node) === src && sh.syntax.NodeType(node) === "CallExpr");
+    .filter(([_, node]) => script.srcForNode(node).startsWith(src) && sh.syntax.NodeType(node) === "CallExpr");
   if (matches.length !== 1) {
     throw new Error(`${matches.length} CallExprs with src "${src}"`);
   }
@@ -100,20 +100,20 @@ describe('Run', () => {
       cwd,
       env: process.env,
       scriptSrc: normalizeIndent`
-        yes hello | rev | head -10
+        jot -b hello 10 | rev | tr a-z A-Z
       `,
     }, repo);
     const trace = await runAndGetTrace(run);
 
-    const yesExecId = mkExecId("", callExprIdWithSrc("yes hello", run.script!));
-    expect(trace.execInfos[yesExecId].stdout.data.join("\n")
-      .startsWith(R.range(0, 10).map(() => `hello\n`).join(""))).toBeTruthy();
+    const jotExecId = mkExecId("", callExprIdWithSrc("jot", run.script!));
+    expect(trace.execInfos[jotExecId].stdout.data.join("\n"))
+      .toBe(R.range(0, 10).map(() => `hello\n`).join(""));
     const revExecId = mkExecId("", callExprIdWithSrc("rev", run.script!));
-    expect(trace.execInfos[revExecId].stdout.data.join("\n")
-      .startsWith(R.range(0, 10).map(() => `olleh\n`).join(""))).toBeTruthy();
-    const headExecId = mkExecId("", callExprIdWithSrc("head -10", run.script!));
-    expect(trace.execInfos[headExecId].stdout.data.join("\n"))
+    expect(trace.execInfos[revExecId].stdout.data.join("\n"))
       .toBe(R.range(0, 10).map(() => `olleh\n`).join(""));
+    const trExecId = mkExecId("", callExprIdWithSrc("tr", run.script!));
+    expect(trace.execInfos[trExecId].stdout.data.join("\n"))
+      .toBe(R.range(0, 10).map(() => `OLLEH\n`).join(""));
   });
 
   it('file addition works', async () => {

@@ -11,6 +11,11 @@ const examples: Record<string, ScriptWatcherParams> = {
     cwd: ".",
     env: 'process.env',
   },
+  "pipes": {
+    path: "./examples/pipes.sh",
+    cwd: ".",
+    env: 'process.env',
+  },
   "info-types": {
     path: "./examples/info-types.sh",
     cwd: ".",
@@ -61,6 +66,11 @@ const examples: Record<string, ScriptWatcherParams> = {
   "pics-finished": {
     path: "./examples/pics/finished.sh",
     cwd: "./examples/pics",
+    env: 'process.env',
+  },
+  "ininite-pipes": {
+    path: "./examples/ininite-pipes.sh",
+    cwd: ".",
     env: 'process.env',
   },
 }
