@@ -34,10 +34,12 @@ export class Sh2FrViaTcp implements Sh2Fr {
   }
 
   sendUpload(command: string, uploadName: UploadName) {
-    return `${command} > >(fr_upload $${uploadIdVarFromName(uploadName)})`;
+    return `${command} | fr_upload $${uploadIdVarFromName(uploadName)}`;
   }
 
   interceptAndUploadStds(command: string, stdoutUploadName: UploadName, stderrUploadName: UploadName) {
+    // TODO: avoid command substitution with pipe jiu-jitsu? (while still
+    // getting the right command return value?)
     return `${command} 1>&1 1> >(fr_upload $${uploadIdVarFromName(stdoutUploadName)}) 2>&2 2> >(fr_upload $${uploadIdVarFromName(stderrUploadName)})`
   }
 
