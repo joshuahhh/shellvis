@@ -1,7 +1,7 @@
 import { RawString } from "@automerge/automerge/next";
 import { Message } from "./tracing.js";
 
-export function mkExecId(context: string, nodeId: string): string {
+export function mkExecId({ context, nodeId }: { context: string, nodeId: string }): string {
   return `${context}/${nodeId}`;
 }
 

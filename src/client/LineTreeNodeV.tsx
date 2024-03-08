@@ -151,7 +151,7 @@ const LoopBodyV = memo((props: {
 
   const forClause = node.forClause;
   const forNodeId = getNodeId(forClause);
-  const forInfo = trace.forInfos[mkExecId(context, forNodeId)];
+  const forInfo = trace.forInfos[mkExecId({ context, nodeId: forNodeId })];
   const iterations = forInfo?.iterations || [];
   const varName = (forClause.Loop as sh.WordIter).Name!.Value;
   const forLineNum = forClause.Pos().Line() - 1;

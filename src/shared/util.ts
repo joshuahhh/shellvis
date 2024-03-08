@@ -18,3 +18,42 @@ export function weakMapCache2<Arg1 extends object, Arg2 extends object, Return>(
   const cachedF = weakMapCache((arg1: Arg1) => weakMapCache((arg2: Arg2) => f(arg1, arg2)));
   return (arg1: Arg1, arg2: Arg2) => cachedF(arg1)(arg2);
 }
+
+// from https://2ality.com/2019/11/nodejs-streams-async-iteration.html
+export async function* chunksToLines(chunkIterable: AsyncIterable<string>): AsyncGenerator<string, void, undefined> {
+  let previous = '';
+  for await (const chunk of chunkIterable) {
+    // console.log("chunksToLines", chunk)
+    let startSearch = previous.length;
+    previous += chunk;
+    while (true) {
+      const eolIndex = previous.indexOf('\n', startSearch);
+      if (eolIndex < 0) break;
+      // line includes the EOL
+      const line = previous.slice(0, eolIndex+1);
+      yield line;
+      previous = previous.slice(eolIndex+1);
+      startSearch = 0;
+    }
+  }
+  if (previous.length > 0) {
+    yield previous;
+  }
+}
+
+export async function nextAsserted(ait: AsyncIterator<string, void>, msg?: string): Promise<string> {
+  const result = await ait.next();
+  if (!result.done) {
+    return result.value;
+  } else {
+    throw new Error(msg ?? "nextAsserted hit end of stream");
+  }
+}
+
+export async function joinIterable(ait: AsyncIterable<string>): Promise<string> {
+  const result: string[] = [];
+  for await (const chunk of ait) {
+    result.push(chunk);
+  }
+  return result.join("");
+}

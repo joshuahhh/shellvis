@@ -52,7 +52,7 @@ export const CallV = memo((props: CallVProps) => {
   const {contents, callExpr, context, trace, script, className, showHeader = true, showLabel = false, showDetails} = props;
 
   const nodeId = getNodeId(callExpr);
-  const execId = mkExecId(context, nodeId);
+  const execId = mkExecId({ context, nodeId });
   const execInfo = trace.execInfos[execId] as ExecInfo | undefined;
   const execExitInfo = execInfo?.exitInfo;
   const statusClass =

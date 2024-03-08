@@ -141,7 +141,7 @@ const CallOnRightV = memo((props: {
 
   const nodeId = getNodeId(callExpr);
   const context = '';
-  const execId = mkExecId(context, nodeId);
+  const execId = mkExecId({ context, nodeId });
 
   const [ lElem, setLElem ] = React.useState<HTMLElement | null>(null);
   const [ rElem, setRElem ] = React.useState<HTMLElement | null>(null);

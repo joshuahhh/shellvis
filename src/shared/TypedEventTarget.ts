@@ -3,7 +3,7 @@
 export type TypedEventTarget<EventMap extends object> =
   { new (): IntermediateEventTarget<EventMap>; };
 
-interface IntermediateEventTarget<EventMap> extends EventTarget {
+export interface IntermediateEventTarget<EventMap> extends EventTarget {
   addEventListener<K extends keyof EventMap>(
     type: K,
     callback: (

@@ -6,12 +6,10 @@ import { dump } from "wtfnode";
 
 import { DocHandle, Repo } from "@automerge/automerge-repo";
 import { RawString } from "@automerge/automerge/next";
-import getPort from "get-port";
 import sh from "mvdan-sh";
 import * as child_process from "node:child_process";
 import * as fsOld from "node:fs";
 import * as fs from "node:fs/promises";
-import * as net from "node:net";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as tmp from "tmp";
@@ -21,8 +19,10 @@ import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } fr
 import { Message } from "../shared/tracing.js";
 import { RunParams } from "../shared/types.js";
 import { parseTypeset } from "../shared/typeset.js";
-import { FATAL } from "../shared/util.js";
 import { changeAt } from "./automerge.js";
+import { Sh2Fr } from "./Sh2Fr.js";
+import { Sh2FrViaTcp } from "./Sh2FrViaTcp.js";
+import { joinIterable } from "../shared/util.js";
 
 type Sandbox = {
   sandboxDir: string,
@@ -89,45 +89,6 @@ function frMsgStmt(message: Message, returnVars?: string): sh.Stmt {
   return parseStmt(frMsgStr(message, returnVars))
 }
 
-// from https://2ality.com/2019/11/nodejs-streams-async-iteration.html
-async function* chunksToLines(chunkIterable: AsyncIterable<string>): AsyncGenerator<string, void, undefined> {
-  let previous = '';
-  for await (const chunk of chunkIterable) {
-    // console.log("chunksToLines", chunk)
-    let startSearch = previous.length;
-    previous += chunk;
-    while (true) {
-      const eolIndex = previous.indexOf('\n', startSearch);
-      if (eolIndex < 0) break;
-      // line includes the EOL
-      const line = previous.slice(0, eolIndex+1);
-      yield line;
-      previous = previous.slice(eolIndex+1);
-      startSearch = 0;
-    }
-  }
-  if (previous.length > 0) {
-    yield previous;
-  }
-}
-
-async function nextAsserted(ait: AsyncIterator<string, void>, msg?: string): Promise<string> {
-  const result = await ait.next();
-  if (!result.done) {
-    return result.value;
-  } else {
-    throw new Error(msg ?? "nextAsserted hit end of stream");
-  }
-}
-
-async function joinIterable(ait: AsyncIterable<string>): Promise<string> {
-  const result: string[] = [];
-  for await (const chunk of ait) {
-    result.push(chunk);
-  }
-  return result.join("");
-}
-
 // null if path is not in sandbox
 function pathInSandbox(path: string, sandbox: Sandbox): string | null {
   if (!path.startsWith(sandbox.deltaUnionDir)) {
@@ -136,21 +97,17 @@ function pathInSandbox(path: string, sandbox: Sandbox): string | null {
   return path.slice(sandbox.deltaUnionDir.length);
 }
 
-function pipeProgressUploadHandler(changePipeProgress: DocHandle<PipeProgress>["change"], onUpdate?: () => void):
-  (lines: AsyncIterable<string>) => Promise<void>
+async function handlePipeProgress(lines: AsyncIterable<string>, changePipeProgress: DocHandle<PipeProgress>["change"]):
+  Promise<void>
 {
-  return async (lines) => {
-    for await (const line of lines) {
-      changePipeProgress((pipeProgress) => {
-        pipeProgress.data.push(line);
-      });
-      onUpdate && onUpdate();
-    }
+  for await (const line of lines) {
     changePipeProgress((pipeProgress) => {
-      pipeProgress.done = true;
+      pipeProgress.data.push(line);
     });
-    onUpdate && onUpdate();
-  };
+  }
+  changePipeProgress((pipeProgress) => {
+    pipeProgress.done = true;
+  });
 }
 
 const suppressedCommands = new Set([
@@ -166,8 +123,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   sandbox: Sandbox | null = null;
   childProcess: child_process.ChildProcess | null = null;
   transformedSrc: string | null = null;
-  sh2frPort: number | null = null;
-  sh2frServer: net.Server | null = null;
+  sh2fr: Sh2Fr;
   sh2frUploadHandlers: Record<string, (lines: AsyncIterable<string>) => Promise<void>> = {};
   script: Script | null = null;
   traceDoc: DocHandle<Trace>;
@@ -177,6 +133,9 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
     public repo: Repo,
   ) {
     super();
+
+    // TODO: parameterize this
+    this.sh2fr = new Sh2FrViaTcp();
 
     this.traceDoc = this.repo.create({
       path: this.params.path,
@@ -193,6 +152,8 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
 
   async start() {
     console.log("\n\n\nstarting");
+
+    const sh2frInit = await this.sh2fr.init();
 
     // parse
 
@@ -240,7 +201,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
                 cwd: "$PWD",
                 suppressed,
               }, "fr_stdout fr_stderr fr_vars_enter fr_vars_exit fr_delta_log")};
-              # echo "sh: got upload ids $fr_stdout $fr_stderr $fr_vars_enter $fr_vars_exit" >&$fr_top_stderr;
+              echo "sh: got upload ids $fr_stdout $fr_stderr $fr_vars_enter $fr_vars_exit $fr_delta_log" >&$fr_top_stderr;
               fr-sandbox before-run $fr_sandbox_delta_dir
               fr_typeset > >(fr_upload $fr_vars_enter)
               ___ 1>&1 1> >(fr_upload $fr_stdout) 2>&2 2> >(fr_upload $fr_stderr)
@@ -297,7 +258,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
 
     const frPreludeSrc = await fs.readFile(new URL('fr-prelude.sh', import.meta.url), { encoding: 'utf-8' });
 
-    this.transformedSrc = [frPreludeSrc, printer.Print(transformedAst)].join("\n\n");
+    this.transformedSrc = [frPreludeSrc, sh2frInit.prelude ?? '', printer.Print(transformedAst)].join("\n\n");
 
     if (true) {
       await fs.mkdir("_debug", { recursive: true });
@@ -320,8 +281,6 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       trace.startTime = new Date();
     });
 
-    this.sh2frPort = await getPort();
-
     // TODO: we use a second zsh call to parse this.params.args; kinda ugly
     this.childProcess = child_process.spawn(
       'zsh',
@@ -331,7 +290,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
         env: {
           ...process.env,  // TODO
           // ...this.params.env === 'process.env' ? process.env : this.params.env,
-          fr_sh2fr_port: `${this.sh2frPort}`,
+          ...sh2frInit.env,
           fr_sandbox_delta_dir: this.sandbox.deltaDir,
           fr_sandbox_sandbox_dir: this.sandbox.sandboxDir,
           ROOT: this.sandbox.deltaUnionDir,
@@ -352,16 +311,14 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       this.dispatchEvent(new Event("close"));
     });
 
-    let uploadId = 0;
+    const onMessage: Sh2Fr.StartProps["onMessage"] = async (message) => {
+      console.log("fr: got message", message);
 
-    const onMessage = async (message: Message): Promise<string> => {
+      this.traceDoc.change((trace) => {
+        trace.messageLog.push(message);
+      });
+
       if (message.type === "call-enter") {
-        const stdoutUploadId = `${uploadId++}`;
-        const stderrUploadId = `${uploadId++}`;
-        const varsEnterUploadId = `${uploadId++}`;
-        const varsExitUploadId = `${uploadId++}`;
-        const deltaLogId = `${uploadId++}`;
-
         const enterCwd = pathInSandbox(message.cwd, this.sandbox!);
 
         if (!enterCwd) {
@@ -370,7 +327,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           throw new Error("call-enter cwd not in sandbox");
         }
 
-        const execId = mkExecId(message.context, message.nodeId);
+        const execId = mkExecId(message);
         this.traceDoc.change((trace) => {
           trace.execInfos[execId] = {
             stdout: { data: [], done: false },
@@ -384,45 +341,8 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           }
         });
 
-        this.sh2frUploadHandlers[stdoutUploadId] = pipeProgressUploadHandler(
-          changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stdout)
-        );
-        this.sh2frUploadHandlers[stderrUploadId] = pipeProgressUploadHandler(
-          changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stderr)
-        );
-
-        this.sh2frUploadHandlers[varsEnterUploadId] = async (lines) => {
-          const varsEnterTypeset = await joinIterable(lines);
-          const varsEnter = parseTypeset(varsEnterTypeset);
-          const varsEnterStr = JSON.stringify(varsEnter);
-          this.traceDoc.change((trace) => {
-            const execInfo = trace.execInfos[execId];
-            execInfo.varsEnterStr = new RawString(varsEnterStr);
-          });
-        };
-
-        this.sh2frUploadHandlers[varsExitUploadId] = async (lines) => {
-          const varsExitTypeset = await joinIterable(lines);
-          const varsExit = parseTypeset(varsExitTypeset);
-          const varsExitStr = JSON.stringify(varsExit);
-          const trace = await this.traceDoc.doc();
-          if (!trace) { throw new Error("trace not found"); }
-          this.traceDoc.change((trace) => {
-            const execInfo = trace.execInfos[execId];
-            execInfo.varsExitStr = new RawString(varsExitStr);
-          });
-        };
-
-        this.sh2frUploadHandlers[deltaLogId] = async (lines) => {
-          const deltaLogStr = await joinIterable(lines);
-          this.traceDoc.change((trace) => {
-            trace.execInfos[execId].deltaLog = parseDeltaLog(deltaLogStr);
-          });
-        };
-
-        return `${stdoutUploadId} ${stderrUploadId} ${varsEnterUploadId} ${varsExitUploadId} ${deltaLogId}\n`;
       } else if (message.type === "call-exit") {
-        const execId = mkExecId(message.context, message.nodeId);
+        const execId = mkExecId(message);
 
         const cwd = pathInSandbox(message.cwd, this.sandbox!);
 
@@ -439,10 +359,8 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           };
         });
         // console.log("fr: stmt-exit", execId);
-
-        return "\n";
       } else if (message.type === "for-body-enter") {
-        const execId = mkExecId(message.context, message.nodeId);
+        const execId = mkExecId(message);
         const trace = await this.traceDoc.doc();
         if (!trace) { throw new Error("trace not found"); }
         if (!trace.forInfos[execId]) {
@@ -459,52 +377,42 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           });
         });
       }
-      return "\n";
-    }
+    };
 
-    this.sh2frServer = net.createServer();
-    this.sh2frServer.listen(this.sh2frPort, () => {
-      console.log(`sh2fr server listening on port ${this.sh2frPort}`)
-    });
-    this.sh2frServer.on('connection', async (socket) => {
-      socket.setEncoding('utf-8');
-      const lines = chunksToLines(socket);
-      const firstLine = await nextAsserted(lines, 'no first line given to sh2fr');
-      if (firstLine === "message\n") {
-        const secondLine = await nextAsserted(lines, 'first line `message` but no second line');
-        try {
-          const dataParsed = JSON.parse(secondLine);
-          this.traceDoc.change((trace) => {
-            trace.messageLog.push(dataParsed);
-          });
-          const response: string = await onMessage(dataParsed);
-          socket.write(response);
-          socket.end();
-        } catch (err) {
-          FATAL("trouble parsing message contents", err, secondLine);
-        }
-      } else if (firstLine.startsWith("upload ")) {
-        const match = firstLine.match(/^upload (\d+)\n$/);  // currently uploadIds are integers
-        if (!match) {
-          FATAL("unexpected upload line", firstLine);
-        }
-        const uploadId = match[1];
+    const onUpload: Sh2Fr.StartProps["onUpload"] = async (execId, uploadName, lines) => {
+      console.log("fr: got upload", execId, uploadName);
 
-        const uploadHandler = this.sh2frUploadHandlers[uploadId];
-
-        if (!uploadHandler) {
-          FATAL("upload handler not found for", uploadId);
-        }
-
-        uploadHandler(lines);
-
-        delete this.sh2frUploadHandlers[uploadId];
-
-        // console.log(`sh2fr: upload ${uploadId} complete`)
-      } else {
-        FATAL("unexpected first line sent to sh2fr:", firstLine);
+      if (uploadName === "stdout") {
+        await handlePipeProgress(lines, changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stdout));
+      } else if (uploadName === "stderr") {
+        await handlePipeProgress(lines, changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stderr));
+      } else if (uploadName === "varsEnter") {
+        const varsEnterTypeset = await joinIterable(lines);
+        const varsEnter = parseTypeset(varsEnterTypeset);
+        const varsEnterStr = JSON.stringify(varsEnter);
+        this.traceDoc.change((trace) => {
+          const execInfo = trace.execInfos[execId];
+          execInfo.varsEnterStr = new RawString(varsEnterStr);
+        });
+      } else if (uploadName === "varsExit") {
+        const varsExitTypeset = await joinIterable(lines);
+        const varsExit = parseTypeset(varsExitTypeset);
+        const varsExitStr = JSON.stringify(varsExit);
+        const trace = await this.traceDoc.doc();
+        if (!trace) { throw new Error("trace not found"); }
+        this.traceDoc.change((trace) => {
+          const execInfo = trace.execInfos[execId];
+          execInfo.varsExitStr = new RawString(varsExitStr);
+        });
+      } else if (uploadName === "deltaLog") {
+        const deltaLogStr = await joinIterable(lines);
+        this.traceDoc.change((trace) => {
+          trace.execInfos[execId].deltaLog = parseDeltaLog(deltaLogStr);
+        });
       }
-    });
+    };
+
+    this.sh2fr.start({ onMessage, onUpload });
 
     process.once('exit', () => {
       console.log('exit event!');
@@ -518,16 +426,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       this.childProcess.kill();
     }
     this.sandbox && removeSandbox(this.sandbox);
-    this.sh2frServer && this.sh2frServer.listening && await new Promise((resolve) => {
-      this.sh2frServer!.close((err) => {
-        if (err) {
-          console.error("error closing sh2frServer", err);
-        } else {
-          console.log("sh2frServer closed");
-        }
-        resolve(undefined);
-      })
-    });
+    this.sh2fr.stop();
   }
 
   async isClosedPromise() {
