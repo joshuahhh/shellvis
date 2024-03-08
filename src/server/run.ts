@@ -16,13 +16,12 @@ import * as tmp from "tmp";
 import { TypedEventTarget } from "../shared/TypedEventTarget.js";
 import { PipeProgress, Trace, mkExecId, parseDeltaLog } from "../shared/execution.js";
 import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } from "../shared/mvdan-sh-helpers.js";
-import { Message } from "../shared/tracing.js";
 import { RunParams } from "../shared/types.js";
 import { parseTypeset } from "../shared/typeset.js";
-import { changeAt } from "./automerge.js";
+import { joinIterable } from "../shared/util.js";
 import { Sh2Fr } from "./Sh2Fr.js";
 import { Sh2FrViaTcp } from "./Sh2FrViaTcp.js";
-import { joinIterable } from "../shared/util.js";
+import { changeAt } from "./automerge.js";
 
 type Sandbox = {
   sandboxDir: string,
@@ -72,21 +71,6 @@ function parseStmt(s: string): sh.Stmt {
     throw new Error("need one stmt");
   }
   return stmts[0];
-}
-
-function frMsgStr(message: Message, returnVars: string | null = null) {
-  const messageStr = JSON.stringify(message)
-    .replaceAll(new RegExp(`"${RAW("(.*?)")}"`, "g"), (_, p1) => p1)
-    .replaceAll('"', '\\"');
-  return `fr_msg "${messageStr}"${returnVars === null ? ' >/dev/null' :` | read -r ${returnVars}`}`;
-}
-
-function RAW(str: string): any {
-  return `RAW<<<${str}>>>RAW`;
-}
-
-function frMsgStmt(message: Message, returnVars?: string): sh.Stmt {
-  return parseStmt(frMsgStr(message, returnVars))
 }
 
 // null if path is not in sandbox
@@ -193,28 +177,27 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
             }
 
             wrapStmt(parser, node, `{
-              local fr_stdout fr_stderr fr_vars_enter fr_vars_exit fr_delta_log fr_ret >/dev/null;
-              ${frMsgStr({
+              local fr_ret >/dev/null
+              ${this.sh2fr.beforeCommand({
                 type: "call-enter",
                 nodeId: callId,
                 context: '$(fr_ctx_str)',
                 cwd: "$PWD",
                 suppressed,
-              }, "fr_stdout fr_stderr fr_vars_enter fr_vars_exit fr_delta_log")};
-              echo "sh: got upload ids $fr_stdout $fr_stderr $fr_vars_enter $fr_vars_exit $fr_delta_log" >&$fr_top_stderr;
+              })}
               fr-sandbox before-run $fr_sandbox_delta_dir
-              fr_typeset > >(fr_upload $fr_vars_enter)
-              ___ 1>&1 1> >(fr_upload $fr_stdout) 2>&2 2> >(fr_upload $fr_stderr)
+              ${this.sh2fr.sendUpload("fr_typeset", "varsEnter")}
+              ${this.sh2fr.interceptAndUploadStds("___", "stdout", "stderr")}
               fr_ret=$?
-              fr_typeset > >(fr_upload $fr_vars_exit)
-              fr-sandbox after-run $fr_sandbox_delta_dir $fr_sandbox_sandbox_dir - > >(fr_upload $fr_delta_log);
-              ${frMsgStr({
+              ${this.sh2fr.sendUpload("fr_typeset", "varsExit")}
+              ${this.sh2fr.sendUpload("fr-sandbox after-run $fr_sandbox_delta_dir $fr_sandbox_sandbox_dir -", "deltaLog")}
+              ${this.sh2fr.sendMessage({
                 type: "call-exit",
                 nodeId: callId,
                 context: '$(fr_ctx_str)',
                 cwd: "$PWD",
-                exitCode: RAW("$fr_ret"),
-              })};
+                exitCode: "$fr_ret",
+              })}
               fr_exitcode $fr_ret;
             }`);
           } else if (hasNodeType(cmd, "ForClause")) {
@@ -231,22 +214,22 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
             }
             wrapStmt(parser, node, `{ ${counterVar}=0; ___; }`);
             cmd.Do = [
-              frMsgStmt({
+              parseStmt(this.sh2fr.sendMessage({
                 type: "for-body-enter",
                 nodeId: forNodeId,
                 context: '$(fr_ctx_str)',
-                counter: RAW(`$${counterVar}`),
+                counter: `$${counterVar}`,
                 // TODO: $loopVar's really gonna need some escaping
                 loopVarValue: `$${loopVar}`,
-              }),
+              })),
               parseStmt(`fr_ctx_push "${forNodeId}-$${counterVar}"`),
               ...cmd.Do,
               parseStmt(`fr_ctx_pop`),
-              frMsgStmt({
+              parseStmt(this.sh2fr.sendMessage({
                 type: "for-body-exit",
                 nodeId: forNodeId,
                 context: '$(fr_ctx_str)',
-              }),
+              })),
               parseStmt(`${counterVar}=$(($${counterVar} + 1))`),
             ];
           }
@@ -354,7 +337,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
 
         this.traceDoc.change((trace) => {
           trace.execInfos[execId].exitInfo = {
-            exitCode: message.exitCode,
+            exitCode: +message.exitCode,
             cwd,
           };
         });
@@ -372,7 +355,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
         }
         this.traceDoc.change((trace) => {
           trace.forInfos[execId].iterations.push({
-            counter: message.counter,
+            counter: +message.counter,
             loopVarValue: message.loopVarValue,
           });
         });

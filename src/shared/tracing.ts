@@ -15,13 +15,13 @@ export type Message =
       nodeId: string,
       context: string,
       cwd: string,
-      exitCode: number,
+      exitCode: string,  // number as string
     }
   | {
       type: 'for-body-enter',
       nodeId: string,
       context: string,
-      counter: number,
+      counter: string,  // number as string
       loopVarValue: string,
     }
   | {
