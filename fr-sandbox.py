@@ -47,7 +47,7 @@ def remove_system(system_dir):
       break
     try:
       # TODO: force unmount seems necessary to, say, get around daemons. is it ok?
-      subprocess.run(['diskutil', 'unmount', 'force', union_dir], check=True, stdout=subprocess.DEVNULL)
+      subprocess.run(['diskutil', 'unmount', 'force', union_dir], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
       break
     except:
       time.sleep(0.5)
