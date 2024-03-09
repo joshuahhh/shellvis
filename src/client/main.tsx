@@ -7,7 +7,7 @@ import { CliV } from './CliV.js'
 import { TestbedLinksV, TestbedV } from './TestbedV.js'
 
 import "./style.css"
-import { GrammarTest } from './GrammarTest.js'
+import { HighlightingTest } from './HighlightingTest.js'
 
 library.add(faRotateRight, faRotateLeft, faEllipsisVertical)
 
@@ -26,6 +26,9 @@ const HomeV = memo(() => {
         testbed
         <TestbedLinksV/>
       </li>
+      <li>
+        <Link to="/highlighting-test">highlighting test</Link>
+      </li>
     </ul>
   </>
 });
@@ -36,7 +39,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
       <Routes>
         <Route path="/cli" element={<CliV/>}/>
         <Route path="/testbed/:name" element={<TestbedV/>}/>
-        <Route path="/grammar-test" element={<GrammarTest/>}/>
+        <Route path="/highlighting-test" element={<HighlightingTest/>}/>
         <Route path="*" element={<HomeV/>}/>
       </Routes>
     </HashRouter>

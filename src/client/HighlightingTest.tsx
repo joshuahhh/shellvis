@@ -8,7 +8,7 @@ import scriptUrl from "../../examples/test.sh?url";
 
 const highlighter = new WebHighlighter();
 
-export const GrammarTest = memo(() => {
+export const HighlightingTest = memo(() => {
   const [ lines, setLines ] = useState<string[] | null>(null);
   const [ tokensByLine, setTokensByLine ] = useState<TokenWithSettings[][] | null>(null);
 
@@ -32,7 +32,7 @@ export const GrammarTest = memo(() => {
   }, [lines]);
 
   return <div>
-    <h1>Grammar Test</h1>
+    <h1>Highlighting Test</h1>
     { tokensByLine === null || lines === null
       ? <p>Loading...</p>
       : <pre>
