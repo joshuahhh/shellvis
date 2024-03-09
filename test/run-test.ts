@@ -31,8 +31,8 @@ function callExprIdWithSrc(src: string, script: Script) {
   return matches[0][0];
 }
 
-export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
-  describe(name, { timeout: 800 }, () => {
+export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
+  describe(name, {  }, () => {
     it('basically works', async () => {
       const repo = new Repo({ network: [] });
       const run = new Run({
@@ -40,7 +40,7 @@ export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
         cwd,
         env: process.env,
         scriptSrc: "echo hello",
-      }, repo, sh2fr);
+      }, repo, mkSh2Fr());
       onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
@@ -54,7 +54,7 @@ export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
         cwd,
         env: process.env,
         scriptSrc: "exit 42",
-      }, repo, sh2fr);
+      }, repo, mkSh2Fr());
       onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
@@ -68,7 +68,7 @@ export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
         cwd,
         env: process.env,
         scriptSrc: "echo hello",
-      }, repo, sh2fr);
+      }, repo, mkSh2Fr());
       onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
@@ -92,7 +92,7 @@ export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
           }
           good
         `,
-      }, repo, sh2fr);
+      }, repo, mkSh2Fr());
       onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
@@ -115,7 +115,7 @@ export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
           }
           bad
         `,
-      }, repo, sh2fr);
+      }, repo, mkSh2Fr());
       onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
@@ -135,7 +135,7 @@ export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
         scriptSrc: normalizeIndent`
           jot -b hello 10 | rev | tr a-z A-Z
         `,
-      }, repo, sh2fr);
+      }, repo, mkSh2Fr());
       onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
@@ -165,7 +165,7 @@ export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
           }
           gen | head -n 4
         `,
-      }, repo, sh2fr);
+      }, repo, mkSh2Fr());
       onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
@@ -183,7 +183,7 @@ export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
         scriptSrc: normalizeIndent`
           touch testfile.txt
         `,
-      }, repo, sh2fr);
+      }, repo, mkSh2Fr());
       onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
@@ -202,7 +202,7 @@ export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
         scriptSrc: normalizeIndent`
           rm package.json
         `,
-      }, repo, sh2fr);
+      }, repo, mkSh2Fr());
       onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
@@ -226,7 +226,7 @@ export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
             echo $i
           done
         `,
-      }, repo, sh2fr);
+      }, repo, mkSh2Fr());
       onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 

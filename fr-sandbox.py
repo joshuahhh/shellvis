@@ -44,8 +44,10 @@ def remove_system(system_dir):
 
   while True:
     try:
+      if not os.path.ismount(union_dir):
+        break
       # TODO: force unmount seems necessary to, say, get around daemons. is it ok?
-      subprocess.run(['diskutil', 'unmount', 'force', union_dir], check=True, stdout=subprocess.DEVNULL)
+      subprocess.run(['diskutil', 'unmount', 'force', union_dir], check=True)
       shutil.rmtree(system_dir)
       break
     except:

@@ -57,7 +57,7 @@ export class Sh2FrViaHttp implements Sh2Fr {
           let uploadIds: string[] = [];
           for (const uploadName of uploadNames) {
             const uploadId = nextUploadId++;
-            console.log("sending uploadId", uploadId, "for", execId, uploadName)
+            // console.log("sending uploadId", uploadId, "for", execId, uploadName)
             uploadInfos[uploadId] = { execId, uploadName };
             uploadIds.push(uploadId.toString());
           }
