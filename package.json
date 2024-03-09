@@ -72,6 +72,7 @@
   "scripts": {
     "dev": "vite",
     "server": "tsx src/server/server.ts",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "bench": "vitest bench"
   }
 }

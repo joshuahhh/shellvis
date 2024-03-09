@@ -1,14 +1,5 @@
-
-f () {
-  echo "hi hello" | read ${=1}
-  echo "short is $short long is $long"
-}
-f "short long"
-f "long short"
-
-# zmodload zsh/system
-
-# exec {top_stderr}>&2
+zmodload zsh/system
+exec {top_stderr}>&2
 
 # echo "top process is $sysparams[pid] vs $$"
 # (echo "inner process is $sysparams[pid] vs $$")
@@ -40,3 +31,27 @@ f "long short"
 # }
 
 # print_one_line | consume
+
+
+
+
+# f () {
+#   echo "hi hello" | read ${=1}
+#   echo "short is $short long is $long"
+# }
+# f "short long"
+# f "long short"
+
+
+
+
+{
+  echo "producer $sysparams[pid] vs $$" >&$top_stderr
+  echo "producing 1"
+  echo "producing 2"
+} | {
+  echo "consumer $sysparams[pid] vs $$" >&$top_stderr
+  while IFS= read -r line; do
+    echo "consuming $line"
+  done
+}

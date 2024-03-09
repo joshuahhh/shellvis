@@ -130,11 +130,11 @@ const PRELUDE = normalizeIndent`
     echo "message" >/dev/fd/$fr_sh2fr_fd
     echo $1 >/dev/fd/$fr_sh2fr_fd
     if [ -n "$2" ]; then
-      echo "sh: fr_msg got return vars $2" >&$fr_top_stderr
+      # echo "sh: fr_msg got return vars $2" >&$fr_top_stderr
       read \${=2} </dev/fd/$fr_sh2fr_fd
-      echo "sh: fr_msg got response \${=2}" >&$fr_top_stderr
+      # echo "sh: fr_msg got response \${=2}" >&$fr_top_stderr
     else
-      echo "sh: fr_msg got no return vars" >&$fr_top_stderr
+      # echo "sh: fr_msg got no return vars" >&$fr_top_stderr
     fi
     ztcp -c $fr_sh2fr_fd
     [ $fr_debug ] && echo -E "sh: fr_msg curl complete $1" >&$fr_top_stderr;

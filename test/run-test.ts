@@ -11,7 +11,7 @@ import { Script } from "../src/shared/mvdan-sh-helpers.js";
 
 const cwd = process.cwd();
 
-async function runAndGetTrace(run: Run): Promise<Trace> {
+export async function runAndGetTrace(run: Run): Promise<Trace> {
   await run.start();
   await run.isClosedPromise();
   const trace = await run.traceDoc.doc();
