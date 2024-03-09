@@ -19,7 +19,7 @@ export class ScriptWatcher {
   ) {
     // TODO: this is so that we ultimately put an absolute path into the trace
     this.params.path = path.resolve(this.params.path);
-    chokidar.watch(this.params.path).on('all', (event, path) => {
+    chokidar.watch(this.params.path).on('all', () => {
       this._onFile();
     });
   }

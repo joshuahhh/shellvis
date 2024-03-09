@@ -235,6 +235,7 @@ const trackedNodeTypes = [
   "ForClause", "CallExpr", "Stmt"
 ] satisfies (keyof NodeTypes)[];
 
+// info about immutable src
 export class Script {
   ast: sh.File;
   lines: string[];

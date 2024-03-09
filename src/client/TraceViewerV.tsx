@@ -13,6 +13,9 @@ import { HVContext, defaultHVContext } from "./HVContext.js";
 import { TraceV } from "./TraceV.js";
 import { VSCodeListener } from "./VSCodeListener.js";
 import { WebHighlighter } from "./WebHighlighter.js";
+import { Button } from "./shadcn/Button.js";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./shadcn/Select.js";
+import { Label } from "./shadcn/Label.js";
 
 const ansiToHtml = new AnsiToHtml({});
 
@@ -184,18 +187,22 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
         🟣
       </div>
       { showSettings && <>
-        <label>
+        <Label className="flex items-center gap-2">
           Details mode:
-          <select
+          <Select
             value={hvContext.detailsMode}
-            onChange={(e) => hvContextUP.detailsMode.$set(e.target.value as any)}
-            style={{marginLeft: 10}}
+            onValueChange={(value) => hvContextUP.detailsMode.$set(value as any)}
           >
-            <option value="grid">grid</option>
-            <option value="in-place">in-place</option>
-            <option value="on-side">on-side</option>
-          </select>
-        </label>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="grid">grid</SelectItem>
+              <SelectItem value="in-place">in-place</SelectItem>
+              <SelectItem value="on-side">on-side</SelectItem>
+            </SelectContent>
+          </Select>
+        </Label>
         { hvContext.detailsMode === 'on-side' &&
           <label>
             On-side layout:
@@ -210,18 +217,22 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
             </select>
           </label>
         }
-        <label>
+        <Label className="flex items-center gap-2">
           Abbreviate:
-          <select
+          <Select
             value={hvContext.abbreviateInfo}
-            onChange={(e) => hvContextUP.abbreviateInfo.$set(e.target.value as any)}
-            style={{marginLeft: 10}}
+            onValueChange={(value) => hvContextUP.abbreviateInfo.$set(value as any)}
           >
-            <option value="never">never</option>
-            <option value="outside-selection">outside-selection</option>
-            <option value="always">always</option>
-          </select>
-        </label>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="never">never</SelectItem>
+              <SelectItem value="outside-selection">outside-selection</SelectItem>
+              <SelectItem value="always">always</SelectItem>
+            </SelectContent>
+          </Select>
+        </Label>
         <label>
           <input
             type="checkbox"
@@ -249,40 +260,46 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           />
           Show trace
         </label>
-        <button
-          onClick={async () => {
-            await fetch(
-              "http://localhost:8080/execute",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  command: `code ${trace.path}`,
-                  cwd: ".",
-                } satisfies ExecuteRequest),
-              }
-            )
-          }}
-        >
-          Open in VS Code
-        </button>
-        <button
-          onClick={async () => {
-            await fetch(
-              "http://localhost:8080/execute",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  command: `open -R ${trace.path}`,
-                  cwd: ".",
-                } satisfies ExecuteRequest),
-              }
-            )
-          }}
-        >
-          Open in Finder
-        </button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              await fetch(
+                "http://localhost:8080/execute",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    command: `code ${trace.path}`,
+                    cwd: ".",
+                  } satisfies ExecuteRequest),
+                }
+              )
+            }}
+          >
+            Open in VS Code
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              await fetch(
+                "http://localhost:8080/execute",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    command: `open -R ${trace.path}`,
+                    cwd: ".",
+                  } satisfies ExecuteRequest),
+                }
+              )
+            }}
+          >
+            Open in Finder
+          </Button>
+        </div>
         <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
           session {sessionAutomergeUrl}
         </div>

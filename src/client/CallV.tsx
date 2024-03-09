@@ -14,6 +14,102 @@ import { count } from "@engraft/shared/lib/count.js";
 import { HVContext } from "./HVContext.js";
 
 
+type CallVProps = {
+  contents: ReactNode,
+  callExpr: sh.CallExpr,
+  context: string,
+  trace: Trace,
+  script: Script,
+  className?: string,
+  showHeader?: boolean,
+  showLabel?: boolean,
+  showDetails?: boolean,
+}
+
+export const CallV = memo((props: CallVProps) => {
+  const {contents, callExpr, context, trace, script, className, showHeader = true, showLabel = false, showDetails} = props;
+
+  const nodeId = getNodeId(callExpr);
+  const execId = mkExecId({ context, nodeId });
+  const execInfo = trace.execInfos[execId] as ExecInfo | undefined;
+  const execExitInfo = execInfo?.exitInfo;
+  const status =
+    execInfo
+    ? execExitInfo
+      ? execExitInfo.exitCode === 0
+        ? 'done-success'
+        : 'done-failure'
+      : 'running'
+    : 'not-started';
+
+  const posInfo = nodePosInfo(callExpr);
+  const { selections, abbreviateInfo } = useContext(HVContext);
+  let isInSelection = false;
+  for (const selection of selections) {
+    if (selection.start.line <= posInfo.pos.line - 1 && posInfo.end.line - 1 <= selection.end.line) {
+      isInSelection = true;
+      break;
+    }
+  }
+
+  const short =
+    abbreviateInfo === 'always'
+    ? true
+    : abbreviateInfo === 'never'
+    ? false
+    : !isInSelection;
+
+  const infos = execInfo && infoProviders.map((provider) =>
+    provider({ short, execInfo })
+  );
+
+  // console.log(script.srcForNode(callExpr), infos);
+
+  return (
+    execInfo &&
+    <div className="inline-flex flex-col items-start">
+      { showLabel &&
+        <div className="text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis">
+          {script.srcForNode(callExpr)}
+        </div>
+      }
+      <div
+        className={clsx(
+          "__call",
+          className,
+          "inline-flex flex-col bg-gray-500 rounded mb-1 mr-1",
+          status === 'running' && "-ml-[3px] border-l-[3px] border-green-500",
+        )}
+        data-exec-id={execId}
+      >
+        { showHeader &&
+          <div className={clsx('')}>
+            <div className="call__code-background"/>
+            <div className="call__code-contents">{contents}</div>
+          </div>
+        }
+        <div className={`call__info-wrapper ${showDetails ? 'open' : ''}`}>
+          <div style={{overflow: 'hidden'}}>
+            <div className="call__info" style={{fontSize: '80%'}}>
+              { execInfo && infoProviders.map((provider, i) =>
+                <Fragment key={i}>
+                  {provider({ short, execInfo })}
+                </Fragment>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// rest of this file is all just...
+
+// *******************
+// * info providers! *
+// *******************
+
 export const InfoEntryIcon = memo((props: {
   title: string,
   children: ReactNode,
@@ -35,86 +131,6 @@ type InfoProviderProps = {
 }
 
 let infoProviders: InfoProvider[] = [];
-
-type CallVProps = {
-  contents: ReactNode,
-  callExpr: sh.CallExpr,
-  context: string,
-  trace: Trace,
-  script: Script,
-  className?: string,
-  showHeader?: boolean,
-  showLabel?: boolean,
-  showDetails?: boolean,
-}
-
-export const CallV = memo((props: CallVProps) => {
-  const {contents, callExpr, context, trace, script, className, showHeader = true, showLabel = false, showDetails} = props;
-
-  const nodeId = getNodeId(callExpr);
-  const execId = mkExecId({ context, nodeId });
-  const execInfo = trace.execInfos[execId] as ExecInfo | undefined;
-  const execExitInfo = execInfo?.exitInfo;
-  const statusClass =
-    execInfo
-    ? execExitInfo
-      ? execExitInfo.exitCode === 0
-        ? 'call--done-success'
-        : 'call--done-failure'
-      : 'call--running'
-    : 'call--not-started';
-
-  const posInfo = nodePosInfo(callExpr);
-  const { selections, abbreviateInfo } = useContext(HVContext);
-  let isInSelection = false;
-  for (const selection of selections) {
-    if (selection.start.line <= posInfo.pos.line - 1 && posInfo.end.line - 1 <= selection.end.line) {
-      isInSelection = true;
-      break;
-    }
-  }
-
-  const short =
-    abbreviateInfo === 'always'
-    ? true
-    : abbreviateInfo === 'never'
-    ? false
-    : !isInSelection;
-
-  return (
-    <div
-      className={`call-outside`}
-    >
-      { showLabel &&
-        <div className="call-outside__label">
-          {script.srcForNode(callExpr)}
-        </div>
-      }
-      <div
-        className={`call ${statusClass} ${!showDetails ? 'call--no-info-sections' : ''} ${className || ''}`}
-        data-exec-id={execId}
-      >
-        { showHeader &&
-          <div className="call__code">
-            <div className="call__code-background"/>
-            <div className="call__code-contents">{contents}</div>
-          </div>
-        }
-        <div className={`call__info-wrapper ${showDetails ? 'open' : ''}`}>
-          <div style={{overflow: 'hidden'}}>
-            <div className="call__info" style={{fontSize: '80%'}}>
-              { execInfo && infoProviders.map((provider, i) =>
-                <Fragment key={i}>
-                  {provider({ short, execInfo })}
-                </Fragment>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-});
 
 // stdout & stderr
 function infoProviderForStream(stream: 'stdout' | 'stderr'): InfoProvider {

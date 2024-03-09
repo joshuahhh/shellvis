@@ -8,6 +8,7 @@ import { Iteration, Trace, mkExecId } from "../shared/execution.js";
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../shared/mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
 import { HVContext } from "./HVContext.js";
+import clsx from "clsx";
 
 
 export type LineTreeNodeVProps = {
@@ -60,7 +61,19 @@ type LineVProps = {
 
 const LineV = memo((props: LineVProps) => {
   const { script, trace, line, i, context } = props;
-  const { detailsMode } = useContext(HVContext);
+  let { detailsMode } = useContext(HVContext);
+
+  const callExprs = Object.values(script.nodesByTypeById.CallExpr);
+  const callExprsOnLine = callExprs.filter((callExpr) => {
+    // TODO: everything's limited to single lines
+    return nodePosInfo(callExpr).pos.line === i + 1;
+  });
+
+  let contentsIncludesCalls = false;
+  // if (detailsMode === 'grid' && callExprsOnLine.length > 1) {
+  //   detailsMode = 'in-place';
+  //   contentsIncludesCalls = true;
+  // }
 
   let [ nodes, starts, ends ] = addDecorationsToLineStarter(line);
   const colorDecorations: Decoration[] = script.tokensByLine![i].flatMap((token) => {
@@ -77,11 +90,6 @@ const LineV = memo((props: LineVProps) => {
   });
   addDecorationsToLineHelper(nodes, starts, ends, colorDecorations);
 
-  const callExprs = Object.values(script.nodesByTypeById.CallExpr);
-  const callExprsOnLine = callExprs.filter((callExpr) => {
-    // TODO: everything's limited to single lines
-    return nodePosInfo(callExpr).pos.line === i + 1;
-  });
   const callDecorations: Decoration[] = callExprsOnLine.map((callExpr) => {
     const posInfo = nodePosInfo(callExpr);
     return {
@@ -89,7 +97,9 @@ const LineV = memo((props: LineVProps) => {
       end: posInfo.end.line > posInfo.pos.line ? line.length : posInfo.end.col - 1,
       decorator: (contents) =>
         detailsMode === 'grid'
-        ? <div className="call-in-code">{contents}</div>
+        ? <div className="inline-block border-b border-b-gray-500 mb-1 border-dashed">
+            {contents}
+          </div>
         : <CallV
             key={getNodeId(callExpr)}
             contents={contents}
@@ -116,7 +126,7 @@ const LineV = memo((props: LineVProps) => {
 
   return <div className="line" data-line={i}>
     <div className="line__num">{i + 1}</div>
-    <div className="line__contents">{nodes}</div>
+    <div className={clsx('line__contents', {'line__contents--includes-calls': contentsIncludesCalls})}>{nodes}</div>
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
       <div className="line__calls" style={{paddingLeft: depth * 20}}>
         {callExprsOnLine.map((callExpr) =>
@@ -343,7 +353,7 @@ const LoopHeader = memo((props: {
 
   return <div className={`for-loop-iteration-header ${sliderIsDragging ? 'for-loop-iteration-header--slider-is-dragging' : ''}`}>
     <LockSize lock={sliderIsDragging}>
-      <div className="for-loop-iteration-header__label">
+      <div className="for-loop-iteration-header__label bg-blue-500">
         {varName} = {iteration.loopVarValue}
       </div>
     </LockSize>

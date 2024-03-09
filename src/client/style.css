@@ -1,3 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+  }
+}
+
 html {
   box-sizing: border-box;
 }
@@ -9,13 +60,16 @@ body {
   background-color: #1F1F1F;
   /* background-color: #333; */
   color: white;
-  margin: 0px;
-  padding: 40px 10px 0px 10px;
   line-height: 20px;
   font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
 
   /* TODO: hmmm */
   overflow-x: hidden;
+}
+
+#root {
+  margin: 0px;
+  padding: 40px 10px 0px 10px;
 }
 
 /* Base style for links */
@@ -74,11 +128,6 @@ pre {
   font-family: monospace;
 }
 
-.line__calls .call {
-  margin-bottom: 4px;
-  margin-right: 4px;
-}
-
 .trace.detailsMode-grid {
   display: inline-grid;
   grid-template-columns: fit-content(0%) auto minmax(min-content, max-content);
@@ -99,17 +148,19 @@ pre {
   overflow: hidden;
 }
 
+.trace.detailsMode-grid .line__contents.line__contents--includes-calls {
+  grid-column: 2 / span 2;
+}
+
+
 .trace.detailsMode-grid .line__calls {
   grid-column: 3;
   margin-left: 20px;
 }
 
-.call {
-  display: inline-flex;
-  flex-direction: column;
-  background-color: rgba(120, 120, 120);
-  border-radius: 5px;
-  margin-bottom: 5px;
+.call__info-wrapper {
+  /* background-color: rgba(120, 120, 120); */
+  border-radius: 4px;
 }
 
 .call > .call__code > .call__code-background {
@@ -118,34 +169,9 @@ pre {
   /* border: 2px solid #333; */
 }
 
-.call.call--no-info-sections > .call__code > .call__code-background {
-  border-radius: 5px;
-}
-
-.call.call--done-success > .call__code > .call__code-background {
-  background-color: hsl(120, 29%, 15%);
-}
-
-/* .call.call-done-success {
-  background-color: rgba(60, 110, 60);
-} */
-
-.call.call--done-failure > .call__code > .call__code-background {
-  background-color: hsl(0, 70%, 22%);
-}
-
-/* .call.call-done-failure {
-  background-color: rgba(220, 60, 60);
-} */
-
-.call.call--running {
-  margin-top: -3px;
-  border-top: 3px solid white;
-}
-
 .call__code {
   position: relative;
-  background-color: #444;
+  /* background-color: #444; */
   border-radius: 5px;
 }
 
@@ -161,7 +187,7 @@ pre {
 }
 
 .call__info {
-  padding: 10px;
+  padding: 2px;
   display: flex;
   flex-direction: column;
   max-height: 300px;
@@ -231,7 +257,7 @@ pre {
   /* font-weight: bold; */
   /* background-color: #ccc;
   color: #444; */
-  background-color: #1976d2;
+  /* background-color: #1976d2; */
   color: white;
   padding: 0px 5px;
   width: fit-content;
@@ -266,28 +292,6 @@ pre {
   flex-direction: row;
 }
 
-.call-outside {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.call-outside__label {
-  color: #999;
-  font-size: 80%;
-  width: 0;
-  min-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .call:not(:has(.info-entry)) {
   background-color: hsl(0, 0%, 30%);
-}
-
-.call-in-code {
-  display: inline-block;
-  border-bottom: 1px dashed #888;
-  margin-bottom: 2px;
 }
