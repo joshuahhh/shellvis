@@ -302,7 +302,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   }
 
   async onSh2FrMessage(message: Message) {
-    console.log("fr: got message", message);
+    // console.log("fr: got message", message);
 
     this.traceDoc.change((trace) => {
       trace.messageLog.push(message);
