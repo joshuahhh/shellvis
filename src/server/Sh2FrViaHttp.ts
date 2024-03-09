@@ -12,14 +12,6 @@ export class Sh2FrViaHttp implements Sh2Fr {
   server: net.Server | null = null;
   port: number | null = null;
 
-  async init() {
-    this.port = await getPort()
-    return {
-      env: { fr_sh2fr_port: `${this.port}` },
-      prelude: PRELUDE,
-    };
-  }
-
   sendMessage(message: Message) {
     return normalizeIndent`
       ${frMsgStr(message)};
@@ -31,7 +23,7 @@ export class Sh2FrViaHttp implements Sh2Fr {
     return normalizeIndent`
       local ${uploadIdVars.join(" ")} >/dev/null;
       ${frMsgStr(message, uploadIdVars.join(" "))};
-      echo "sh: got upload ids ${uploadIdVars.map(s => `$${s}`).join(" ")}" >&$fr_top_stderr;
+      # echo "sh: got upload ids ${uploadIdVars.map(s => `$${s}`).join(" ")}" >&$fr_top_stderr;
     `;
   }
 
@@ -100,9 +92,15 @@ export class Sh2FrViaHttp implements Sh2Fr {
       res.status(404).send(`404 not found`);
     });
 
+    this.port = await getPort()
     this.server = sh2frExpress.listen(this.port, () => {
       console.log(`sh2fr server listening on port ${this.port}`)
     })
+
+    return {
+      env: { fr_sh2fr_port: `${this.port}` },
+      prelude: PRELUDE,
+    };
   }
 
   async stop() {

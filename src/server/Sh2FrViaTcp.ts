@@ -11,14 +11,6 @@ export class Sh2FrViaTcp implements Sh2Fr {
   server: net.Server | null = null;
   port: number | null = null;
 
-  async init() {
-    this.port = await getPort()
-    return {
-      env: { fr_sh2fr_port: `${this.port}` },
-      prelude: PRELUDE,
-    };
-  }
-
   sendMessage(message: Message) {
     return normalizeIndent`
       ${frMsgStr(message)};
@@ -30,7 +22,7 @@ export class Sh2FrViaTcp implements Sh2Fr {
     return normalizeIndent`
       local ${uploadIdVars.join(" ")} >/dev/null;
       ${frMsgStr(message, uploadIdVars.join(" "))};
-      echo "sh: got upload ids ${uploadIdVars.map(s => `$${s}`).join(" ")}" >&$fr_top_stderr;
+      # echo "sh: got upload ids ${uploadIdVars.map(s => `$${s}`).join(" ")}" >&$fr_top_stderr;
     `;
   }
 
@@ -51,6 +43,7 @@ export class Sh2FrViaTcp implements Sh2Fr {
     let uploadInfos: {[uploadId: string]: { execId: string, uploadName: UploadName }} = {};
 
     this.server = net.createServer();
+    this.port = await getPort();
     this.server.listen(this.port, () => {
       console.log(`sh2fr server listening on port ${this.port}`)
     });
@@ -94,6 +87,11 @@ export class Sh2FrViaTcp implements Sh2Fr {
         FATAL("unexpected first line sent to sh2fr:", firstLine);
       }
     });
+
+    return {
+      env: { fr_sh2fr_port: `${this.port}` },
+      prelude: PRELUDE,
+    };
   }
 
   async stop() {

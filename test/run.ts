@@ -1,16 +1,13 @@
 import { Repo } from "@automerge/automerge-repo";
 import { normalizeIndent } from "@engraft/shared/lib/normalizeIndent.js";
 import sh from "mvdan-sh";
-import { assert, describe, expect, it } from "vitest";
+import path from "node:path";
+import R from "remeda";
+import { assert, describe, expect, it, onTestFinished } from "vitest";
+import { Sh2Fr } from "../src/server/Sh2Fr.js";
 import { Run } from "../src/server/run.js";
 import { ForInfo, Trace, mkExecId } from "../src/shared/execution.js";
 import { Script } from "../src/shared/mvdan-sh-helpers.js";
-import R from "remeda";
-import path from "node:path";
-import { Sh2Fr } from "../src/server/Sh2Fr.js";
-import { Sh2FrViaTcp } from "../src/server/Sh2FrViaTcp.js";
-import { Sh2FrViaHttp } from "../src/server/Sh2FrViaHttp.js";
-// import { inspect } from "node:util";
 
 const cwd = process.cwd();
 
@@ -34,10 +31,7 @@ function callExprIdWithSrc(src: string, script: Script) {
   return matches[0][0];
 }
 
-runTestsWithSh2Fr("Run with Sh2FrViaTcp", new Sh2FrViaTcp());
-runTestsWithSh2Fr("Run with Sh2FrViaHttp", new Sh2FrViaHttp());
-
-function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
+export function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
   describe(name, { timeout: 800 }, () => {
     it('basically works', async () => {
       const repo = new Repo({ network: [] });
@@ -47,6 +41,7 @@ function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
         env: process.env,
         scriptSrc: "echo hello",
       }, repo, sh2fr);
+      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       expect(trace.exitCode).toEqual(0);
@@ -60,6 +55,7 @@ function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
         env: process.env,
         scriptSrc: "exit 42",
       }, repo, sh2fr);
+      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       expect(trace.exitCode).toEqual(42);
@@ -73,6 +69,7 @@ function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
         env: process.env,
         scriptSrc: "echo hello",
       }, repo, sh2fr);
+      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const echoExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("echo", run.script!) });
@@ -96,6 +93,7 @@ function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
           good
         `,
       }, repo, sh2fr);
+      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const goodExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("good", run.script!) });
@@ -118,6 +116,7 @@ function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
           bad
         `,
       }, repo, sh2fr);
+      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const badExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("bad", run.script!) });
@@ -137,6 +136,7 @@ function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
           jot -b hello 10 | rev | tr a-z A-Z
         `,
       }, repo, sh2fr);
+      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const jotExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("jot", run.script!) });
@@ -150,6 +150,30 @@ function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
         .toBe(R.range(0, 10).map(() => `OLLEH\n`).join(""));
     });
 
+    it.todo('pipes work even with an eager generator', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: "DUMMY-PATH",
+        cwd,
+        env: process.env,
+        scriptSrc: normalizeIndent`
+          function gen() {
+            while true; do
+              echo "hello"
+              sleep 0.1
+            done
+          }
+          gen | head -n 4
+        `,
+      }, repo, sh2fr);
+      onTestFinished(() => run.stop());
+      const trace = await runAndGetTrace(run);
+
+      const headExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("head", run.script!) });
+      expect(trace.execInfos[headExecId].stdout.data.join(""))
+        .toBe(R.range(0, 4).map(() => `olleh\n`).join(""));
+    });
+
     it('file addition works', async () => {
       const repo = new Repo({ network: [] });
       const run = new Run({
@@ -160,6 +184,7 @@ function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
           touch testfile.txt
         `,
       }, repo, sh2fr);
+      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const touchExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("touch testfile.txt", run.script!) });
@@ -178,6 +203,7 @@ function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
           rm package.json
         `,
       }, repo, sh2fr);
+      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const rmExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("rm package.json", run.script!) });
@@ -201,6 +227,7 @@ function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
           done
         `,
       }, repo, sh2fr);
+      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const forInfos = Object.entries(trace.forInfos);

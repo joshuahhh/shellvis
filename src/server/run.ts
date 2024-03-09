@@ -19,9 +19,10 @@ import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } fr
 import { RunParams } from "../shared/types.js";
 import { parseTypeset } from "../shared/typeset.js";
 import { joinIterable } from "../shared/util.js";
-import { Sh2Fr } from "./Sh2Fr.js";
+import { Sh2Fr, UploadName } from "./Sh2Fr.js";
 import { changeAt } from "./automerge.js";
 import { Sh2FrViaTcp } from "./Sh2FrViaTcp.js";
+import { Message } from "../shared/tracing.js";
 
 type Sandbox = {
   sandboxDir: string,
@@ -134,7 +135,10 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   async start() {
     console.log("\n\n\nstarting");
 
-    const sh2frInit = await this.sh2fr.init();
+    const sh2frStart = await this.sh2fr.start({
+      onMessage: this.onSh2FrMessage.bind(this),
+      onUpload: this.onSh2FrUpload.bind(this),
+    });
 
     // parse
 
@@ -238,7 +242,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
 
     const frPreludeSrc = await fs.readFile(new URL('fr-prelude.sh', import.meta.url), { encoding: 'utf-8' });
 
-    this.transformedSrc = [frPreludeSrc, sh2frInit.prelude ?? '', printer.Print(transformedAst)].join("\n\n");
+    this.transformedSrc = [frPreludeSrc, sh2frStart.prelude ?? '', printer.Print(transformedAst)].join("\n\n");
 
     if (true) {
       await fs.mkdir("_debug", { recursive: true });
@@ -270,7 +274,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
         env: {
           ...process.env,  // TODO
           // ...this.params.env === 'process.env' ? process.env : this.params.env,
-          ...sh2frInit.env,
+          ...sh2frStart.env,
           fr_sandbox_delta_dir: this.sandbox.deltaDir,
           fr_sandbox_sandbox_dir: this.sandbox.sandboxDir,
           ROOT: this.sandbox.deltaUnionDir,
@@ -291,111 +295,109 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       this.dispatchEvent(new Event("close"));
     });
 
-    const onMessage: Sh2Fr.StartProps["onMessage"] = async (message) => {
-      console.log("fr: got message", message);
-
-      this.traceDoc.change((trace) => {
-        trace.messageLog.push(message);
-      });
-
-      if (message.type === "call-enter") {
-        const enterCwd = pathInSandbox(message.cwd, this.sandbox!);
-
-        if (!enterCwd) {
-          console.error("call-enter cwd not in sandbox", message.cwd, "aborting");
-          await this.stop();
-          throw new Error("call-enter cwd not in sandbox");
-        }
-
-        const execId = mkExecId(message);
-        this.traceDoc.change((trace) => {
-          trace.execInfos[execId] = {
-            stdout: { data: [], done: false },
-            stderr: { data: [], done: false },
-            enterCwd,
-            exitInfo: null,
-            varsEnterStr: null,
-            varsExitStr: null,
-            deltaLog: null,
-            suppressed: message.suppressed,
-          }
-        });
-
-      } else if (message.type === "call-exit") {
-        const execId = mkExecId(message);
-
-        const cwd = pathInSandbox(message.cwd, this.sandbox!);
-
-        if (!cwd) {
-          console.error("call-exit cwd not in sandbox", message.cwd, "aborting");
-          await this.stop();
-          throw new Error("call-exit cwd not in sandbox");
-        }
-
-        this.traceDoc.change((trace) => {
-          trace.execInfos[execId].exitInfo = {
-            exitCode: +message.exitCode,
-            cwd,
-          };
-        });
-        // console.log("fr: stmt-exit", execId);
-      } else if (message.type === "for-body-enter") {
-        const execId = mkExecId(message);
-        const trace = await this.traceDoc.doc();
-        if (!trace) { throw new Error("trace not found"); }
-        if (!trace.forInfos[execId]) {
-          this.traceDoc.change((trace) => {
-            trace.forInfos[execId] = {
-              iterations: []
-            };
-          });
-        }
-        this.traceDoc.change((trace) => {
-          trace.forInfos[execId].iterations.push({
-            counter: +message.counter,
-            loopVarValue: message.loopVarValue,
-          });
-        });
-      }
-    };
-
-    const onUpload: Sh2Fr.StartProps["onUpload"] = async (execId, uploadName, lines) => {
-      if (uploadName === "stdout") {
-        await handlePipeProgress(lines, changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stdout));
-      } else if (uploadName === "stderr") {
-        await handlePipeProgress(lines, changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stderr));
-      } else if (uploadName === "varsEnter") {
-        const varsEnterTypeset = await joinIterable(lines);
-        const varsEnter = parseTypeset(varsEnterTypeset);
-        const varsEnterStr = JSON.stringify(varsEnter);
-        this.traceDoc.change((trace) => {
-          const execInfo = trace.execInfos[execId];
-          execInfo.varsEnterStr = new RawString(varsEnterStr);
-        });
-      } else if (uploadName === "varsExit") {
-        const varsExitTypeset = await joinIterable(lines);
-        const varsExit = parseTypeset(varsExitTypeset);
-        const varsExitStr = JSON.stringify(varsExit);
-        const trace = await this.traceDoc.doc();
-        if (!trace) { throw new Error("trace not found"); }
-        this.traceDoc.change((trace) => {
-          const execInfo = trace.execInfos[execId];
-          execInfo.varsExitStr = new RawString(varsExitStr);
-        });
-      } else if (uploadName === "deltaLog") {
-        const deltaLogStr = await joinIterable(lines);
-        this.traceDoc.change((trace) => {
-          trace.execInfos[execId].deltaLog = parseDeltaLog(deltaLogStr);
-        });
-      }
-    };
-
-    this.sh2fr.start({ onMessage, onUpload });
-
     process.once('exit', () => {
       console.log('exit event!');
       this.stop();
     });
+  }
+
+  async onSh2FrMessage(message: Message) {
+    console.log("fr: got message", message);
+
+    this.traceDoc.change((trace) => {
+      trace.messageLog.push(message);
+    });
+
+    if (message.type === "call-enter") {
+      const enterCwd = pathInSandbox(message.cwd, this.sandbox!);
+
+      if (!enterCwd) {
+        console.error("call-enter cwd not in sandbox", message.cwd, "aborting");
+        await this.stop();
+        throw new Error("call-enter cwd not in sandbox");
+      }
+
+      const execId = mkExecId(message);
+      this.traceDoc.change((trace) => {
+        trace.execInfos[execId] = {
+          stdout: { data: [], done: false },
+          stderr: { data: [], done: false },
+          enterCwd,
+          exitInfo: null,
+          varsEnterStr: null,
+          varsExitStr: null,
+          deltaLog: null,
+          suppressed: message.suppressed,
+        }
+      });
+
+    } else if (message.type === "call-exit") {
+      const execId = mkExecId(message);
+
+      const cwd = pathInSandbox(message.cwd, this.sandbox!);
+
+      if (!cwd) {
+        console.error("call-exit cwd not in sandbox", message.cwd, "aborting");
+        await this.stop();
+        throw new Error("call-exit cwd not in sandbox");
+      }
+
+      this.traceDoc.change((trace) => {
+        trace.execInfos[execId].exitInfo = {
+          exitCode: +message.exitCode,
+          cwd,
+        };
+      });
+      // console.log("fr: stmt-exit", execId);
+    } else if (message.type === "for-body-enter") {
+      const execId = mkExecId(message);
+      const trace = await this.traceDoc.doc();
+      if (!trace) { throw new Error("trace not found"); }
+      if (!trace.forInfos[execId]) {
+        this.traceDoc.change((trace) => {
+          trace.forInfos[execId] = {
+            iterations: []
+          };
+        });
+      }
+      this.traceDoc.change((trace) => {
+        trace.forInfos[execId].iterations.push({
+          counter: +message.counter,
+          loopVarValue: message.loopVarValue,
+        });
+      });
+    }
+  }
+
+  async onSh2FrUpload(execId: string, uploadName: UploadName, lines: AsyncIterable<string>) {
+    if (uploadName === "stdout") {
+      await handlePipeProgress(lines, changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stdout));
+    } else if (uploadName === "stderr") {
+      await handlePipeProgress(lines, changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stderr));
+    } else if (uploadName === "varsEnter") {
+      const varsEnterTypeset = await joinIterable(lines);
+      const varsEnter = parseTypeset(varsEnterTypeset);
+      const varsEnterStr = JSON.stringify(varsEnter);
+      this.traceDoc.change((trace) => {
+        const execInfo = trace.execInfos[execId];
+        execInfo.varsEnterStr = new RawString(varsEnterStr);
+      });
+    } else if (uploadName === "varsExit") {
+      const varsExitTypeset = await joinIterable(lines);
+      const varsExit = parseTypeset(varsExitTypeset);
+      const varsExitStr = JSON.stringify(varsExit);
+      const trace = await this.traceDoc.doc();
+      if (!trace) { throw new Error("trace not found"); }
+      this.traceDoc.change((trace) => {
+        const execInfo = trace.execInfos[execId];
+        execInfo.varsExitStr = new RawString(varsExitStr);
+      });
+    } else if (uploadName === "deltaLog") {
+      const deltaLogStr = await joinIterable(lines);
+      this.traceDoc.change((trace) => {
+        trace.execInfos[execId].deltaLog = parseDeltaLog(deltaLogStr);
+      });
+    }
   }
 
   async stop() {
