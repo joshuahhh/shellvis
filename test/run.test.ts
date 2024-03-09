@@ -7,6 +7,9 @@ import { ForInfo, Trace, mkExecId } from "../src/shared/execution.js";
 import { Script } from "../src/shared/mvdan-sh-helpers.js";
 import R from "remeda";
 import path from "node:path";
+import { Sh2Fr } from "../src/server/Sh2Fr.js";
+import { Sh2FrViaTcp } from "../src/server/Sh2FrViaTcp.js";
+import { Sh2FrViaHttp } from "../src/server/Sh2FrViaHttp.js";
 // import { inspect } from "node:util";
 
 const cwd = process.cwd();
@@ -31,192 +34,197 @@ function callExprIdWithSrc(src: string, script: Script) {
   return matches[0][0];
 }
 
-describe('Run', () => {
-  it('basically works', async () => {
-    const repo = new Repo({ network: [] });
-    const run = new Run({
-      path: "DUMMY-PATH",
-      cwd,
-      env: process.env,
-      scriptSrc: "echo hello",
-    }, repo);
-    const trace = await runAndGetTrace(run);
+runTestsWithSh2Fr("Run with Sh2FrViaTcp", new Sh2FrViaTcp());
+runTestsWithSh2Fr("Run with Sh2FrViaHttp", new Sh2FrViaHttp());
 
-    expect(trace.exitCode).toEqual(0);
-  });
+function runTestsWithSh2Fr(name: string, sh2fr: Sh2Fr) {
+  describe(name, { timeout: 800 }, () => {
+    it('basically works', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: "DUMMY-PATH",
+        cwd,
+        env: process.env,
+        scriptSrc: "echo hello",
+      }, repo, sh2fr);
+      const trace = await runAndGetTrace(run);
 
-  it('exit codes work', async () => {
-    const repo = new Repo({ network: [] });
-    const run = new Run({
-      path: "DUMMY-PATH",
-      cwd,
-      env: process.env,
-      scriptSrc: "exit 42",
-    }, repo);
-    const trace = await runAndGetTrace(run);
+      expect(trace.exitCode).toEqual(0);
+    });
 
-    expect(trace.exitCode).toEqual(42);
-  });
+    it('exit codes work', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: "DUMMY-PATH",
+        cwd,
+        env: process.env,
+        scriptSrc: "exit 42",
+      }, repo, sh2fr);
+      const trace = await runAndGetTrace(run);
 
-  it('stdout works', async () => {
-    const repo = new Repo({ network: [] });
-    const run = new Run({
-      path: "DUMMY-PATH",
-      cwd,
-      env: process.env,
-      scriptSrc: "echo hello",
-    }, repo);
-    const trace = await runAndGetTrace(run);
+      expect(trace.exitCode).toEqual(42);
+    });
 
-    const echoExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("echo", run.script!) });
-    expect(trace.execInfos[echoExecId]).toBeDefined();
-    expect(trace.execInfos[echoExecId].stdout.data.join(""))
-      .toEqual("hello\n");
-    expect(trace.execInfos[echoExecId].stderr.data.join(""))
-      .toEqual("");
-  });
+    it('stdout works', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: "DUMMY-PATH",
+        cwd,
+        env: process.env,
+        scriptSrc: "echo hello",
+      }, repo, sh2fr);
+      const trace = await runAndGetTrace(run);
 
-  it('stdout from function works', async () => {
-    const repo = new Repo({ network: [] });
-    const run = new Run({
-      path: "DUMMY-PATH",
-      cwd,
-      env: process.env,
-      scriptSrc: normalizeIndent`
-        function good() {
-          echo "hello"
-        }
-        good
-      `,
-    }, repo);
-    const trace = await runAndGetTrace(run);
-
-    const goodExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("good", run.script!) });
-    expect(trace.execInfos[goodExecId].stdout.data.join(""))
-      .toEqual("hello\n");
-    expect(trace.execInfos[goodExecId].stderr.data.join(""))
-      .toEqual("");
-  });
-
-  it('stderr works', async () => {
-    const repo = new Repo({ network: [] });
-    const run = new Run({
-      path: "DUMMY-PATH",
-      cwd,
-      env: process.env,
-      scriptSrc: normalizeIndent`
-        function bad() {
-          echo "bad" >&2
-        }
-        bad
-      `,
-    }, repo);
-    const trace = await runAndGetTrace(run);
-
-    const badExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("bad", run.script!) });
-    expect(trace.execInfos[badExecId].stdout.data.join(""))
-      .toEqual("");
-    expect(trace.execInfos[badExecId].stderr.data.join(""))
-      .toEqual("bad\n");
-  });
-
-  it('pipes work', async () => {
-    const repo = new Repo({ network: [] });
-    const run = new Run({
-      path: "DUMMY-PATH",
-      cwd,
-      env: process.env,
-      scriptSrc: normalizeIndent`
-        jot -b hello 10 | rev | tr a-z A-Z
-      `,
-    }, repo);
-    const trace = await runAndGetTrace(run);
-
-    const jotExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("jot", run.script!) });
-    expect(trace.execInfos[jotExecId].stdout.data.join(""))
-      .toBe(R.range(0, 10).map(() => `hello\n`).join(""));
-    const revExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("rev", run.script!) });
-    expect(trace.execInfos[revExecId].stdout.data.join(""))
-      .toBe(R.range(0, 10).map(() => `olleh\n`).join(""));
-    const trExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("tr", run.script!) });
-    expect(trace.execInfos[trExecId].stdout.data.join(""))
-      .toBe(R.range(0, 10).map(() => `OLLEH\n`).join(""));
-  });
-
-  it('file addition works', async () => {
-    const repo = new Repo({ network: [] });
-    const run = new Run({
-      path: "DUMMY-PATH",
-      cwd,
-      env: process.env,
-      scriptSrc: normalizeIndent`
-        touch testfile.txt
-      `,
-    }, repo);
-    const trace = await runAndGetTrace(run);
-
-    const touchExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("touch testfile.txt", run.script!) });
-    expect(trace.execInfos[touchExecId].deltaLog).toEqual([
-      { event: "new file", path: path.resolve(cwd, "testfile.txt") }
-    ]);
-  });
-
-  it('file deletion works', async () => {
-    const repo = new Repo({ network: [] });
-    const run = new Run({
-      path: "DUMMY-PATH",
-      cwd,
-      env: process.env,
-      scriptSrc: normalizeIndent`
-        rm package.json
-      `,
-    }, repo);
-    const trace = await runAndGetTrace(run);
-
-    const rmExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("rm package.json", run.script!) });
-    expect(trace.execInfos[rmExecId].deltaLog).toEqual([
-      { event: "deleted", path: path.resolve(cwd, "package.json") }
-    ]);
-  });
-
-  // TODO: can't think of a function that modifies files lol
-  it.todo('file modification works');
-
-  it('for loops work', async () => {
-    const repo = new Repo({ network: [] });
-    const run = new Run({
-      path: "DUMMY-PATH",
-      cwd,
-      env: process.env,
-      scriptSrc: normalizeIndent`
-        for i in {1..3}; do
-          echo $i
-        done
-      `,
-    }, repo);
-    const trace = await runAndGetTrace(run);
-
-    const forInfos = Object.entries(trace.forInfos);
-    if (forInfos.length !== 1) {
-      assert.fail(`expected 1 for loop, got ${forInfos.length}`);
-    }
-    const [forId, forInfo] = forInfos[0];
-
-    expect(forInfo).toEqual({
-      iterations: [
-        { counter: 0, loopVarValue: "1" },
-        { counter: 1, loopVarValue: "2" },
-        { counter: 2, loopVarValue: "3" },
-      ]
-    } satisfies ForInfo);
-
-    for (const iteration of forInfo.iterations) {
-      const echoExecId = mkExecId({
-        context: `${forId}-${iteration.counter}`,
-        nodeId: callExprIdWithSrc(`echo $i`, run.script!),
-      });
+      const echoExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("echo", run.script!) });
+      expect(trace.execInfos[echoExecId]).toBeDefined();
       expect(trace.execInfos[echoExecId].stdout.data.join(""))
-        .toEqual(`${iteration.loopVarValue}\n`);
-    }
+        .toEqual("hello\n");
+      expect(trace.execInfos[echoExecId].stderr.data.join(""))
+        .toEqual("");
+    });
+
+    it('stdout from function works', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: "DUMMY-PATH",
+        cwd,
+        env: process.env,
+        scriptSrc: normalizeIndent`
+          function good() {
+            echo "hello"
+          }
+          good
+        `,
+      }, repo, sh2fr);
+      const trace = await runAndGetTrace(run);
+
+      const goodExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("good", run.script!) });
+      expect(trace.execInfos[goodExecId].stdout.data.join(""))
+        .toEqual("hello\n");
+      expect(trace.execInfos[goodExecId].stderr.data.join(""))
+        .toEqual("");
+    });
+
+    it('stderr works', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: "DUMMY-PATH",
+        cwd,
+        env: process.env,
+        scriptSrc: normalizeIndent`
+          function bad() {
+            echo "bad" >&2
+          }
+          bad
+        `,
+      }, repo, sh2fr);
+      const trace = await runAndGetTrace(run);
+
+      const badExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("bad", run.script!) });
+      expect(trace.execInfos[badExecId].stdout.data.join(""))
+        .toEqual("");
+      expect(trace.execInfos[badExecId].stderr.data.join(""))
+        .toEqual("bad\n");
+    });
+
+    it('pipes work', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: "DUMMY-PATH",
+        cwd,
+        env: process.env,
+        scriptSrc: normalizeIndent`
+          jot -b hello 10 | rev | tr a-z A-Z
+        `,
+      }, repo, sh2fr);
+      const trace = await runAndGetTrace(run);
+
+      const jotExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("jot", run.script!) });
+      expect(trace.execInfos[jotExecId].stdout.data.join(""))
+        .toBe(R.range(0, 10).map(() => `hello\n`).join(""));
+      const revExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("rev", run.script!) });
+      expect(trace.execInfos[revExecId].stdout.data.join(""))
+        .toBe(R.range(0, 10).map(() => `olleh\n`).join(""));
+      const trExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("tr", run.script!) });
+      expect(trace.execInfos[trExecId].stdout.data.join(""))
+        .toBe(R.range(0, 10).map(() => `OLLEH\n`).join(""));
+    });
+
+    it('file addition works', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: "DUMMY-PATH",
+        cwd,
+        env: process.env,
+        scriptSrc: normalizeIndent`
+          touch testfile.txt
+        `,
+      }, repo, sh2fr);
+      const trace = await runAndGetTrace(run);
+
+      const touchExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("touch testfile.txt", run.script!) });
+      expect(trace.execInfos[touchExecId].deltaLog).toEqual([
+        { event: "new file", path: path.resolve(cwd, "testfile.txt") }
+      ]);
+    });
+
+    it('file deletion works', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: "DUMMY-PATH",
+        cwd,
+        env: process.env,
+        scriptSrc: normalizeIndent`
+          rm package.json
+        `,
+      }, repo, sh2fr);
+      const trace = await runAndGetTrace(run);
+
+      const rmExecId = mkExecId({ context: "", nodeId: callExprIdWithSrc("rm package.json", run.script!) });
+      expect(trace.execInfos[rmExecId].deltaLog).toEqual([
+        { event: "deleted", path: path.resolve(cwd, "package.json") }
+      ]);
+    });
+
+    // TODO: can't think of a function that modifies files lol
+    it.todo('file modification works');
+
+    it('for loops work', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: "DUMMY-PATH",
+        cwd,
+        env: process.env,
+        scriptSrc: normalizeIndent`
+          for i in {1..3}; do
+            echo $i
+          done
+        `,
+      }, repo, sh2fr);
+      const trace = await runAndGetTrace(run);
+
+      const forInfos = Object.entries(trace.forInfos);
+      if (forInfos.length !== 1) {
+        assert.fail(`expected 1 for loop, got ${forInfos.length}`);
+      }
+      const [forId, forInfo] = forInfos[0];
+
+      expect(forInfo).toEqual({
+        iterations: [
+          { counter: 0, loopVarValue: "1" },
+          { counter: 1, loopVarValue: "2" },
+          { counter: 2, loopVarValue: "3" },
+        ]
+      } satisfies ForInfo);
+
+      for (const iteration of forInfo.iterations) {
+        const echoExecId = mkExecId({
+          context: `${forId}-${iteration.counter}`,
+          nodeId: callExprIdWithSrc(`echo $i`, run.script!),
+        });
+        expect(trace.execInfos[echoExecId].stdout.data.join(""))
+          .toEqual(`${iteration.loopVarValue}\n`);
+      }
+    });
   });
-});
+}

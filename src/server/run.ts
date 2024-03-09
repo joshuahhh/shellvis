@@ -20,8 +20,8 @@ import { RunParams } from "../shared/types.js";
 import { parseTypeset } from "../shared/typeset.js";
 import { joinIterable } from "../shared/util.js";
 import { Sh2Fr } from "./Sh2Fr.js";
-import { Sh2FrViaTcp } from "./Sh2FrViaTcp.js";
 import { changeAt } from "./automerge.js";
+import { Sh2FrViaTcp } from "./Sh2FrViaTcp.js";
 
 type Sandbox = {
   sandboxDir: string,
@@ -107,7 +107,6 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   sandbox: Sandbox | null = null;
   childProcess: child_process.ChildProcess | null = null;
   transformedSrc: string | null = null;
-  sh2fr: Sh2Fr;
   sh2frUploadHandlers: Record<string, (lines: AsyncIterable<string>) => Promise<void>> = {};
   script: Script | null = null;
   traceDoc: DocHandle<Trace>;
@@ -115,11 +114,9 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   constructor(
     public params: RunParams,
     public repo: Repo,
+    public sh2fr: Sh2Fr = new Sh2FrViaTcp(),
   ) {
     super();
-
-    // TODO: parameterize this
-    this.sh2fr = new Sh2FrViaTcp();
 
     this.traceDoc = this.repo.create({
       path: this.params.path,
@@ -363,8 +360,6 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
     };
 
     const onUpload: Sh2Fr.StartProps["onUpload"] = async (execId, uploadName, lines) => {
-      console.log("fr: got upload", execId, uploadName);
-
       if (uploadName === "stdout") {
         await handlePipeProgress(lines, changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stdout));
       } else if (uploadName === "stderr") {

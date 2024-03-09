@@ -23,7 +23,6 @@ export function weakMapCache2<Arg1 extends object, Arg2 extends object, Return>(
 export async function* chunksToLines(chunkIterable: AsyncIterable<string>): AsyncGenerator<string, void, undefined> {
   let previous = '';
   for await (const chunk of chunkIterable) {
-    // console.log("chunksToLines", chunk)
     let startSearch = previous.length;
     previous += chunk;
     while (true) {

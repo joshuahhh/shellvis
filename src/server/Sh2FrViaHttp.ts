@@ -1,13 +1,14 @@
 import { normalizeIndent } from "@engraft/shared/lib/normalizeIndent.js";
+import express from "express";
 import getPort from "get-port";
 import * as net from "node:net";
-import { FATAL, chunksToLines, nextAsserted } from "../shared/util.js";
-import { Sh2Fr, UploadName, uploadNames } from "./Sh2Fr.js";
 import { mkExecId } from "../shared/execution.js";
 import { Message } from "../shared/tracing.js";
+import { FATAL, chunksToLines } from "../shared/util.js";
+import { Sh2Fr, UploadName, uploadNames } from "./Sh2Fr.js";
 
 
-export class Sh2FrViaTcp implements Sh2Fr {
+export class Sh2FrViaHttp implements Sh2Fr {
   server: net.Server | null = null;
   port: number | null = null;
 
@@ -50,50 +51,58 @@ export class Sh2FrViaTcp implements Sh2Fr {
     let nextUploadId = 0;
     let uploadInfos: {[uploadId: string]: { execId: string, uploadName: UploadName }} = {};
 
-    this.server = net.createServer();
-    this.server.listen(this.port, () => {
-      console.log(`sh2fr server listening on port ${this.port}`)
-    });
-    this.server.on('connection', async (socket) => {
-      socket.setEncoding('utf-8');
-      const lines = chunksToLines(socket);
-      const firstLine = await nextAsserted(lines, 'no first line given to sh2fr');
-      if (firstLine === "message\n") {
-        const secondLine = await nextAsserted(lines, 'first line `message` but no second line');
-        try {
-          const dataParsed: Message = JSON.parse(secondLine);
-          await onMessage(dataParsed);
-          if (dataParsed.type === 'call-enter') {
-            const execId = mkExecId(dataParsed);
-            let uploadIds: string[] = [];
-            for (const uploadName of uploadNames) {
-              const uploadId = nextUploadId++;
-              console.log("sending uploadId", uploadId, "for", execId, uploadName)
-              uploadInfos[uploadId] = { execId, uploadName };
-              uploadIds.push(uploadId.toString());
-            }
-            socket.write(uploadIds.join(" ") + "\n");
+    const sh2frExpress = express()
+
+    sh2frExpress.use('/', express.raw({ type: "*/*" }))
+
+    sh2frExpress.post('/', async (req, res) => {
+      const dataString = req.body.toString();
+      try {
+        const dataParsed: Message = JSON.parse(dataString);
+        await onMessage(dataParsed);
+        if (dataParsed.type === 'call-enter') {
+          const execId = mkExecId(dataParsed);
+          let uploadIds: string[] = [];
+          for (const uploadName of uploadNames) {
+            const uploadId = nextUploadId++;
+            console.log("sending uploadId", uploadId, "for", execId, uploadName)
+            uploadInfos[uploadId] = { execId, uploadName };
+            uploadIds.push(uploadId.toString());
           }
-          socket.end();
-        } catch (err) {
-          FATAL("trouble parsing message contents", err, secondLine);
+          res.send(uploadIds.join(" ") + "\n");
+        } else {
+          res.send("\n");
         }
-      } else if (firstLine.startsWith("upload ")) {
-        const match = firstLine.match(/^upload (\d+)\n$/);  // currently uploadIds are integers
-        if (!match) {
-          FATAL("unexpected upload line", firstLine);
-        }
-        const uploadId = match[1];
-        const uploadInfo = uploadInfos[uploadId];
-        if (!uploadInfo) {
-          FATAL("unexpected uploadId", uploadId, "from", firstLine);
-        }
-        await onUpload(uploadInfo.execId, uploadInfo.uploadName, lines);
-        delete uploadInfos[uploadId];
-      } else {
-        FATAL("unexpected first line sent to sh2fr:", firstLine);
+      } catch (err) {
+        FATAL("node error parsing data", err, dataString);
       }
+    })
+
+    sh2frExpress.post('/upload/', (req, res) => {
+      res.status(404).send(`missing uploadId\n`);
     });
+
+    sh2frExpress.post('/upload/:uploadId', async (req, res) => {
+      const uploadId = req.params.uploadId;
+      const uploadInfo = uploadInfos[uploadId];
+      delete uploadInfos[uploadId];
+      if (!uploadInfo) {
+        FATAL("unexpected uploadId", uploadId);
+      }
+      const lines = chunksToLines(req);
+      await onUpload(uploadInfo.execId, uploadInfo.uploadName, lines);
+      res.end();
+    });
+
+    sh2frExpress.get('*', (req, res) => {
+      // log and 404
+      console.log("fr: 404", req.url);
+      res.status(404).send(`404 not found`);
+    });
+
+    this.server = sh2frExpress.listen(this.port, () => {
+      console.log(`sh2fr server listening on port ${this.port}`)
+    })
   }
 
   async stop() {
@@ -111,25 +120,16 @@ export class Sh2FrViaTcp implements Sh2Fr {
 }
 
 const PRELUDE = normalizeIndent`
-  zmodload zsh/net/tcp
-
   fr_msg () {
     [ $fr_debug ] && echo -E "sh: fr_msg gonna curl $1" >&$fr_top_stderr;
-    ztcp localhost $fr_sh2fr_port
-    fr_sh2fr_fd=$REPLY
-    echo "message" >/dev/fd/$fr_sh2fr_fd
-    echo $1 >/dev/fd/$fr_sh2fr_fd
-    cat /dev/fd/$fr_sh2fr_fd
-    ztcp -c $fr_sh2fr_fd
+    curl -s -d $1 -H "Content-Type: text/plain" -X POST http://localhost:$fr_sh2fr_port;
     [ $fr_debug ] && echo -E "sh: fr_msg curl complete $1" >&$fr_top_stderr;
   }
 
   fr_upload () {
-    ztcp localhost $fr_sh2fr_port
-    fr_sh2fr_fd=$REPLY
-    echo "upload $1" >/dev/fd/$fr_sh2fr_fd
-    cat >/dev/fd/$fr_sh2fr_fd
-    ztcp -c $fr_sh2fr_fd
+    [ $fr_debug ] && echo -E "sh: fr_upload gonna curl $1" >&$fr_top_stderr;
+    curl -s -X POST -T - http://localhost:$fr_sh2fr_port/upload/$1
+    [ $fr_debug ] && echo -E "sh: fr_upload curl complete $1" >&$fr_top_stderr;
   }
 `;
 
