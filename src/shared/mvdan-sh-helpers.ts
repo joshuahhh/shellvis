@@ -28,6 +28,7 @@ const excludedSuffixes = ["Pos", "End"];
 
 const excludedKeys: {[key: string]: true} = {
   '__internal_object__': true,
+  '$type': true,
   // End: true,
   // Lit: true,
   // ValuePos: true,
@@ -38,33 +39,47 @@ const excludedTypes: {[key: string]: true} = {
   'mvdan.cc/sh/v3/syntax.*Pos': true,
 }
 
-export function expandObject(obj: any): any {
+export type ExpandObjectOptions = {
+  calls?: boolean,
+  excludedKeys?: string[],
+}
+
+const DROP = Symbol("DROP");
+
+export function expandObject(obj: any, opts: ExpandObjectOptions = {}): any {
   if (typeof obj === 'function') {
+    if (!opts.calls) { return DROP; }
     try {
-      return { __return_value__: expandObject(obj()) };
+      return { __return_value__: expandObject(obj(), opts) };
     } catch (e) {
       return { __cannot_call__: true };
     }
   } else if (obj !== null && typeof obj === 'object' && '__internal_object__' in obj) {
     const propNames = Object.getOwnPropertyNames(obj);
     let toReturn: any = {};
+    if ("$type" in obj) {
+      toReturn.Type = obj.$type.match("mvdan.cc/sh/v3/syntax\\.\\*(.*)")[1];
+    }
     for (const propName of propNames) {
       if (
         excludedSuffixes.every((suffix) => !propName.endsWith(suffix))
         && !excludedKeys[propName]
         && !(isObject(obj[propName]) && excludedTypes[obj[propName].$type])
       ) {
-        toReturn[propName] = expandObject(obj[propName]);
+        const expanded = expandObject(obj[propName], opts);
+        if (expanded !== DROP) {
+          toReturn[propName] = expanded;
+        }
       }
     }
 
-    if (isNode(obj)) {
-      toReturn.__span__ = getNodeId(obj);
-    }
+    // if (isNode(obj)) {
+    //   toReturn.__span__ = getNodeId(obj);
+    // }
 
     return toReturn;
   } else if (obj instanceof Array) {
-    return obj.map(expandObject);
+    return obj.map((obj) => expandObject(obj, opts));
   } else {
     return obj;
   }

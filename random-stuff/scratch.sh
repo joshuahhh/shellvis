@@ -45,13 +45,15 @@ exec {top_stderr}>&2
 
 
 
-{
-  echo "producer $sysparams[pid] vs $$" >&$top_stderr
-  echo "producing 1"
-  echo "producing 2"
-} | {
-  echo "consumer $sysparams[pid] vs $$" >&$top_stderr
-  while IFS= read -r line; do
-    echo "consuming $line"
-  done
-}
+# {
+#   echo "producer $sysparams[pid] vs $$" >&$top_stderr
+#   echo "producing 1"
+#   echo "producing 2"
+# } | {
+#   echo "consumer $sysparams[pid] vs $$" >&$top_stderr
+#   while IFS= read -r line; do
+#     echo "consuming $line"
+#   done
+# }
+
+VAR=$(echo "in parens $sysparams[pid] vs $$" >&$top_stderr)

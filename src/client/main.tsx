@@ -8,6 +8,7 @@ import { TestbedLinksV, TestbedV } from './TestbedV.js'
 
 import "./style.css"
 import { HighlightingTest } from './HighlightingTest.js'
+import { ASTTest } from './ASTTest.js'
 
 library.add(faRotateRight, faRotateLeft, faEllipsisVertical)
 
@@ -17,7 +18,7 @@ if (import.meta.hot) {
 }
 
 const HomeV = memo(() => {
-  return <>
+  return <div className='prose dark:prose-invert'>
     <ul>
       <li>
         <Link to="/cli">cli</Link>
@@ -27,10 +28,18 @@ const HomeV = memo(() => {
         <TestbedLinksV/>
       </li>
       <li>
-        <Link to="/highlighting-test">highlighting test</Link>
+        tests
+        <ul>
+          <li>
+            <Link to="/highlighting-test">highlighting test</Link>
+          </li>
+          <li>
+            <Link to="/ast-test">ast test</Link>
+          </li>
+        </ul>
       </li>
     </ul>
-  </>
+  </div>
 });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
@@ -40,6 +49,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
         <Route path="/cli" element={<CliV/>}/>
         <Route path="/testbed/:name" element={<TestbedV/>}/>
         <Route path="/highlighting-test" element={<HighlightingTest/>}/>
+        <Route path="/ast-test" element={<ASTTest/>}/>
         <Route path="*" element={<HomeV/>}/>
       </Routes>
     </HashRouter>

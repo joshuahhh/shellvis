@@ -10,7 +10,6 @@ const highlighter = new WebHighlighter();
 
 export const HighlightingTest = memo(() => {
   const [ lines, setLines ] = useState<string[] | null>(null);
-  const [ tokensByLine, setTokensByLine ] = useState<TokenWithSettings[][] | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -20,34 +19,36 @@ export const HighlightingTest = memo(() => {
     })();
   }, []);
 
+  return <div>
+    <h1 className="text-4xl mb-6 text-gray-300">Highlighting Test</h1>
+    <Highlighted lines={lines || []}/>
+  </div>
+});
+
+export const Highlighted = memo(({ lines }: { lines: string[] }) => {
+  const [ tokensByLine, setTokensByLine ] = useState<TokenWithSettings[][] | null>(null);
+
   useEffect(() => {
     (async () => {
-      if (lines === null) {
-        return;
-      }
       await highlighter.init();
       const tokensByLine = await highlighter.tokenizeLines(lines);
       setTokensByLine(tokensByLine);
     })();
   }, [lines]);
 
-  return <div>
-    <h1>Highlighting Test</h1>
-    { tokensByLine === null || lines === null
+  return <pre>
+    {tokensByLine === null
       ? <p>Loading...</p>
-      : <pre>
-          {tokensByLine.map((tokens, i) => {
-            return <div key={i} style={{ whiteSpace: 'pre' }}>
-              <span style={{ display: 'inline-block', color: 'gray', width: 30, textAlign: 'right', marginRight: 20 }}>
-                {i + 1}
-              </span>
-              {tokens.map((token, j) => {
-                const style = token.settings.foreground ? { color: token.settings.foreground } : {};
-                return <span key={j} style={style}>{lines[i].substring(token.startIndex, token.endIndex)}</span>;
-              })}
-            </div>;
+      : tokensByLine.map((tokens, i) => {
+        return <div key={i} style={{ whiteSpace: 'pre' }}>
+          <span style={{ display: 'inline-block', color: 'gray', width: 30, textAlign: 'right', marginRight: 20 }}>
+            {i + 1}
+          </span>
+          {tokens.map((token, j) => {
+            const style = token.settings.foreground ? { color: token.settings.foreground } : {};
+            return <span key={j} style={style}>{lines[i].substring(token.startIndex, token.endIndex)}</span>;
           })}
-        </pre>
-    }
-  </div>
+        </div>;
+      })}
+  </pre>;
 });
