@@ -8,7 +8,7 @@ export const WithAutomergeV = memo((props: {
 }) => {
   const repoRef = useRef<Repo>();
   if (!repoRef.current) {
-    const networkAdapter = new BrowserWebSocketClientAdapter("ws://localhost:8080/automerge", 500);
+    const networkAdapter = new BrowserWebSocketClientAdapter("ws://localhost:8080/automerge", 1000);
     repoRef.current = new Repo({ network: [ networkAdapter ] });
   }
   return <RepoContext.Provider value={repoRef.current}>

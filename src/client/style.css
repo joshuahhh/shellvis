@@ -72,32 +72,6 @@ body {
   padding: 40px 10px 0px 10px;
 }
 
-/* Base style for links */
-a {
-  color: #4da6ff;
-}
-
-/* Style for links on hover and focus for better accessibility */
-a:hover, a:focus {
-  color: #ffffff;
-  text-decoration: underline;
-}
-
-/* Style for visited links */
-a:visited {
-  color: #BFA2DB;
-}
-
-.output-stderr {
-  color: red;
-}
-
-pre {
-  /* white-space: pre-wrap; */
-  margin: 0px;
-  padding: 0px;
-}
-
 .line {
   display: flex;
   flex-direction: row;

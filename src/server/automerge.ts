@@ -16,6 +16,13 @@ export class AutomergeServer {
     this.wsServer = new WebSocketServer({ noServer: true });
     connectWsServer(this.wsServer, httpServer, path);
 
+    this.wsServer.on("connection", (ws, req) => {
+      console.log("automerge websocket connection", req.socket.remoteAddress);
+      // ws.on("message", (message) => {
+      //   console.log("automerge websocket message", message);
+      // });
+    });
+
     this.repo = new Repo({
       network: [new NodeWSServerAdapter(this.wsServer)],
       peerId: `engine-${hostname}` as PeerId,

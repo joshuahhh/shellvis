@@ -18,7 +18,7 @@ if (import.meta.hot) {
 }
 
 const HomeV = memo(() => {
-  return <div className='prose dark:prose-invert'>
+  return <div className='prose dark:prose-invert prose-a:text-blue-400 hover:prose-a:text-blue-500'>
     <ul>
       <li>
         <Link to="/cli">cli</Link>

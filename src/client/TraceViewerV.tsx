@@ -16,6 +16,7 @@ import { WebHighlighter } from "./WebHighlighter.js";
 import { Button } from "./shadcn/Button.js";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./shadcn/Select.js";
 import { Label } from "./shadcn/Label.js";
+import { AnimatePresence, motion } from "framer-motion";
 
 const ansiToHtml = new AnsiToHtml({});
 
@@ -169,129 +170,130 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
       restart
     </button>
 
-    <div style={{
-      position: 'fixed', bottom: 10, right: 10,
-      display: 'flex', flexDirection: 'column', gap: 5,
-      textAlign: 'right',
-      background: '#111',
-      padding: 10,
-      borderRadius: 10,
-    }}>
-      <div
-        style={{
-          position: showSettings ? 'absolute' : 'static', top: 10, left: 10,
-          cursor: 'pointer',
-        }}
+    <div className="fixed bottom-2 right-2
+                    flex flex-row-reverse items-end gap-4
+                  bg-gray-900 p-3 rounded-xl">
+      <div className="cursor-pointer select-none"
         onClick={() => setShowSettings(!showSettings)}
       >
         🟣
       </div>
-      { showSettings && <>
-        <Label className="flex items-center gap-2">
-          Details mode:
-          <Select
-            value={hvContext.detailsMode}
-            onValueChange={(value) => hvContextUP.detailsMode.$set(value as any)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="grid">grid</SelectItem>
-              <SelectItem value="in-place">in-place</SelectItem>
-            </SelectContent>
-          </Select>
-        </Label>
-        <Label className="flex items-center gap-2">
-          Abbreviate:
-          <Select
-            value={hvContext.abbreviateInfo}
-            onValueChange={(value) => hvContextUP.abbreviateInfo.$set(value as any)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="never">never</SelectItem>
-              <SelectItem value="outside-selection">outside-selection</SelectItem>
-              <SelectItem value="always">always</SelectItem>
-            </SelectContent>
-          </Select>
-        </Label>
-        <label>
-          <input
-            type="checkbox"
-            checked={hvContext.showMessages}
-            onChange={(e) => hvContextUP.showMessages.$set(e.target.checked)}
-            style={{marginRight: 10}}
-          />
-          Show messages
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={hvContext.showAST}
-            onChange={(e) => hvContextUP.showAST.$set(e.target.checked)}
-            style={{marginRight: 10}}
-          />
-          Show AST
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={hvContext.showTrace}
-            onChange={(e) => hvContextUP.showTrace.$set(e.target.checked)}
-            style={{marginRight: 10}}
-          />
-          Show trace
-        </label>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              await fetch(
-                "http://localhost:8080/execute",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    command: `code ${trace.path}`,
-                    cwd: ".",
-                  } satisfies ExecuteRequest),
-                }
-              )
-            }}
-          >
-            Open in VS Code
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              await fetch(
-                "http://localhost:8080/execute",
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    command: `open -R ${trace.path}`,
-                    cwd: ".",
-                  } satisfies ExecuteRequest),
-                }
-              )
-            }}
-          >
-            Open in Finder
-          </Button>
-        </div>
-        <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
-          session {sessionAutomergeUrl}
-        </div>
-        <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
-          trace {traceAutomergeUrl}
-        </div>
-      </>}
+      <AnimatePresence>
+        { showSettings && <motion.div
+          className='flex flex-col gap-2 min-w-0 overflow-x-hidden'
+          initial='absent' animate='present' exit='absent'
+          variants={{
+            present: { opacity: '100%', width: 'auto', height: 'auto' },
+            absent: { opacity: 0, width: 0, height: 0 },
+          }}
+          transition={{ duration: 0.25 }}
+        >
+          <Label className="flex items-center gap-2">
+            Details mode:
+            <Select
+              value={hvContext.detailsMode}
+              onValueChange={(value) => hvContextUP.detailsMode.$set(value as any)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="grid">grid</SelectItem>
+                <SelectItem value="in-place">in-place</SelectItem>
+              </SelectContent>
+            </Select>
+          </Label>
+          <Label className="flex items-center gap-2">
+            Abbreviate:
+            <Select
+              value={hvContext.abbreviateInfo}
+              onValueChange={(value) => hvContextUP.abbreviateInfo.$set(value as any)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="never">never</SelectItem>
+                <SelectItem value="outside-selection">outside-selection</SelectItem>
+                <SelectItem value="always">always</SelectItem>
+              </SelectContent>
+            </Select>
+          </Label>
+          <label>
+            <input
+              type="checkbox"
+              checked={hvContext.showMessages}
+              onChange={(e) => hvContextUP.showMessages.$set(e.target.checked)}
+              style={{marginRight: 10}}
+            />
+            Show messages
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={hvContext.showAST}
+              onChange={(e) => hvContextUP.showAST.$set(e.target.checked)}
+              style={{marginRight: 10}}
+            />
+            Show AST
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={hvContext.showTrace}
+              onChange={(e) => hvContextUP.showTrace.$set(e.target.checked)}
+              style={{marginRight: 10}}
+            />
+            Show trace
+          </label>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await fetch(
+                  "http://localhost:8080/execute",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      command: `code ${trace.path}`,
+                      cwd: ".",
+                    } satisfies ExecuteRequest),
+                  }
+                )
+              }}
+            >
+              Open in VS Code
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                await fetch(
+                  "http://localhost:8080/execute",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      command: `open -R ${trace.path}`,
+                      cwd: ".",
+                    } satisfies ExecuteRequest),
+                  }
+                )
+              }}
+            >
+              Open in Finder
+            </Button>
+          </div>
+          <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
+            session {sessionAutomergeUrl}
+          </div>
+          <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
+            trace {traceAutomergeUrl}
+          </div>
+        </motion.div>}
+      </AnimatePresence>
     </div>
   </HVContext.Provider>;
 });

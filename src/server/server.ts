@@ -4,6 +4,7 @@ import * as child_process from "node:child_process";
 import { ScriptWatcher } from "./ScriptWatcher.js";
 import { AutomergeServer } from "./automerge.js";
 import { ExecuteRequest, Session } from "../shared/types.js";
+import { AutomergeUrl } from "@automerge/automerge-repo";
 
 console.log("welcome to funrun")
 
@@ -23,9 +24,9 @@ const automergeServer = new AutomergeServer(httpServer, "/automerge");
 const sessionUrlCache: {[paramsStr: string]: string} = {};
 const watchers: {[sessionUrl: string]: ScriptWatcher} = {};
 
-app.post("/new-session", (req, res) => {
+app.post("/new-session", async (req, res) => {
   const paramsStr = JSON.stringify(req.body);
-  let sessionUrl = sessionUrlCache[paramsStr] as string | undefined;
+  let sessionUrl = sessionUrlCache[paramsStr] as AutomergeUrl | undefined;
   if (sessionUrl === undefined) {
     console.log("params not found; creating new session")
     const sessionHandle = automergeServer.repo.create<Session>({ traceAutomergeUrl: null });
@@ -40,7 +41,16 @@ app.post("/new-session", (req, res) => {
       }
     );
   } else {
-    console.log("params found; using existing session")
+    console.log("params found; using existing session", sessionUrl)
+    const sessionHandle = automergeServer.repo.find<Session>(sessionUrl);
+    const doc = await sessionHandle.doc();
+    if (doc === undefined) {
+      console.log("  session not found");
+      res.status(404).send("session not found");
+      return;
+    } else {
+      console.log("  session found, traceAutomergeUrl is", doc.traceAutomergeUrl);
+    }
   }
   res.send(sessionUrl);
 });
