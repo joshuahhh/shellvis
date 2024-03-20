@@ -115,6 +115,7 @@ const PRELUDE = normalizeIndent`
     [ $fr_debug ] && echo -E "sh: fr_msg gonna curl $1" >&$fr_top_stderr;
     ztcp localhost $fr_sh2fr_port
     fr_sh2fr_fd=$REPLY
+    unset REPLY
     echo "message" >/dev/fd/$fr_sh2fr_fd
     echo $1 >/dev/fd/$fr_sh2fr_fd
     cat /dev/fd/$fr_sh2fr_fd
@@ -125,6 +126,7 @@ const PRELUDE = normalizeIndent`
   fr_upload () {
     ztcp localhost $fr_sh2fr_port
     fr_sh2fr_fd=$REPLY
+    unset REPLY
     echo "upload $1" >/dev/fd/$fr_sh2fr_fd
     cat >/dev/fd/$fr_sh2fr_fd
     ztcp -c $fr_sh2fr_fd
