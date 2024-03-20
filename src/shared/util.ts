@@ -1,5 +1,11 @@
 import { weakMapCache } from "@engraft/shared/lib/cache.js";
 
+export function last<T>(arr: T[]): T;
+export function last(arr: string): string;
+export function last<T>(arr: T[] | string): T | string {
+  return arr[arr.length - 1];
+}
+
 export const rangeIncl = (start: number, stop: number, step = 1) =>
   Array.from({ length: (stop - start) / step + 1}, (_, i) => start + (i * step));
 

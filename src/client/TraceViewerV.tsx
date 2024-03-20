@@ -199,24 +199,9 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
             <SelectContent>
               <SelectItem value="grid">grid</SelectItem>
               <SelectItem value="in-place">in-place</SelectItem>
-              <SelectItem value="on-side">on-side</SelectItem>
             </SelectContent>
           </Select>
         </Label>
-        { hvContext.detailsMode === 'on-side' &&
-          <label>
-            On-side layout:
-            <select
-              value={hvContext.onSideLayout}
-              onChange={(e) => hvContextUP.onSideLayout.$set(e.target.value as any)}
-              style={{marginLeft: 10}}
-            >
-              <option value="smart">smart</option>
-              <option value="mid">mid</option>
-              <option value="dumb">dumb</option>
-            </select>
-          </label>
-        }
         <Label className="flex items-center gap-2">
           Abbreviate:
           <Select

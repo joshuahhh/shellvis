@@ -1,4 +1,4 @@
-import { weakMapCache2 } from "./util.js";
+import { last, weakMapCache2 } from "./util.js";
 
 // here, "typeset" refers to the bash command that tells you things about
 // variables
@@ -14,13 +14,13 @@ export function parseTypesetLine(line: string): ShellVar {
   const beforeEq = beforeAndAfterEq[0];
   const afterEq = beforeAndAfterEq[1] as string | undefined;
   const beforeEqParts = beforeEq.split(" ");
-  let name = beforeEqParts[beforeEqParts.length - 1];
-  if (name[0] === "'" && name[name.length - 1] === "'") {
+  let name = last(beforeEqParts);
+  if (name[0] === "'" && last(name) === "'") {
     name = name.slice(1, name.length - 1);
   }
   return {
     name,
-    attributes: beforeEqParts.slice(0, beforeEqParts.length - 1),
+    attributes: beforeEqParts.slice(0, -1),
     value: afterEq === undefined ? null : afterEq,
   };
 }

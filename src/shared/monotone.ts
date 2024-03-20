@@ -1,3 +1,5 @@
+import { last } from "./util.js";
+
 export function monotonicRegression(ys: number[], weights?: number[]): number[] {
   if (weights !== undefined && weights.length !== ys.length) {
     throw new Error('weights (if provided) must have the same length as ys');
@@ -17,7 +19,7 @@ export function monotonicRegression(ys: number[], weights?: number[]): number[] 
       weight: weights ? weights[i] : 1,
     };
     while (true) {
-      const lastBlock = blocks[blocks.length - 1];
+      const lastBlock = last(blocks);
       if (!lastBlock || lastBlock.y <= newBlock.y) {
         break;
       }

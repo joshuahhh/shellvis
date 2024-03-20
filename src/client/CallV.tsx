@@ -8,7 +8,7 @@ import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "../shared/execution.js
 import { Script, getNodeId, nodePosInfo } from "../shared/mvdan-sh-helpers.js";
 import { ExecuteRequest } from "../shared/types.js";
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from "../shared/typeset.js";
-import { weakMapCache2 } from "../shared/util.js";
+import { last, weakMapCache2 } from "../shared/util.js";
 import clsx from "clsx";
 import { count } from "@engraft/shared/lib/count.js";
 import { HVContext } from "./HVContext.js";
@@ -58,12 +58,6 @@ export const CallV = memo((props: CallVProps) => {
     : abbreviateInfo === 'never'
     ? false
     : !isInSelection;
-
-  const infos = execInfo && infoProviders.map((provider) =>
-    provider({ short, execInfo })
-  );
-
-  // console.log(script.srcForNode(callExpr), infos);
 
   return (
     execInfo &&
@@ -139,12 +133,16 @@ function infoProviderForStream(stream: 'stdout' | 'stderr'): InfoProvider {
     if (data.length > 0 && !execInfo.suppressed) {
       let contents: ReactNode;
       if (short) {
-        const text = data.join();
-        const numLines = (text.match(/\n./g)?.length || 0) + 1;
-        if (numLines === 1) {
+        const text = data.join("");
+        const lines = text.split('\n');
+        const numLines = lines.length - (last(lines) === '' ? 1 : 0);
+        if (numLines <= 2) {
           contents = <pre>{text}</pre>;
         } else {
-          contents = count(numLines, "line", "lines");
+          contents = <div>
+            <pre>{lines.slice(0, 1).join("\n")}</pre>
+            <div>+ {count(numLines - 1, "line", "lines")}</div>
+          </div>;
         }
       } else {
         contents = <pre>{data}</pre>;

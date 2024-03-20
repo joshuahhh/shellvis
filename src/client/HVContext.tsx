@@ -2,8 +2,7 @@ import { createContext } from "react";
 import * as vscode from 'vscode';
 
 export type HVContext = {
-  detailsMode: 'grid' | 'in-place' | 'on-side',  // todo:  | 'one-by-one' | 'none'
-  onSideLayout: 'smart' | 'mid' | 'dumb',
+  detailsMode: 'grid' | 'in-place',  // todo:  | 'one-by-one' | 'none'
   showMessages: boolean,
   showTrace: boolean,
   showAST: boolean,
@@ -14,7 +13,6 @@ export type HVContext = {
 
 export const defaultHVContext: HVContext = {
   detailsMode: 'grid',
-  onSideLayout: 'smart',
   showMessages: false,
   showTrace: false,
   showAST: false,

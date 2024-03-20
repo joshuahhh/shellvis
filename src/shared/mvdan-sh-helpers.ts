@@ -1,6 +1,6 @@
 import sh from "mvdan-sh";
 import { type Node } from "mvdan-sh";
-import { isObject, rangeIncl } from "./util.js";
+import { isObject, last, rangeIncl } from "./util.js";
 import { weakMapCache } from "@engraft/shared/lib/cache.js";
 import { WebHighlighter } from "../client/WebHighlighter.js";
 import { TokenWithSettings } from "./highlight.js";
@@ -346,7 +346,7 @@ function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
           lineNumStart: node.DoPos.Line() + 1,
           lineNumEnd: node.DonePos.Line(),
         } satisfies LineTreeNode;
-        stack[stack.length - 1].push(lineTreeNode);
+        last(stack).push(lineTreeNode);
         stack.push(lineTreeNode.children);
         return () => {
           stack.pop();
