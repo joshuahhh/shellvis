@@ -76,8 +76,10 @@ export const TraceInPlaceAndGridV = memo((props: TraceVProps) => {
   }, [backgroundElem, selections, traceElem]);
 
   return <div
-    className={`trace detailsMode-${detailsMode}`}
     ref={setTraceElem}
+    className={detailsMode === 'grid'
+      ? `inline-grid grid-cols-[fit-content(0%)_auto_minmax(min-content,max-content)]`
+      : ``}
     style={{position: 'relative'}}
   >
     { backgroundPos &&

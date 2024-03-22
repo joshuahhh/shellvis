@@ -3,7 +3,7 @@ import { Tooltip } from "@mui/material";
 import * as octicons from "@primer/octicons-react";
 import sh from "mvdan-sh";
 import path from "path-browserify";
-import React, { Fragment, ReactNode, memo, useContext } from "react";
+import { Fragment, ReactNode, memo, useContext } from "react";
 import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from "../shared/execution.js";
 import { Script, getNodeId, nodePosInfo } from "../shared/mvdan-sh-helpers.js";
 import { ExecuteRequest } from "../shared/types.js";
@@ -15,19 +15,18 @@ import { HVContext } from "./HVContext.js";
 
 
 type CallVProps = {
-  contents: ReactNode,
+  header?: ReactNode,
   callExpr: sh.CallExpr,
   context: string,
   trace: Trace,
   script: Script,
   className?: string,
-  showHeader?: boolean,
-  showLabel?: boolean,
-  showDetails?: boolean,
+  showCodeLabel?: boolean,
+  callInfoClassName?: string,
 }
 
 export const CallV = memo((props: CallVProps) => {
-  const {contents, callExpr, context, trace, script, className, showHeader = true, showLabel = false, showDetails} = props;
+  const {header, callExpr, context, trace, script, className, showCodeLabel = false, callInfoClassName} = props;
 
   const nodeId = getNodeId(callExpr);
   const execId = mkExecId({ context, nodeId });
@@ -41,6 +40,43 @@ export const CallV = memo((props: CallVProps) => {
         : 'done-failure'
       : 'running'
     : 'not-started';
+
+  return (
+    execInfo &&
+    <div className="inline-flex flex-col items-start">
+      { showCodeLabel &&
+        <div className="text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis">
+          {script.srcForNode(callExpr)}
+        </div>
+      }
+      <div
+        className={clsx(
+          className,
+          "inline-flex flex-col bg-gray-500 rounded mb-1 mr-1",
+          status === 'running' && "-ml-[3px] border-l-[3px] border-green-500",
+        )}
+        data-exec-id={execId}
+      >
+        { header &&
+          <div className="relative rounded">
+            <div className="absolute h-6 w-full bg-gray-600 rounded-t"/>
+            <div className="relative px-2">{header}</div>
+          </div>
+        }
+        <CallInfoV {...{ callExpr, execInfo, callInfoClassName }}/>
+      </div>
+    </div>
+  );
+});
+
+type CallInfoVProps = {
+  callExpr: sh.CallExpr,
+  execInfo: ExecInfo,
+  callInfoClassName?: string,
+}
+
+export const CallInfoV = memo((props: CallInfoVProps) => {
+  const {callExpr, execInfo, callInfoClassName} = props;
 
   const posInfo = nodePosInfo(callExpr);
   const { selections, abbreviateInfo } = useContext(HVContext);
@@ -59,43 +95,17 @@ export const CallV = memo((props: CallVProps) => {
     ? false
     : !isInSelection;
 
-  return (
-    execInfo &&
-    <div className="inline-flex flex-col items-start">
-      { showLabel &&
-        <div className="text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis">
-          {script.srcForNode(callExpr)}
-        </div>
-      }
-      <div
-        className={clsx(
-          "__call",
-          className,
-          "inline-flex flex-col bg-gray-500 rounded mb-1 mr-1",
-          status === 'running' && "-ml-[3px] border-l-[3px] border-green-500",
-        )}
-        data-exec-id={execId}
-      >
-        { showHeader &&
-          <div className={clsx('')}>
-            <div className="call__code-background"/>
-            <div className="call__code-contents">{contents}</div>
-          </div>
-        }
-        <div className={`call__info-wrapper ${showDetails ? 'open' : ''}`}>
-          <div style={{overflow: 'hidden'}}>
-            <div className="call__info" style={{fontSize: '80%'}}>
-              { execInfo && infoProviders.map((provider, i) =>
-                <Fragment key={i}>
-                  {provider({ short, execInfo })}
-                </Fragment>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const providerOutputs = infoProviders.map((provider, i) =>
+    [provider({ short, execInfo }), i] as const
+  ).filter(([result]) => result);
+
+  return <div className={clsx("call__info", callInfoClassName, providerOutputs.length === 0 && "bg-gray-700")} style={{fontSize: '80%'}} data-hi={providerOutputs.map(([_, b]) => b)}>
+    { providerOutputs.map(([providerOutput, i]) =>
+      <Fragment key={i}>
+        {providerOutput}
+      </Fragment>
+    )}
+  </div>;
 });
 
 // rest of this file is all just...
@@ -247,7 +257,7 @@ infoProviders.push(({ short, execInfo }) => {
 });
 
 // exit code
-infoProviders.push(({ short, execInfo }) => {
+infoProviders.push(({ execInfo }) => {
   const execExitInfo = execInfo?.exitInfo;
   if (execExitInfo && execExitInfo.exitCode !== 0) {
     return <div className="info-entry">
@@ -262,7 +272,7 @@ infoProviders.push(({ short, execInfo }) => {
 });
 
 // cwd
-infoProviders.push(({ short, execInfo }) => {
+infoProviders.push(({ execInfo }) => {
   const execExitInfo = execInfo?.exitInfo;
   if (execExitInfo && execExitInfo.cwd !== execInfo.enterCwd) {
     return <div className="info-entry">
@@ -285,6 +295,9 @@ infoProviders.push(({ short, execInfo }) => {
     const varsDiffRelevant = varsDiff.filter((change) => {
       return !ignoredShellVarNames.includes(shellVarChangeVarName(change));
     });
+    if (varsDiffRelevant.length === 0) {
+      return null;
+    }
     if (short && varsDiffRelevant.length > 1) {
       let typeCounts: Record<ShellVarChange["type"], number> = {
         add: 0,
@@ -348,19 +361,19 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): ReactNode {
 
 const varChangeIcons: Record<ShellVarChange["type"], ReactNode> = {
   add:
-    <InfoEntryIcon title="var add" className="shell-var-icon">
+    <InfoEntryIcon title="var add" className="text-sky-300">
       <octicons.DiffAddedIcon/>
     </InfoEntryIcon>,
   remove:
-    <InfoEntryIcon title="var remove" className="shell-var-icon">
+    <InfoEntryIcon title="var remove" className="text-sky-300">
       <octicons.DiffRemovedIcon/>
     </InfoEntryIcon>,
   changeValue:
-    <InfoEntryIcon title="var change" className="shell-var-icon">
+    <InfoEntryIcon title="var change" className="text-sky-300">
       <octicons.DiffModifiedIcon/>
     </InfoEntryIcon>,
   changeAttributes:
-    <InfoEntryIcon title="var change attrib" className="shell-var-icon">
+    <InfoEntryIcon title="var change attrib" className="text-sky-300">
       <octicons.DiffModifiedIcon/>
     </InfoEntryIcon>,
 }

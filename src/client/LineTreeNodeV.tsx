@@ -8,7 +8,7 @@ import { Iteration, Trace, mkExecId } from "../shared/execution.js";
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../shared/mvdan-sh-helpers.js";
 import { CallV } from "./CallV.js";
 import { HVContext } from "./HVContext.js";
-import clsx from "clsx";
+import tw from "./tailwind-styled-component/index.js";
 
 
 export type LineTreeNodeVProps = {
@@ -33,15 +33,43 @@ type DeadLineTreeNodeVProps = {
   node: LineTreeNode,
 }
 
+const Line = tw.div<{$inPlace: boolean}>`
+  line
+  ${p => p.$inPlace ? "flex flex-row" : "contents"}
+`;
+
+const LineNum = tw.div`
+  col-start-1
+  text-gray-500
+  mr-5
+  text-right
+  min-w-7
+  font-mono
+`;
+
+const LineContents = tw.div`
+  col-start-2
+  grow basis-0 min-w-0 overflow-hidden
+  whitespace-pre
+  font-mono
+  pr-5
+`;
+
+const LineCalls = tw.div`
+  flex flex-row flex-wrap items-start
+`;
+
 const DeadLineTreeNodeV = memo((props: DeadLineTreeNodeVProps) => {
   const {script, node} = props;
 
+  const { detailsMode } = useContext(HVContext);
+
   if (node.type === 'line') {
     // TODO: duplication from LineV
-    return <div className="line line--dead" data-line={node.lineNumStart - 1}>
-      <div className="line__num">{node.lineNumStart}</div>
-      <div className="line__contents">{node.line}</div>
-    </div>;
+    return <Line data-line={node.lineNumStart - 1} $inPlace={detailsMode === 'in-place'} className="text-gray-400">
+      <LineNum>{node.lineNumStart}</LineNum>
+      <LineContents>{node.line}</LineContents>
+    </Line>;
   } else if (node.type === 'loop-body') {
     return node.children.map((child, i) =>
       <Fragment key={i}>
@@ -68,12 +96,6 @@ const LineV = memo((props: LineVProps) => {
     // TODO: everything's limited to single lines
     return nodePosInfo(callExpr).pos.line === i + 1;
   });
-
-  let contentsIncludesCalls = false;
-  // if (detailsMode === 'grid' && callExprsOnLine.length > 1) {
-  //   detailsMode = 'in-place';
-  //   contentsIncludesCalls = true;
-  // }
 
   let [ nodes, starts, ends ] = addDecorationsToLineStarter(line);
   const colorDecorations: Decoration[] = script.tokensByLine![i].flatMap((token) => {
@@ -102,13 +124,11 @@ const LineV = memo((props: LineVProps) => {
           </div>
         : <CallV
             key={getNodeId(callExpr)}
-            contents={contents}
+            header={contents}
             callExpr={callExpr}
             context={context}
             trace={trace}
             script={script}
-            className={'call--on-left'}
-            showDetails={detailsMode === 'in-place'}
           />
     };
   });
@@ -124,27 +144,25 @@ const LineV = memo((props: LineVProps) => {
   // count /s in context
   const depth = context.match(/\//g)?.length || 0;
 
-  return <div className="line" data-line={i}>
-    <div className="line__num">{i + 1}</div>
-    <div className={clsx('line__contents', {'line__contents--includes-calls': contentsIncludesCalls})}>{nodes}</div>
+  return <Line data-line={i} $inPlace={detailsMode === 'in-place'}>
+    <LineNum>{i + 1}</LineNum>
+    <LineContents>{nodes}</LineContents>
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
-      <div className="line__calls" style={{paddingLeft: depth * 20}}>
+      <LineCalls style={{paddingLeft: depth * 20}}>
         {callExprsOnLine.map((callExpr) =>
           <CallV
             key={getNodeId(callExpr)}
-            contents={null}
             callExpr={callExpr}
             context={context}
             script={script}
             trace={trace}
-            showHeader={false}
-            showLabel={callExprsOnLine.length > 1}
-            showDetails={true}
+            showCodeLabel={callExprsOnLine.length > 1}
+            callInfoClassName="mx-1 min-w-5 min-h-6"
           />
         )}
-      </div>
+      </LineCalls>
     }
-  </div>;
+  </Line>;
 });
 
 type LoopViewState = 'expanded' | { collapsedOn: number };
@@ -174,17 +192,17 @@ const LoopBodyV = memo((props: {
   if (detailsMode === 'in-place') {
     if (iterations.length === 0) {
       return <>
-        <div className="line" data-line={forLineNum}>
-          <div className="line__num"/>
-          <div className="line__contents">
-            <div className="for-loop-iteration-header">
+        <Line data-line={forLineNum} $inPlace={true}>
+          <LineNum/>
+          <LineContents>
+            <ForLoopIterationHeader>
               <div>{forIndent}</div>
-              <div className="for-loop-iteration-header__label">
+              <ForLoopIterationHeaderLabel>
                 no iterations
-              </div>
-            </div>
-          </div>
-        </div>
+              </ForLoopIterationHeaderLabel>
+            </ForLoopIterationHeader>
+          </LineContents>
+        </Line>
         {node.children.map((child, i) =>
           <Fragment key={i}>
             <DeadLineTreeNodeV script={script} node={child}/>
@@ -204,10 +222,10 @@ const LoopBodyV = memo((props: {
       >
         {iterations.map((iteration, iterationIdx) =>
           <div key={iteration.counter}>
-            <div className="line" data-line={forLineNum}>
-              <div className="line__num"/>
-              <div className="line__contents">
-                <div className="indented">
+            <Line data-line={forLineNum} $inPlace={true}>
+              <LineNum/>
+              <LineContents>
+                <div className="flex flex-row">
                   <div>{forIndent}</div>
                   <LoopHeader
                     viewState={viewState}
@@ -220,8 +238,8 @@ const LoopBodyV = memo((props: {
                     numIterations={iterations.length}
                   />
                 </div>
-              </div>
-            </div>
+              </LineContents>
+            </Line>
             {node.children.map((child, i) =>
               <Fragment key={i}>
                 <LineTreeNodeV
@@ -239,10 +257,10 @@ const LoopBodyV = memo((props: {
       }
       const iteration = iterations[viewState.collapsedOn];
       return <>
-        <div className="line" data-line={forLineNum}>
-          <div className="line__num"/>
-          <div className="line__contents">
-            <div className="indented">
+        <Line data-line={forLineNum} $inPlace={true}>
+          <LineNum/>
+          <LineContents>
+            <div className="flex flex-row">
               <div>{forIndent}</div>
               <LoopHeader
                 viewState={viewState}
@@ -255,8 +273,8 @@ const LoopBodyV = memo((props: {
                 numIterations={iterations.length}
               />
             </div>
-          </div>
-        </div>
+          </LineContents>
+        </Line>
         {node.children.map((child, i) =>
           <Fragment key={i}>
             <LineTreeNodeV
@@ -272,14 +290,14 @@ const LoopBodyV = memo((props: {
 
     if (iterations.length === 0) {
       return <>
-        <div className="line__calls" style={{paddingLeft: depth * 20}} data-line={forLineNum}>
-          <div className="for-loop-iteration-header">
+        <LineCalls style={{paddingLeft: depth * 20}} data-line={forLineNum}>
+          <ForLoopIterationHeader>
             <div>{forIndent}</div>
-            <div className="for-loop-iteration-header__label">
+            <ForLoopIterationHeaderLabel>
               no iterations
-            </div>
-          </div>
-        </div>
+            </ForLoopIterationHeaderLabel>
+          </ForLoopIterationHeader>
+        </LineCalls>
         {node.children.map((child, i) =>
           <Fragment key={i}>
             <DeadLineTreeNodeV script={script} node={child}/>
@@ -296,7 +314,7 @@ const LoopBodyV = memo((props: {
     }
     const iteration = iterations[viewState.collapsedOn];
     return <>
-      <div className="line__calls" style={{paddingLeft: depth * 20}} data-line={forLineNum}>
+      <LineCalls style={{paddingLeft: depth * 20}} data-line={forLineNum}>
         <LoopHeader
           viewState={viewState}
           setViewState={setViewState}
@@ -308,7 +326,7 @@ const LoopBodyV = memo((props: {
           numIterations={iterations.length}
           allowExpand={false}
         />
-      </div>
+      </LineCalls>
       {node.children.map((child, i) =>
         <Fragment key={i}>
           <LineTreeNodeV
@@ -322,6 +340,21 @@ const LoopBodyV = memo((props: {
     return null;
   }
 });
+
+const ForLoopIterationHeader = tw.div`
+  flex flex-row items-center
+  relative  // for slider stabilization
+  for-loop-iteration-header
+  group
+`;
+
+const ForLoopIterationHeaderLabel = tw.div`
+  text-sm
+  text-white
+  px-1
+  w-fit
+`;
+
 
 const LoopHeader = memo((props: {
   viewState: LoopViewState,
@@ -351,15 +384,15 @@ const LoopHeader = memo((props: {
   }, [orientation, setOrientation]);
 
 
-  return <div className={`for-loop-iteration-header ${sliderIsDragging ? 'for-loop-iteration-header--slider-is-dragging' : ''}`}>
+  return <ForLoopIterationHeader className={sliderIsDragging ? 'for-loop-iteration-header--slider-is-dragging' : ''}>
     <LockSize lock={sliderIsDragging}>
-      <div className="for-loop-iteration-header__label bg-blue-500">
+      <ForLoopIterationHeaderLabel className="bg-blue-500">
         {varName} = {iteration.loopVarValue}
-      </div>
+      </ForLoopIterationHeaderLabel>
     </LockSize>
     { allowExpand &&
       <div
-        className="for-loop-iteration-header__expand-toggle"
+        className="invisible group-hover:visible cursor-pointer px-2 flex"
         onClick={toggleExpanded}
         style={{
           transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
@@ -374,7 +407,7 @@ const LoopHeader = memo((props: {
     }
     { viewState === 'expanded' &&
       <div
-        className="for-loop-iteration-header__expand-toggle"
+        className="invisible group-hover:visible cursor-pointer px-2 flex"
         onClick={toggleOrientation}
       >
         <div
@@ -389,7 +422,7 @@ const LoopHeader = memo((props: {
     }
     { viewState !== 'expanded' && <>
       <Slider
-        className="for-loop-iteration-header__slider"
+        className="mx-4"
         size="small"
         min={0} max={numIterations - 1} step={1}
         value={viewState.collapsedOn}
@@ -403,11 +436,11 @@ const LoopHeader = memo((props: {
         onMouseDown={() => { setSliderIsDragging(true); }}
         onChangeCommitted={() => { setSliderIsDragging(false); }}
       />
-      <div className="for-loop-iteration-header__counts">
+      <div className="text-blue-400">
         {viewState.collapsedOn + 1} / {numIterations}
       </div>
     </>}
-  </div>;
+  </ForLoopIterationHeader>;
 });
 
 const LockSize = memo((props: {

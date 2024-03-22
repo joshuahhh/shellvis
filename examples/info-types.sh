@@ -1,6 +1,9 @@
 # stdout
 echo "hi"
 
+# stdout: many lines
+echo "hi\nhello\nhow are you?"
+
 # stderr
 function bad() {
   echo "bad" >&2
