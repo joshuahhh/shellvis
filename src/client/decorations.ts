@@ -1,10 +1,10 @@
-import { rangeIncl } from "../shared/util.js";
+import { rangeIncl } from '../shared/util.js';
 
 export type Decoration = {
   start: number,
   end: number,
   decorator: (contents: React.ReactNode) => React.ReactNode,
-}
+};
 
 export function addDecorationsToLineStarter(line: string) {
   let nodes: React.ReactNode[] = Array.from(line);
@@ -22,13 +22,13 @@ export function addDecorationsToLineHelper(nodes: React.ReactNode[], starts: num
     // find a node with start = decoration.start
     const i = starts.indexOf(decoration.start);
     if (i === -1) {
-      throw new Error("decoration starts in the middle of a node");
+      throw new Error('decoration starts in the middle of a node');
     }
 
     // find a node with end = decoration.end
     const j = ends.indexOf(decoration.end);
     if (j === -1) {
-      throw new Error("decoration ends in the middle of a node");
+      throw new Error('decoration ends in the middle of a node');
     }
 
     // replace range of nodes with decorated version

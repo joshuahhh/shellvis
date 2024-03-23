@@ -75,7 +75,7 @@ export function tokenizeLines(lines: string[], grammar: IGrammar, rules?: ColorR
   let ruleStack = vsctm.INITIAL;
   let results: TokenWithSettings[][] = [];
   for (const line of lines) {
-    const tokenizeResult = grammar.tokenizeLine(line, ruleStack)
+    const tokenizeResult = grammar.tokenizeLine(line, ruleStack);
     const tokens = tokenizeResult.tokens.map((token) => {
       const rule = rules ? resolveScopes(token.scopes, rules) : null;
       return {

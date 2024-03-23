@@ -1,5 +1,5 @@
-import { RawString } from "@automerge/automerge/next";
-import { Message } from "./tracing.js";
+import { RawString } from '@automerge/automerge/next';
+import { Message } from './tracing.js';
 
 export function mkExecId({ context, nodeId }: { context: string, nodeId: string }): string {
   return `${context}/${nodeId}`;
@@ -8,7 +8,7 @@ export function mkExecId({ context, nodeId }: { context: string, nodeId: string 
 export type DeltaLogEntry = {
   path: string,
   event: string,
-}
+};
 
 export type ExecInfo = {
   suppressed: boolean,
@@ -22,24 +22,24 @@ export type ExecInfo = {
   varsEnterStr: RawString | null,
   varsExitStr: RawString | null,  // TODO: put in exitInfo? idk
   deltaLog: DeltaLogEntry[] | null,  // TODO: put in exitInfo? idk
-}
+};
 
 export type PipeProgress = {
   data: string[],  // interesting reflection of Automerge usage; push to array instead of appending to string!
   done: boolean,
-}
+};
 
 export type Iteration = {
   counter: number,
   loopVarValue: string,
-}
+};
 
 export type ForInfo = {
   iterations: Iteration[],
-}
+};
 
 export function parseDeltaLog(log: string): DeltaLogEntry[] {
-  const lines = log.split("\n");
+  const lines = log.split('\n');
   lines.pop();  // last line is empty
   return lines.map((line) => {
     // pattern is "path (event)"
@@ -62,4 +62,4 @@ export type Trace = {
   exitCode: number | null,
   transformedSrc: string | null,
   parseError: string | null,
-}
+};

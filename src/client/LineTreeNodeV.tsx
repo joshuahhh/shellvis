@@ -1,14 +1,14 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Slider } from '@mui/material';
-import * as octicons from "@primer/octicons-react";
-import sh from "mvdan-sh";
-import React, { Fragment, memo, useCallback, useContext, useEffect, useState } from "react";
-import { Decoration, addDecorationsToLineHelper, addDecorationsToLineStarter } from "./decorations.js";
-import { Iteration, Trace, mkExecId } from "../shared/execution.js";
-import { LineTreeNode, Script, getNodeId, nodePosInfo } from "../shared/mvdan-sh-helpers.js";
-import { CallV } from "./CallV.js";
-import { HVContext } from "./HVContext.js";
-import tw from "./tailwind-styled-component/index.js";
+import * as octicons from '@primer/octicons-react';
+import sh from 'mvdan-sh';
+import React, { Fragment, memo, useCallback, useContext, useEffect, useState } from 'react';
+import { Decoration, addDecorationsToLineHelper, addDecorationsToLineStarter } from './decorations.js';
+import { Iteration, Trace, mkExecId } from '../shared/execution.js';
+import { LineTreeNode, Script, getNodeId, nodePosInfo } from '../shared/mvdan-sh-helpers.js';
+import { CallV } from './CallV.js';
+import { HVContext } from './HVContext.js';
+import tw from './tailwind-styled-component/index.js';
 
 
 export type LineTreeNodeVProps = {
@@ -16,7 +16,7 @@ export type LineTreeNodeVProps = {
   trace: Trace,
   node: LineTreeNode,
   context: string,
-}
+};
 
 export const LineTreeNodeV = memo((props: LineTreeNodeVProps) => {
   const {script, trace, node, context} = props;
@@ -31,11 +31,11 @@ export const LineTreeNodeV = memo((props: LineTreeNodeVProps) => {
 type DeadLineTreeNodeVProps = {
   script: Script,
   node: LineTreeNode,
-}
+};
 
 const Line = tw.div<{$inPlace: boolean}>`
   line
-  ${p => p.$inPlace ? "flex flex-row" : "contents"}
+  ${p => p.$inPlace ? 'flex flex-row' : 'contents'}
 `;
 
 const LineNum = tw.div`
@@ -66,7 +66,7 @@ const DeadLineTreeNodeV = memo((props: DeadLineTreeNodeVProps) => {
 
   if (node.type === 'line') {
     // TODO: duplication from LineV
-    return <Line data-line={node.lineNumStart - 1} $inPlace={detailsMode === 'in-place'} className="text-gray-400">
+    return <Line data-line={node.lineNumStart - 1} $inPlace={detailsMode === 'in-place'} className='text-gray-400'>
       <LineNum>{node.lineNumStart}</LineNum>
       <LineContents>{node.line}</LineContents>
     </Line>;
@@ -85,7 +85,7 @@ type LineVProps = {
   line: string,
   i: number,
   context: string,
-}
+};
 
 const LineV = memo((props: LineVProps) => {
   const { script, trace, line, i, context } = props;
@@ -104,7 +104,7 @@ const LineV = memo((props: LineVProps) => {
         start: token.startIndex,
         end: token.endIndex,
         decorator: (contents) =>
-          <span style={{color: token.settings.foreground}}>{contents}</span>
+          <span style={{color: token.settings.foreground}}>{contents}</span>,
       };
     } else {
       return [];
@@ -119,7 +119,7 @@ const LineV = memo((props: LineVProps) => {
       end: posInfo.end.line > posInfo.pos.line ? line.length : posInfo.end.col - 1,
       decorator: (contents) =>
         detailsMode === 'grid'
-        ? <div className="inline-block border-b border-b-gray-500 mb-1 border-dashed">
+        ? <div className='inline-block border-b border-b-gray-500 mb-1 border-dashed'>
             {contents}
           </div>
         : <CallV
@@ -129,7 +129,7 @@ const LineV = memo((props: LineVProps) => {
             context={context}
             trace={trace}
             script={script}
-          />
+          />,
     };
   });
   try {
@@ -157,7 +157,7 @@ const LineV = memo((props: LineVProps) => {
             script={script}
             trace={trace}
             showCodeLabel={callExprsOnLine.length > 1}
-            callInfoClassName="mx-1 min-w-5 min-h-5"
+            callInfoClassName='mx-1 min-w-5 min-h-5'
           />
         )}
       </LineCalls>
@@ -225,7 +225,7 @@ const LoopBodyV = memo((props: {
             <Line data-line={forLineNum} $inPlace={true}>
               <LineNum/>
               <LineContents>
-                <div className="flex flex-row">
+                <div className='flex flex-row'>
                   <div>{forIndent}</div>
                   <LoopHeader
                     viewState={viewState}
@@ -260,7 +260,7 @@ const LoopBodyV = memo((props: {
         <Line data-line={forLineNum} $inPlace={true}>
           <LineNum/>
           <LineContents>
-            <div className="flex flex-row">
+            <div className='flex flex-row'>
               <div>{forIndent}</div>
               <LoopHeader
                 viewState={viewState}
@@ -307,7 +307,7 @@ const LoopBodyV = memo((props: {
     }
 
     if (viewState === 'expanded') {
-      throw new Error("not implemented");
+      throw new Error('not implemented');
     }
     if (viewState.collapsedOn >= iterations.length) {
       viewState = { collapsedOn: iterations.length - 1 };
@@ -386,44 +386,44 @@ const LoopHeader = memo((props: {
 
   return <ForLoopIterationHeader className={sliderIsDragging ? 'for-loop-iteration-header--slider-is-dragging' : ''}>
     <LockSize lock={sliderIsDragging}>
-      <ForLoopIterationHeaderLabel className="bg-blue-500">
+      <ForLoopIterationHeaderLabel className='bg-blue-500'>
         {varName} = {iteration.loopVarValue}
       </ForLoopIterationHeaderLabel>
     </LockSize>
     { allowExpand &&
       <div
-        className="invisible group-hover:visible cursor-pointer px-2 flex"
+        className='invisible group-hover:visible cursor-pointer px-2 flex'
         onClick={toggleExpanded}
         style={{
-          transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
-          transition: "transform 0.2s",
+          transform: orientation === 'horizontal' ? 'rotate(90deg)' : 'rotate(180deg)',
+          transition: 'transform 0.2s',
         }}
       >
         { viewState === 'expanded'
-        ? <octicons.FoldIcon verticalAlign="middle"/>
-        : <octicons.UnfoldIcon verticalAlign="middle"/>
+        ? <octicons.FoldIcon verticalAlign='middle'/>
+        : <octicons.UnfoldIcon verticalAlign='middle'/>
         }
       </div>
     }
     { viewState === 'expanded' &&
       <div
-        className="invisible group-hover:visible cursor-pointer px-2 flex"
+        className='invisible group-hover:visible cursor-pointer px-2 flex'
         onClick={toggleOrientation}
       >
         <div
           style={{
-            transform: orientation === 'horizontal' ? "rotate(90deg)" : "rotate(180deg)",
-            transition: "transform 0.2s",
+            transform: orientation === 'horizontal' ? 'rotate(90deg)' : 'rotate(180deg)',
+            transition: 'transform 0.2s',
           }}
         >
-          <FontAwesomeIcon icon="ellipsis-vertical" />
+          <FontAwesomeIcon icon='ellipsis-vertical' />
         </div>
       </div>
     }
     { viewState !== 'expanded' && <>
       <Slider
-        className="mx-4"
-        size="small"
+        className='mx-4'
+        size='small'
         min={0} max={numIterations - 1} step={1}
         value={viewState.collapsedOn}
         onChange={(_, newValue) =>
@@ -436,7 +436,7 @@ const LoopHeader = memo((props: {
         onMouseDown={() => { setSliderIsDragging(true); }}
         onChangeCommitted={() => { setSliderIsDragging(false); }}
       />
-      <div className="text-blue-400">
+      <div className='text-blue-400'>
         {viewState.collapsedOn + 1} / {numIterations}
       </div>
     </>}
@@ -445,7 +445,7 @@ const LoopHeader = memo((props: {
 
 const LockSize = memo((props: {
   children: React.ReactNode,
-  lock: boolean
+  lock: boolean,
 }) => {
   const { children, lock } = props;
   const [ wrapper, setWrapper ] = React.useState<HTMLElement | null>(null);

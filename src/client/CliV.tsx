@@ -1,17 +1,17 @@
-import { AutomergeUrl } from "@automerge/automerge-repo";
-import { useDocument } from "@automerge/automerge-repo-react-hooks";
-import { memo, useEffect, useRef, useState } from "react";
-import { Trace } from "../shared/execution.js";
-import { Session } from "../shared/types.js";
-import { WithAutomergeV } from "./WithAutomergeV.js";
-import { TraceViewerV } from "./TraceViewerV.js";
+import { AutomergeUrl } from '@automerge/automerge-repo';
+import { useDocument } from '@automerge/automerge-repo-react-hooks';
+import { memo, useEffect, useRef, useState } from 'react';
+import { Trace } from '../shared/execution.js';
+import { Session } from '../shared/types.js';
+import { WithAutomergeV } from './WithAutomergeV.js';
+import { TraceViewerV } from './TraceViewerV.js';
 
 export const CliV = memo(() => {
   // TODO: should I do something smarter than polling here?
   const [ sessionAutomergeUrl, setSessionAutomergeUrl ] = useState<AutomergeUrl | null>(null);
   useEffect(() => {
     async function check() {
-      const sessionAutomergeUrlRequest = await fetch("http://localhost:8080/session-automerge-url");
+      const sessionAutomergeUrlRequest = await fetch('http://localhost:8080/session-automerge-url');
       const sessionAutomergeUrl = await sessionAutomergeUrlRequest.text() as AutomergeUrl;
       setSessionAutomergeUrl(sessionAutomergeUrl);  // won't rerender if it's the same
     }
@@ -21,39 +21,39 @@ export const CliV = memo(() => {
   }, []);
 
   if (!sessionAutomergeUrl) {
-    return <div>Loading session document URL from server...</div>
+    return <div>Loading session document URL from server...</div>;
   } else {
     return <WithAutomergeV>
       <CliWithSessionUrlV sessionAutomergeUrl={sessionAutomergeUrl} />
-    </WithAutomergeV>
+    </WithAutomergeV>;
   }
 });
 
 export const CliWithSessionUrlV = memo((props: {
-  sessionAutomergeUrl: AutomergeUrl
+  sessionAutomergeUrl: AutomergeUrl,
 }) => {
-  const { sessionAutomergeUrl } = props
-  const [ session ] = useDocument<Session>(sessionAutomergeUrl)
+  const { sessionAutomergeUrl } = props;
+  const [ session ] = useDocument<Session>(sessionAutomergeUrl);
 
   if (!session) {
-    return <div>Loading session document from Automerge...</div>
+    return <div>Loading session document from Automerge...</div>;
   }
   if (!session.traceAutomergeUrl) {
-    return <div>Session document lacks a traceAutomergeUrl!</div>
+    return <div>Session document lacks a traceAutomergeUrl!</div>;
   }
 
   return <CliWithTraceAutomergeUrl
     sessionAutomergeUrl={sessionAutomergeUrl}
     traceAutomergeUrl={session.traceAutomergeUrl}
-  />
+  />;
 });
 
 const CliWithTraceAutomergeUrl = memo((props: {
   sessionAutomergeUrl: AutomergeUrl,
   traceAutomergeUrl: AutomergeUrl,
 }) => {
-  const { sessionAutomergeUrl, traceAutomergeUrl } = props
-  const [ trace ] = useDocument<Trace>(traceAutomergeUrl)
+  const { sessionAutomergeUrl, traceAutomergeUrl } = props;
+  const [ trace ] = useDocument<Trace>(traceAutomergeUrl);
 
   const oldTraceRef = useRef<Trace>();
   if (trace) {
@@ -61,7 +61,7 @@ const CliWithTraceAutomergeUrl = memo((props: {
   }
 
   if (!oldTraceRef.current) {
-    return <div>Loading trace document from Automerge...</div>
+    return <div>Loading trace document from Automerge...</div>;
   }
 
   return <>

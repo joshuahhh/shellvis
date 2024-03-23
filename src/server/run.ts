@@ -1,35 +1,35 @@
 /* eslint-disable import/first */
 
 // must come first
-import { dump } from "wtfnode";
+import { dump } from 'wtfnode';
 (global as any).dump = dump;
 
-import { DocHandle, Repo } from "@automerge/automerge-repo";
-import { RawString } from "@automerge/automerge/next";
-import sh from "mvdan-sh";
-import * as child_process from "node:child_process";
-import * as fsOld from "node:fs";
-import * as fs from "node:fs/promises";
-import * as os from "node:os";
-import * as path from "node:path";
-import * as tmp from "tmp";
-import { TypedEventTarget } from "../shared/TypedEventTarget.js";
-import { PipeProgress, Trace, mkExecId, parseDeltaLog } from "../shared/execution.js";
-import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } from "../shared/mvdan-sh-helpers.js";
-import { RunParams } from "../shared/types.js";
-import { parseTypeset } from "../shared/typeset.js";
-import { joinIterable } from "../shared/util.js";
-import { Sh2Fr, UploadName } from "./Sh2Fr.js";
-import { changeAt } from "./automerge.js";
-import { Sh2FrViaTcp } from "./Sh2FrViaTcp.js";
-import { Message } from "../shared/tracing.js";
+import { DocHandle, Repo } from '@automerge/automerge-repo';
+import { RawString } from '@automerge/automerge/next';
+import sh from 'mvdan-sh';
+import * as child_process from 'node:child_process';
+import * as fsOld from 'node:fs';
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import * as tmp from 'tmp';
+import { TypedEventTarget } from '../shared/TypedEventTarget.js';
+import { PipeProgress, Trace, mkExecId, parseDeltaLog } from '../shared/execution.js';
+import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } from '../shared/mvdan-sh-helpers.js';
+import { RunParams } from '../shared/types.js';
+import { parseTypeset } from '../shared/typeset.js';
+import { joinIterable } from '../shared/util.js';
+import { Sh2Fr, UploadName } from './Sh2Fr.js';
+import { changeAt } from './automerge.js';
+import { Sh2FrViaTcp } from './Sh2FrViaTcp.js';
+import { Message } from '../shared/tracing.js';
 
 type Sandbox = {
   sandboxDir: string,
   sandboxUnionDir: string,
   deltaDir: string,
   deltaUnionDir: string,
-}
+};
 
 async function makeSandbox(): Promise<Sandbox> {
   const sandboxDirUnreal = await fs.mkdtemp(path.join(os.tmpdir(), 'sandbox-'));
@@ -69,7 +69,7 @@ const printer = sh.syntax.NewPrinter();
 function parseStmt(s: string): sh.Stmt {
   const stmts = parser.Parse(s).Stmts;
   if (stmts.length !== 1 || !stmts[0]) {
-    throw new Error("need one stmt");
+    throw new Error('need one stmt');
   }
   return stmts[0];
 }
@@ -82,7 +82,7 @@ function pathInSandbox(path: string, sandbox: Sandbox): string | null {
   return path.slice(sandbox.deltaUnionDir.length);
 }
 
-async function handlePipeProgress(lines: AsyncIterable<string>, changePipeProgress: DocHandle<PipeProgress>["change"]):
+async function handlePipeProgress(lines: AsyncIterable<string>, changePipeProgress: DocHandle<PipeProgress>['change']):
   Promise<void>
 {
   for await (const line of lines) {
@@ -96,13 +96,13 @@ async function handlePipeProgress(lines: AsyncIterable<string>, changePipeProgre
 }
 
 const suppressedCommands = new Set([
-  "code",
-  "say",
+  'code',
+  'say',
 ]);
 
 type EventMap = {
   close: Event,
-}
+};
 
 export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   sandbox: Sandbox | null = null;
@@ -115,7 +115,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   constructor(
     public params: RunParams,
     public repo: Repo,
-    public sh2fr: Sh2Fr = new Sh2FrViaTcp(),
+    public sh2fr: Sh2Fr = new Sh2FrViaTcp()
   ) {
     super();
 
@@ -129,11 +129,11 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       startTime: null,
       transformedSrc: null,
       parseError: null,
-    })
+    });
   }
 
   async start() {
-    console.log("\n\n\nstarting");
+    console.log('\n\n\nstarting');
 
     const sh2frStart = await this.sh2fr.start({
       onMessage: this.onSh2FrMessage.bind(this),
@@ -159,18 +159,18 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
 
     myWalk(transformedAst, {
       exit: (node) => {
-        if (hasNodeType(node, "Stmt")) {
+        if (hasNodeType(node, 'Stmt')) {
           const cmd = node.Cmd;
-          if (hasNodeType(cmd, "CallExpr")) {
+          if (hasNodeType(cmd, 'CallExpr')) {
             const callId = getNodeId(cmd);
 
             let suppressed = false;
             if (cmd.Args && cmd.Args[0]?.Parts) {
               const cmdName = cmd.Args[0].Lit();
               if (suppressedCommands.has(cmdName)) {
-                const echoWord = parseFirstOfType(parser, "echo", "Word");
+                const echoWord = parseFirstOfType(parser, 'echo', 'Word');
                 if (!echoWord) {
-                  throw new Error("couldn't get echo word?");
+                  throw new Error('couldn\'t get echo word?');
                 }
                 cmd.Args = [echoWord, ...cmd.Args];
                 suppressed = true;
@@ -180,43 +180,43 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
             wrapStmt(parser, node, `{
               local fr_ret >/dev/null
               ${this.sh2fr.beforeCommand({
-                type: "call-enter",
+                type: 'call-enter',
                 nodeId: callId,
                 context: '$(fr_ctx_str)',
-                cwd: "$PWD",
+                cwd: '$PWD',
                 suppressed,
               })}
               fr-sandbox before-run $fr_sandbox_delta_dir
-              ${this.sh2fr.sendUpload("fr_typeset", "varsEnter")}
-              ${this.sh2fr.interceptAndUploadStds("___", "stdout", "stderr")}
+              ${this.sh2fr.sendUpload('fr_typeset', 'varsEnter')}
+              ${this.sh2fr.interceptAndUploadStds('___', 'stdout', 'stderr')}
               fr_ret=$?
-              ${this.sh2fr.sendUpload("fr_typeset", "varsExit")}
-              ${this.sh2fr.sendUpload("fr-sandbox after-run $fr_sandbox_delta_dir $fr_sandbox_sandbox_dir -", "deltaLog")}
+              ${this.sh2fr.sendUpload('fr_typeset', 'varsExit')}
+              ${this.sh2fr.sendUpload('fr-sandbox after-run $fr_sandbox_delta_dir $fr_sandbox_sandbox_dir -', 'deltaLog')}
               ${this.sh2fr.sendMessage({
-                type: "call-exit",
+                type: 'call-exit',
                 nodeId: callId,
                 context: '$(fr_ctx_str)',
-                cwd: "$PWD",
-                exitCode: "$fr_ret",
+                cwd: '$PWD',
+                exitCode: '$fr_ret',
               })}
               fr_exitcode $fr_ret;
             }`);
-          } else if (hasNodeType(cmd, "ForClause")) {
+          } else if (hasNodeType(cmd, 'ForClause')) {
             const forNodeId = getNodeId(cmd);
 
             const counterVar = `fr_loop_counter_${forNodeId}`;
             const loop = cmd.Loop;
-            if (!hasNodeType(loop, "WordIter")) {
+            if (!hasNodeType(loop, 'WordIter')) {
               throw new Error(`unsupported loop type ${sh.syntax.NodeType(loop)}`);
             }
             const loopVar = loop.Name?.Value;
             if (!loopVar) {
-              throw new Error(`wordIter has no Name?`);
+              throw new Error('wordIter has no Name?');
             }
             wrapStmt(parser, node, `{ ${counterVar}=0; ___; }`);
             cmd.Do = [
               parseStmt(this.sh2fr.sendMessage({
-                type: "for-body-enter",
+                type: 'for-body-enter',
                 nodeId: forNodeId,
                 context: '$(fr_ctx_str)',
                 counter: `$${counterVar}`,
@@ -225,9 +225,9 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
               })),
               parseStmt(`fr_ctx_push "${forNodeId}-$${counterVar}"`),
               ...cmd.Do,
-              parseStmt(`fr_ctx_pop`),
+              parseStmt('fr_ctx_pop'),
               parseStmt(this.sh2fr.sendMessage({
-                type: "for-body-exit",
+                type: 'for-body-exit',
                 nodeId: forNodeId,
                 context: '$(fr_ctx_str)',
               })),
@@ -235,23 +235,23 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
             ];
           }
         }
-      }
+      },
     });
 
-    console.log("this is server/run.ts");
+    console.log('this is server/run.ts');
 
     const frPreludeSrc = await fs.readFile(new URL('fr-prelude.sh', import.meta.url), { encoding: 'utf-8' });
 
-    this.transformedSrc = [frPreludeSrc, sh2frStart.prelude ?? '', printer.Print(transformedAst)].join("\n\n");
+    this.transformedSrc = [frPreludeSrc, sh2frStart.prelude ?? '', printer.Print(transformedAst)].join('\n\n');
 
     if (true) {
-      await fs.mkdir("_debug", { recursive: true });
-      await fs.writeFile("_debug/transformed.sh", this.transformedSrc, { encoding: 'utf-8' });
+      await fs.mkdir('_debug', { recursive: true });
+      await fs.writeFile('_debug/transformed.sh', this.transformedSrc, { encoding: 'utf-8' });
     }
 
     try {
-      this.transformedSrc = fsOld.readFileSync("transformedOverride.sh", { encoding: 'utf-8' });
-      console.log("USING TRANSFORMED OVERRIDE");
+      this.transformedSrc = fsOld.readFileSync('transformedOverride.sh', { encoding: 'utf-8' });
+      console.log('USING TRANSFORMED OVERRIDE');
     } catch {
       // ignore
     }
@@ -284,15 +284,15 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
         // stdio: 'ignore',
       }
     );
-    console.log("fr: spawned child process at", this.childProcess.pid);
+    console.log('fr: spawned child process at', this.childProcess.pid);
 
     this.childProcess.on('close', (exitCode: number) => {
-      console.log("child process exited with code", exitCode);
+      console.log('child process exited with code', exitCode);
       this.traceDoc.change((trace) => {
         trace.exitCode = exitCode;
       });
       this.stop();
-      this.dispatchEvent(new Event("close"));
+      this.dispatchEvent(new Event('close'));
     });
 
     process.once('exit', () => {
@@ -308,13 +308,13 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       trace.messageLog.push(message);
     });
 
-    if (message.type === "call-enter") {
+    if (message.type === 'call-enter') {
       const enterCwd = pathInSandbox(message.cwd, this.sandbox!);
 
       if (!enterCwd) {
-        console.error("call-enter cwd not in sandbox", message.cwd, "aborting");
+        console.error('call-enter cwd not in sandbox', message.cwd, 'aborting');
         await this.stop();
-        throw new Error("call-enter cwd not in sandbox");
+        throw new Error('call-enter cwd not in sandbox');
       }
 
       const execId = mkExecId(message);
@@ -328,18 +328,18 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           varsExitStr: null,
           deltaLog: null,
           suppressed: message.suppressed,
-        }
+        };
       });
 
-    } else if (message.type === "call-exit") {
+    } else if (message.type === 'call-exit') {
       const execId = mkExecId(message);
 
       const cwd = pathInSandbox(message.cwd, this.sandbox!);
 
       if (!cwd) {
-        console.error("call-exit cwd not in sandbox", message.cwd, "aborting");
+        console.error('call-exit cwd not in sandbox', message.cwd, 'aborting');
         await this.stop();
-        throw new Error("call-exit cwd not in sandbox");
+        throw new Error('call-exit cwd not in sandbox');
       }
 
       this.traceDoc.change((trace) => {
@@ -349,14 +349,14 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
         };
       });
       // console.log("fr: stmt-exit", execId);
-    } else if (message.type === "for-body-enter") {
+    } else if (message.type === 'for-body-enter') {
       const execId = mkExecId(message);
       const trace = await this.traceDoc.doc();
-      if (!trace) { throw new Error("trace not found"); }
+      if (!trace) { throw new Error('trace not found'); }
       if (!trace.forInfos[execId]) {
         this.traceDoc.change((trace) => {
           trace.forInfos[execId] = {
-            iterations: []
+            iterations: [],
           };
         });
       }
@@ -370,11 +370,11 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   }
 
   async onSh2FrUpload(execId: string, uploadName: UploadName, lines: AsyncIterable<string>) {
-    if (uploadName === "stdout") {
+    if (uploadName === 'stdout') {
       await handlePipeProgress(lines, changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stdout));
-    } else if (uploadName === "stderr") {
+    } else if (uploadName === 'stderr') {
       await handlePipeProgress(lines, changeAt(this.traceDoc, (trace) => trace.execInfos[execId].stderr));
-    } else if (uploadName === "varsEnter") {
+    } else if (uploadName === 'varsEnter') {
       const varsEnterTypeset = await joinIterable(lines);
       const varsEnter = parseTypeset(varsEnterTypeset);
       const varsEnterStr = JSON.stringify(varsEnter);
@@ -382,17 +382,17 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
         const execInfo = trace.execInfos[execId];
         execInfo.varsEnterStr = new RawString(varsEnterStr);
       });
-    } else if (uploadName === "varsExit") {
+    } else if (uploadName === 'varsExit') {
       const varsExitTypeset = await joinIterable(lines);
       const varsExit = parseTypeset(varsExitTypeset);
       const varsExitStr = JSON.stringify(varsExit);
       const trace = await this.traceDoc.doc();
-      if (!trace) { throw new Error("trace not found"); }
+      if (!trace) { throw new Error('trace not found'); }
       this.traceDoc.change((trace) => {
         const execInfo = trace.execInfos[execId];
         execInfo.varsExitStr = new RawString(varsExitStr);
       });
-    } else if (uploadName === "deltaLog") {
+    } else if (uploadName === 'deltaLog') {
       const deltaLogStr = await joinIterable(lines);
       this.traceDoc.change((trace) => {
         trace.execInfos[execId].deltaLog = parseDeltaLog(deltaLogStr);
@@ -401,7 +401,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   }
 
   async stop() {
-    console.log("stopping");
+    console.log('stopping');
     if (this.childProcess && this.childProcess.exitCode === null) {
       this.childProcess.kill();
     }

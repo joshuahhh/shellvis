@@ -1,4 +1,4 @@
-import json5 from "json5";
+import json5 from 'json5';
 
 const stringOrChar = /("(?:[^\\"]|\\.)*")|[:,]/g;
 
@@ -13,7 +13,7 @@ export default function stringify(passedObj, options = {}) {
   ).slice(2, -3);
 
   const maxLength =
-    indent === ""
+    indent === ''
       ? Infinity
       : options.maxLength === undefined
       ? 80
@@ -22,7 +22,7 @@ export default function stringify(passedObj, options = {}) {
   let { replacer } = options;
 
   return (function _stringify(obj, currentIndent, reserved) {
-    if (obj && typeof obj.toJSON === "function") {
+    if (obj && typeof obj.toJSON === 'function') {
       obj = obj.toJSON();
     }
 
@@ -51,7 +51,7 @@ export default function stringify(passedObj, options = {}) {
       replacer = undefined;
     }
 
-    if (typeof obj === "object" && obj !== null) {
+    if (typeof obj === 'object' && obj !== null) {
       const nextIndent = currentIndent + indent;
       const items = [];
       let index = 0;
@@ -59,18 +59,18 @@ export default function stringify(passedObj, options = {}) {
       let end;
 
       if (Array.isArray(obj)) {
-        start = "[";
-        end = "]";
+        start = '[';
+        end = ']';
         const { length } = obj;
         for (; index < length; index++) {
           items.push(
             _stringify(obj[index], nextIndent, index === length - 1 ? 0 : 1) ||
-              "null"
+              'null'
           );
         }
       } else {
-        start = "{";
-        end = "}";
+        start = '{';
+        end = '}';
         const keys = Object.keys(obj);
         const { length } = keys;
         for (; index < length; index++) {
@@ -95,7 +95,7 @@ export default function stringify(passedObj, options = {}) {
     }
 
     return string;
-  })(passedObj, "", 0);
+  })(passedObj, '', 0);
 }
 
 function keyStr(key) {
@@ -103,7 +103,7 @@ function keyStr(key) {
   const testStr = json5.stringify(testObj);
   const match = testStr.match(/^{(.*):1}$/);
   if (!match) {
-    throw new Error("Unexpected key");
+    throw new Error('Unexpected key');
   }
   return match[1];
 }

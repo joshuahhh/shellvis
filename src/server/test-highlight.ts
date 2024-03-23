@@ -16,7 +16,7 @@ async function loadColorRulesFromTheme(themePath: URL): Promise<ColorRule[]> {
   const colorRules = theme.tokenColors || [];
   if (theme.include) {
     const includedColorRules = await loadColorRulesFromTheme(
-      new URL(theme.include, themePath),
+      new URL(theme.include, themePath)
     );
     return [...colorRules, ...includedColorRules];
   }
@@ -57,7 +57,7 @@ async function main() {
     return;
   }
 
-  const text = await fsP.readFile(relToScript("../../examples/test.sh"), "utf-8");
+  const text = await fsP.readFile(relToScript('../../examples/test.sh'), 'utf-8');
   const lines = text.split('\n');
 
   const tokensByLine = tokenizeLines(lines, grammar, rules);

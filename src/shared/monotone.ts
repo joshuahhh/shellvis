@@ -1,4 +1,4 @@
-import { last } from "./util.js";
+import { last } from './util.js';
 
 export function monotonicRegression(ys: number[], weights?: number[]): number[] {
   if (weights !== undefined && weights.length !== ys.length) {
@@ -51,7 +51,7 @@ export type Interval = {
   width: number,
   leftTarget: number,
   weight?: number,
-}
+};
 
 export function layOutIntervals(
   intervals: Interval[]

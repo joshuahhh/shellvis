@@ -1,7 +1,7 @@
-import { memo, useEffect, useState } from "react";
-import { TokenWithSettings } from "../shared/highlight.js";
-import { WebHighlighter } from "./WebHighlighter.js";
-import scriptUrl from "../../examples/test.sh?url";
+import { memo, useEffect, useState } from 'react';
+import { TokenWithSettings } from '../shared/highlight.js';
+import { WebHighlighter } from './WebHighlighter.js';
+import scriptUrl from '../../examples/test.sh?url';
 
 
 // just a syntax highlighting test
@@ -20,9 +20,9 @@ export const HighlightingTest = memo(() => {
   }, []);
 
   return <div>
-    <h1 className="text-4xl mb-6 text-gray-300">Highlighting Test</h1>
+    <h1 className='text-4xl mb-6 text-gray-300'>Highlighting Test</h1>
     <Highlighted lines={lines || []}/>
-  </div>
+  </div>;
 });
 
 export const Highlighted = memo(({ lines }: { lines: string[] }) => {

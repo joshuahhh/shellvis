@@ -1,22 +1,22 @@
-import { AutomergeUrl } from "@automerge/automerge-repo";
-import { useUpdateProxy } from "@engraft/update-proxy-react";
-import AnsiToHtml from "ansi-to-html";
-import sh from "mvdan-sh";
-import React, { Fragment, memo, useEffect, useMemo } from "react";
-import * as util from "util";
-import * as vscode from 'vscode';
-import { Trace } from "../shared/execution.js";
-import { Script, expandObject } from "../shared/mvdan-sh-helpers.js";
-import { Message } from "../shared/tracing.js";
-import { ExecuteRequest } from "../shared/types.js";
-import { HVContext, defaultHVContext } from "./HVContext.js";
-import { TraceV } from "./TraceV.js";
-import { VSCodeListener } from "./VSCodeListener.js";
-import { WebHighlighter } from "./WebHighlighter.js";
-import { Button } from "./shadcn/Button.js";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./shadcn/Select.js";
-import { Label } from "./shadcn/Label.js";
-import { AnimatePresence, motion } from "framer-motion";
+import { AutomergeUrl } from '@automerge/automerge-repo';
+import { useUpdateProxy } from '@engraft/update-proxy-react';
+import AnsiToHtml from 'ansi-to-html';
+import sh from 'mvdan-sh';
+import React, { Fragment, memo, useEffect, useMemo } from 'react';
+import * as util from 'util';
+import { Trace } from '../shared/execution.js';
+import { Script, expandObject } from '../shared/mvdan-sh-helpers.js';
+import { Message } from '../shared/tracing.js';
+import { ExecuteRequest } from '../shared/types.js';
+import { HVContext, defaultHVContext } from './HVContext.js';
+import { TraceV } from './TraceV.js';
+import { VSCodeListener } from './VSCodeListener.js';
+import { WebHighlighter } from './WebHighlighter.js';
+import { Button } from './shadcn/Button.js';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './shadcn/Select.js';
+import { Label } from './shadcn/Label.js';
+import { AnimatePresence, motion } from 'framer-motion';
+import { type TextEditorSelectionChangeEvent, type Selection } from 'vscode';
 
 const ansiToHtml = new AnsiToHtml({});
 
@@ -24,7 +24,7 @@ type TraceViewerVProps = {
   sessionAutomergeUrl: AutomergeUrl,
   traceAutomergeUrl: AutomergeUrl,
   trace: Trace,
-}
+};
 
 const parser = sh.syntax.NewParser();
 const highlighter = new WebHighlighter();
@@ -42,9 +42,9 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
   useEffect(() => {
     const vsCodeListener = new VSCodeListener();
     const onMessage = (e: MessageEvent<string>) => {
-      const vsEvent: vscode.TextEditorSelectionChangeEvent = JSON.parse(e.data);
+      const vsEvent: TextEditorSelectionChangeEvent = JSON.parse(e.data);
       if (vsEvent.textEditor.document.fileName !== trace.path) { return; }
-      hvContextUP.selections.$set(vsEvent.selections as vscode.Selection[]);
+      hvContextUP.selections.$set(vsEvent.selections as Selection[]);
     };
     vsCodeListener.addEventListener('message', onMessage);
 
@@ -116,7 +116,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
               {inspectHtml(rest)}
             </div>
           </dd>
-        </Fragment>
+        </Fragment>;
       })}
     </dl>
   </div>;
@@ -136,7 +136,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
               </li>)}
             </ul>
           </dd>
-        </Fragment>
+        </Fragment>;
       })}
     </dl>
   </div>;
@@ -163,17 +163,17 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
       onClick={async () => {
         await fetch(
           `http://localhost:8080/restart/${sessionAutomergeUrl}`,
-          { method: "POST" }
+          { method: 'POST' }
         );
       }}
     >
       restart
     </button>
 
-    <div className="fixed bottom-2 right-2
+    <div className='fixed bottom-2 right-2
                     flex flex-row-reverse items-end gap-4
-                  bg-gray-900 p-3 rounded-xl">
-      <div className="cursor-pointer select-none"
+                  bg-gray-900 p-3 rounded-xl'>
+      <div className='cursor-pointer select-none'
         onClick={() => setShowSettings(!showSettings)}
       >
         🟣
@@ -188,7 +188,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           }}
           transition={{ duration: 0.25 }}
         >
-          <Label className="flex items-center gap-2">
+          <Label className='flex items-center gap-2'>
             Details mode:
             <Select
               value={hvContext.detailsMode}
@@ -198,12 +198,12 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="grid">grid</SelectItem>
-                <SelectItem value="in-place">in-place</SelectItem>
+                <SelectItem value='grid'>grid</SelectItem>
+                <SelectItem value='in-place'>in-place</SelectItem>
               </SelectContent>
             </Select>
           </Label>
-          <Label className="flex items-center gap-2">
+          <Label className='flex items-center gap-2'>
             Abbreviate:
             <Select
               value={hvContext.abbreviateInfo}
@@ -213,15 +213,15 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="never">never</SelectItem>
-                <SelectItem value="outside-selection">outside-selection</SelectItem>
-                <SelectItem value="always">always</SelectItem>
+                <SelectItem value='never'>never</SelectItem>
+                <SelectItem value='outside-selection'>outside-selection</SelectItem>
+                <SelectItem value='always'>always</SelectItem>
               </SelectContent>
             </Select>
           </Label>
           <label>
             <input
-              type="checkbox"
+              type='checkbox'
               checked={hvContext.showMessages}
               onChange={(e) => hvContextUP.showMessages.$set(e.target.checked)}
               style={{marginRight: 10}}
@@ -230,7 +230,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           </label>
           <label>
             <input
-              type="checkbox"
+              type='checkbox'
               checked={hvContext.showAST}
               onChange={(e) => hvContextUP.showAST.$set(e.target.checked)}
               style={{marginRight: 10}}
@@ -239,57 +239,57 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           </label>
           <label>
             <input
-              type="checkbox"
+              type='checkbox'
               checked={hvContext.showTrace}
               onChange={(e) => hvContextUP.showTrace.$set(e.target.checked)}
               style={{marginRight: 10}}
             />
             Show trace
           </label>
-          <div className="flex gap-2">
+          <div className='flex gap-2'>
             <Button
-              variant="outline"
-              size="sm"
+              variant='outline'
+              size='sm'
               onClick={async () => {
                 await fetch(
-                  "http://localhost:8080/execute",
+                  'http://localhost:8080/execute',
                   {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       command: `code ${trace.path}`,
-                      cwd: ".",
+                      cwd: '.',
                     } satisfies ExecuteRequest),
                   }
-                )
+                );
               }}
             >
               Open in VS Code
             </Button>
             <Button
-              variant="outline"
-              size="sm"
+              variant='outline'
+              size='sm'
               onClick={async () => {
                 await fetch(
-                  "http://localhost:8080/execute",
+                  'http://localhost:8080/execute',
                   {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       command: `open -R ${trace.path}`,
-                      cwd: ".",
+                      cwd: '.',
                     } satisfies ExecuteRequest),
                   }
-                )
+                );
               }}
             >
               Open in Finder
             </Button>
           </div>
-          <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
+          <div style={{fontSize: '50%', lineHeight: 1, color: '#777'}}>
             session {sessionAutomergeUrl}
           </div>
-          <div style={{fontSize: "50%", lineHeight: 1, color: '#777'}}>
+          <div style={{fontSize: '50%', lineHeight: 1, color: '#777'}}>
             trace {traceAutomergeUrl}
           </div>
         </motion.div>}
@@ -308,11 +308,11 @@ const MessageV = memo((props: { message: Message, script: Script }) => {
       </div>
     }
     { inspectHtml(message) }
-  </div>
+  </div>;
 });
 
 function inspectHtml(value: any) {
   return <pre dangerouslySetInnerHTML={{ __html:
-    ansiToHtml.toHtml(util.inspect(value, { showHidden: false, depth: null, colors: true }))
+    ansiToHtml.toHtml(util.inspect(value, { showHidden: false, depth: null, colors: true })),
   }} />;
 }

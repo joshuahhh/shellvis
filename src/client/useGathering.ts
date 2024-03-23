@@ -1,5 +1,5 @@
 
-import { useCallback, useState } from "react";
+import { useCallback, useState } from 'react';
 
 export function useGathering<T>(): [Record<string, T>, (id: string, value: T | undefined) => void] {
   const [values, setValues] = useState<Record<string, T>>({});

@@ -1,8 +1,8 @@
-import { memo, useContext, useEffect, useState } from "react";
-import { LineTreeNodeV } from "./LineTreeNodeV.js";
-import { TraceVProps } from "./TraceV.js";
-import { HVContext } from "./HVContext.js";
-import { rafLoop } from "./rafLoop.js";
+import { memo, useContext, useEffect, useState } from 'react';
+import { LineTreeNodeV } from './LineTreeNodeV.js';
+import { TraceVProps } from './TraceV.js';
+import { HVContext } from './HVContext.js';
+import { rafLoop } from './rafLoop.js';
 
 type BackgroundPos = {
   top: number,
@@ -78,13 +78,13 @@ export const TraceInPlaceAndGridV = memo((props: TraceVProps) => {
   return <div
     ref={setTraceElem}
     className={detailsMode === 'grid'
-      ? `inline-grid grid-cols-[fit-content(0%)_auto_minmax(min-content,max-content)]`
-      : ``}
+      ? 'inline-grid grid-cols-[fit-content(0%)_auto_minmax(min-content,max-content)]'
+      : ''}
     style={{position: 'relative'}}
   >
     { backgroundPos &&
       <div
-        className="trace-background"
+        className='trace-background'
         ref={setBackgroundElem}
         style={{
           position: 'absolute',
@@ -99,7 +99,7 @@ export const TraceInPlaceAndGridV = memo((props: TraceVProps) => {
       />
     }
     {script.lineTree.map((node, i) =>
-      <LineTreeNodeV key={i} script={script} trace={trace} node={node} context=""/>
+      <LineTreeNodeV key={i} script={script} trace={trace} node={node} context=''/>
     )}
   </div>;
 });

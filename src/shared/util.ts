@@ -1,4 +1,4 @@
-import { weakMapCache } from "@engraft/shared/lib/cache.js";
+import { weakMapCache } from '@engraft/shared/lib/cache.js';
 
 export function last<T>(arr: T[]): T;
 export function last(arr: string): string;
@@ -14,7 +14,7 @@ export function isObject(obj: any): boolean {
 }
 
 export function FATAL(...args: any[]): never {
-  console.error("FATAL", ...args);
+  console.error('FATAL', ...args);
   process.exit(1);
 }
 
@@ -51,7 +51,7 @@ export async function nextAsserted(ait: AsyncIterator<string, void>, msg?: strin
   if (!result.done) {
     return result.value;
   } else {
-    throw new Error(msg ?? "nextAsserted hit end of stream");
+    throw new Error(msg ?? 'nextAsserted hit end of stream');
   }
 }
 
@@ -60,5 +60,5 @@ export async function joinIterable(ait: AsyncIterable<string>): Promise<string> 
   for await (const chunk of ait) {
     result.push(chunk);
   }
-  return result.join("");
+  return result.join('');
 }

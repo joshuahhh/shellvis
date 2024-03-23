@@ -1,10 +1,10 @@
-import { normalizeIndent } from "@engraft/shared/lib/normalizeIndent.js";
-import getPort from "get-port";
-import * as net from "node:net";
-import { FATAL, chunksToLines, nextAsserted } from "../shared/util.js";
-import { Sh2Fr, UploadName, uploadNames } from "./Sh2Fr.js";
-import { mkExecId } from "../shared/execution.js";
-import { Message } from "../shared/tracing.js";
+import { normalizeIndent } from '@engraft/shared/lib/normalizeIndent.js';
+import getPort from 'get-port';
+import * as net from 'node:net';
+import { FATAL, chunksToLines, nextAsserted } from '../shared/util.js';
+import { Sh2Fr, UploadName, uploadNames } from './Sh2Fr.js';
+import { mkExecId } from '../shared/execution.js';
+import { Message } from '../shared/tracing.js';
 
 
 export class Sh2FrViaTcp implements Sh2Fr {
@@ -20,9 +20,9 @@ export class Sh2FrViaTcp implements Sh2Fr {
   beforeCommand(message: Message & { type: 'call-enter' }) {
     const uploadIdVars = uploadNames.map(uploadIdVarFromName);
     return normalizeIndent`
-      local ${uploadIdVars.join(" ")} >/dev/null;
-      ${frMsgStr(message, uploadIdVars.join(" "))};
-      # echo "sh: got upload ids ${uploadIdVars.map(s => `$${s}`).join(" ")}" >&$fr_top_stderr;
+      local ${uploadIdVars.join(' ')} >/dev/null;
+      ${frMsgStr(message, uploadIdVars.join(' '))};
+      # echo "sh: got upload ids ${uploadIdVars.map(s => `$${s}`).join(' ')}" >&$fr_top_stderr;
     `;
   }
 
@@ -33,7 +33,7 @@ export class Sh2FrViaTcp implements Sh2Fr {
   interceptAndUploadStds(command: string, stdoutUploadName: UploadName, stderrUploadName: UploadName) {
     // TODO: avoid command substitution with pipe jiu-jitsu? (while still
     // getting the right command return value?)
-    return `${command} 1>&1 1> >(fr_upload $${uploadIdVarFromName(stdoutUploadName)}) 2>&2 2> >(fr_upload $${uploadIdVarFromName(stderrUploadName)})`
+    return `${command} 1>&1 1> >(fr_upload $${uploadIdVarFromName(stdoutUploadName)}) 2>&2 2> >(fr_upload $${uploadIdVarFromName(stderrUploadName)})`;
   }
 
   async start(props: Sh2Fr.StartProps) {
@@ -45,13 +45,13 @@ export class Sh2FrViaTcp implements Sh2Fr {
     this.server = net.createServer();
     this.port = await getPort();
     this.server.listen(this.port, () => {
-      console.log(`sh2fr server listening on port ${this.port}`)
+      console.log(`sh2fr server listening on port ${this.port}`);
     });
     this.server.on('connection', async (socket) => {
       socket.setEncoding('utf-8');
       const lines = chunksToLines(socket);
       const firstLine = await nextAsserted(lines, 'no first line given to sh2fr');
-      if (firstLine === "message\n") {
+      if (firstLine === 'message\n') {
         const secondLine = await nextAsserted(lines, 'first line `message` but no second line');
         try {
           const dataParsed: Message = JSON.parse(secondLine);
@@ -65,26 +65,26 @@ export class Sh2FrViaTcp implements Sh2Fr {
               uploadInfos[uploadId] = { execId, uploadName };
               uploadIds.push(uploadId.toString());
             }
-            socket.write(uploadIds.join(" ") + "\n");
+            socket.write(uploadIds.join(' ') + '\n');
           }
           socket.end();
         } catch (err) {
-          FATAL("trouble parsing message contents", err, secondLine);
+          FATAL('trouble parsing message contents', err, secondLine);
         }
-      } else if (firstLine.startsWith("upload ")) {
+      } else if (firstLine.startsWith('upload ')) {
         const match = firstLine.match(/^upload (\d+)\n$/);  // currently uploadIds are integers
         if (!match) {
-          FATAL("unexpected upload line", firstLine);
+          FATAL('unexpected upload line', firstLine);
         }
         const uploadId = match[1];
         const uploadInfo = uploadInfos[uploadId];
         if (!uploadInfo) {
-          FATAL("unexpected uploadId", uploadId, "from", firstLine);
+          FATAL('unexpected uploadId', uploadId, 'from', firstLine);
         }
         await onUpload(uploadInfo.execId, uploadInfo.uploadName, lines);
         delete uploadInfos[uploadId];
       } else {
-        FATAL("unexpected first line sent to sh2fr:", firstLine);
+        FATAL('unexpected first line sent to sh2fr:', firstLine);
       }
     });
 
@@ -98,12 +98,12 @@ export class Sh2FrViaTcp implements Sh2Fr {
     this.server && this.server.listening && await new Promise((resolve) => {
       this.server!.close((err) => {
         if (err) {
-          console.error("error closing sh2frServer", err);
+          console.error('error closing sh2frServer', err);
         } else {
-          console.log("sh2frServer closed");
+          console.log('sh2frServer closed');
         }
         resolve(undefined);
-      })
+      });
     });
   }
 }

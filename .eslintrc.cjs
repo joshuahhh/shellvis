@@ -2,41 +2,68 @@
 module.exports = {
   root: true,
   extends: [
-    "react-app"
+    'react-app',
+  ],
+  plugins: [
+    '@stylistic',
+    '@stylistic/ts',
   ],
   settings: {
     'import/resolver': {
-      typescript: true
-    }
+      typescript: true,
+    },
   },
   ignorePatterns: [
-    "dist",
-    "lib",
+    'dist',
+    'lib',
+    '/src/client/shadcn',
+    '/src/client/tailwind-styled-component',
   ],
   rules: {
-    "@typescript-eslint/no-unused-vars": [
-      "warn",
+    '@typescript-eslint/no-unused-vars': [
+      'warn',
       {
-        args: "none",
+        args: 'none',
         ignoreRestSiblings: true,
-        argsIgnorePattern: "^_",
-        varsIgnorePattern: "^_"
-      }
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+      },
     ],
-    "import/no-restricted-paths": [
-      "error",
+    'import/no-restricted-paths': [
+      'error',
       {
         zones: [
           {
-            target: "./server",
-            from: "./client",
+            target: './server',
+            from: './client',
           },
           {
-            target: "./client",
-            from: "./server",
+            target: './client',
+            from: './server',
           },
-        ]
-      }
+        ],
+      },
     ],
-  }
-}
+    'import/no-anonymous-default-export': 'off',
+    '@stylistic/semi': ['warn', 'always'],
+    '@stylistic/quotes': ['warn', 'single'],
+    '@stylistic/jsx-quotes': ['warn', 'prefer-single'],
+    '@stylistic/comma-dangle': ['warn', {
+      arrays: 'always-multiline',
+      objects: 'always-multiline',
+      imports: 'always-multiline',
+      exports: 'always-multiline',
+      functions: 'never',
+    }],
+    '@stylistic/ts/member-delimiter-style': ['warn', {
+      multiline: {
+        delimiter: 'comma',
+        requireLast: true,
+      },
+      singleline: {
+        delimiter: 'comma',
+        requireLast: false,
+      },
+    }],
+  },
+};

@@ -1,13 +1,13 @@
-import sh from "mvdan-sh";
-import { type Node } from "mvdan-sh";
-import { isObject, last, rangeIncl } from "./util.js";
-import { weakMapCache } from "@engraft/shared/lib/cache.js";
-import { WebHighlighter } from "../client/WebHighlighter.js";
-import { TokenWithSettings } from "./highlight.js";
+import sh from 'mvdan-sh';
+import { type Node } from 'mvdan-sh';
+import { isObject, last, rangeIncl } from './util.js';
+import { weakMapCache } from '@engraft/shared/lib/cache.js';
+import { WebHighlighter } from '../client/WebHighlighter.js';
+import { TokenWithSettings } from './highlight.js';
 
 export type ParseError = {
   Error(): string,
-}
+};
 
 export function isNode(maybeNode: any): maybeNode is Node {
   return maybeNode !== null && typeof maybeNode === 'object' && '__internal_object__' in maybeNode && 'Pos' in maybeNode && 'End' in maybeNode;
@@ -20,10 +20,10 @@ function posStr(pos: sh.Pos): string {
 // TODO: more slow Go stuff; idk
 export const getNodeId = weakMapCache(_getNodeId);
 function _getNodeId(node: Node): string {
-  return sh.syntax.NodeType(node) + "_" + posStr(node.Pos()) + '_' + posStr(node.End());
+  return sh.syntax.NodeType(node) + '_' + posStr(node.Pos()) + '_' + posStr(node.End());
 }
 
-const excludedSuffixes = ["Pos", "End"];
+const excludedSuffixes = ['Pos', 'End'];
 // const excludedSuffixes: string[] = [];
 
 const excludedKeys: {[key: string]: true} = {
@@ -37,14 +37,14 @@ const excludedKeys: {[key: string]: true} = {
 
 const excludedTypes: {[key: string]: true} = {
   'mvdan.cc/sh/v3/syntax.*Pos': true,
-}
+};
 
 export type ExpandObjectOptions = {
   calls?: boolean,
   excludedKeys?: string[],
-}
+};
 
-const DROP = Symbol("DROP");
+const DROP = Symbol('DROP');
 
 export function expandObject(obj: any, opts: ExpandObjectOptions = {}): any {
   if (typeof obj === 'function') {
@@ -57,8 +57,8 @@ export function expandObject(obj: any, opts: ExpandObjectOptions = {}): any {
   } else if (obj !== null && typeof obj === 'object' && '__internal_object__' in obj) {
     const propNames = Object.getOwnPropertyNames(obj);
     let toReturn: any = {};
-    if ("$type" in obj) {
-      toReturn.Type = obj.$type.match("mvdan.cc/sh/v3/syntax\\.\\*(.*)")[1];
+    if ('$type' in obj) {
+      toReturn.Type = obj.$type.match('mvdan.cc/sh/v3/syntax\\.\\*(.*)')[1];
     }
     for (const propName of propNames) {
       if (
@@ -92,11 +92,11 @@ enum ExitResponse { Continue, Abort }
 type Walker = {
   enter?(node: sh.Node, ancestors: sh.Node[]): EnterResponse | void | (() => void),
   exit?(node: sh.Node, ancestors: sh.Node[]): ExitResponse | void,
-}
+};
 
 export function myWalk (
   node: sh.Node,
-  walker: Walker,
+  walker: Walker
 ): void {
   let ancestors: sh.Node[] = [];
   let aborted = false;
@@ -147,7 +147,7 @@ export function myWalk (
 export function wrapStmt(parser: sh.Parser, stmt: sh.Stmt, templateStr: string): void {
   let templateNode: sh.File;
   try {
-    templateNode = parser.Parse(templateStr, "template");
+    templateNode = parser.Parse(templateStr, 'template');
   } catch (e) {
     console.error(e);
     throw new Error((e as ParseError).Error());
@@ -156,18 +156,18 @@ export function wrapStmt(parser: sh.Parser, stmt: sh.Stmt, templateStr: string):
   // now we walk, looking for the smallest statement containing ___
   myWalk(templateNode, {
     enter(node, ancestors) {
-      if (sh.syntax.NodeType(node) === "Lit" && (node as sh.Lit).Value === "___") {
+      if (sh.syntax.NodeType(node) === 'Lit' && (node as sh.Lit).Value === '___') {
         for (let i = ancestors.length - 1; i >= 0; i--) {
           const node = ancestors[i];
-          if (sh.syntax.NodeType(node) === "Stmt") {
+          if (sh.syntax.NodeType(node) === 'Stmt') {
             const foundStmt = node as sh.Stmt;
             foundStmt.Cmd = stmt.Cmd;
             return EnterResponse.Abort;
           }
         }
-        throw new Error("found ___ outside of Stmt");
+        throw new Error('found ___ outside of Stmt');
       }
-    }
+    },
   });
 
   stmt.Cmd = templateNode.Stmts[0]!.Cmd;
@@ -216,17 +216,17 @@ type NodeTypes = {
   LetClause: sh.LetClause,
   BraceExp: sh.BraceExp,
   TestDecl: sh.TestDecl,
-}
+};
 
-type AssertTrue<A extends true> = A
+type AssertTrue<A extends true> = A;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NodeTypesAreAllNodes = AssertTrue<
   NodeTypes[keyof NodeTypes] extends sh.Node ? true : false
->
+>;
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NodeTypesAreNotJustNodes = AssertTrue<
   sh.Node extends NodeTypes[keyof NodeTypes] ? false : true
->
+>;
 
 export function hasNodeType<T extends keyof NodeTypes>(node: sh.Node, nodeType: T): node is NodeTypes[T] {
   return sh.syntax.NodeType(node) === nodeType;
@@ -241,13 +241,13 @@ export function parseFirstOfType<T extends keyof NodeTypes>(parser: sh.Parser, s
         foundNode = node;
         return EnterResponse.Abort;
       }
-    }
+    },
   });
   return foundNode;
 }
 
 const trackedNodeTypes = [
-  "ForClause", "CallExpr", "Stmt"
+  'ForClause', 'CallExpr', 'Stmt',
 ] satisfies (keyof NodeTypes)[];
 
 // info about immutable src
@@ -262,7 +262,7 @@ export class Script {
   constructor (
     readonly src: string,
     private parser: sh.Parser,
-    private highlighter?: WebHighlighter,
+    private highlighter?: WebHighlighter
   ) {
     try {
       this.ast = this.freshAst();
@@ -270,7 +270,7 @@ export class Script {
       throw new Error((e as ParseError).Error());
     }
 
-    this.lines = this.src.split("\n");
+    this.lines = this.src.split('\n');
 
     this.lineTree = lineTreeNodesFromAst(this.ast, this.lines);
 
@@ -289,7 +289,7 @@ export class Script {
             this.nodesByTypeById[nodeType][nodeId] = node;
           }
         }
-      }
+      },
     });
   }
 
@@ -331,14 +331,14 @@ export type LineTreeNode =
   { lineNumStart: number, lineNumEnd: number } & (
     | { type: 'line', line: string }
     | { type: 'loop-body', forClause: sh.ForClause, children: LineTreeNode[] }
-  )
+  );
 
 function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
   const result: LineTreeNode[] = [];
   let stack: LineTreeNode[][] = [result];
   myWalk(ast, {
     enter: (node) => {
-      if (hasNodeType(node, "ForClause")) {
+      if (hasNodeType(node, 'ForClause')) {
         const lineTreeNode = {
           type: 'loop-body',
           forClause: node,
@@ -350,9 +350,9 @@ function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
         stack.push(lineTreeNode.children);
         return () => {
           stack.pop();
-        }
+        };
       }
-    }
+    },
   });
   addLinesToNodes(result, 1, lines.length + 1, lines);
   return result;

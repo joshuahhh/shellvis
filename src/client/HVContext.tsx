@@ -1,5 +1,5 @@
-import { createContext } from "react";
-import * as vscode from 'vscode';
+import { createContext } from 'react';
+import { type Selection } from 'vscode';
 
 export type HVContext = {
   detailsMode: 'grid' | 'in-place',  // todo:  | 'one-by-one' | 'none'
@@ -8,8 +8,8 @@ export type HVContext = {
   showAST: boolean,
   abbreviateInfo: 'never' | 'always' | 'outside-selection',
   // and now we begin to abuse this for more than just settings...
-  selections: vscode.Selection[],
-}
+  selections: Selection[],
+};
 
 export const defaultHVContext: HVContext = {
   detailsMode: 'grid',

@@ -1,4 +1,4 @@
-import { TypedEventTarget } from "../shared/TypedEventTarget.js";
+import { TypedEventTarget } from '../shared/TypedEventTarget.js';
 
 
 // we put the actual listening in a worker because otherwise there's no way to
@@ -17,7 +17,7 @@ export class VSCodeListener extends (EventTarget as TypedEventTarget<EventMap>) 
 
     this.worker = new SharedWorker(
       new URL('VSCodeListenerWorker.js', import.meta.url),
-      { name: 'VSCodeListenerWorker', type: 'module' },
+      { name: 'VSCodeListenerWorker', type: 'module' }
     );
 
     this.worker.port.addEventListener('message', (e) => {
