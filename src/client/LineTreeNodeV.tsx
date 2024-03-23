@@ -157,7 +157,7 @@ const LineV = memo((props: LineVProps) => {
             script={script}
             trace={trace}
             showCodeLabel={callExprsOnLine.length > 1}
-            callInfoClassName="mx-1 min-w-5 min-h-6"
+            callInfoClassName="mx-1 min-w-5 min-h-5"
           />
         )}
       </LineCalls>

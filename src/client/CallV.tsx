@@ -14,6 +14,10 @@ import { count } from "@engraft/shared/lib/count.js";
 import { HVContext } from "./HVContext.js";
 
 
+const octiconProps: Parameters<octicons.Icon>[0] = {
+  verticalAlign: 'top',
+}
+
 type CallVProps = {
   header?: ReactNode,
   callExpr: sh.CallExpr,
@@ -41,43 +45,6 @@ export const CallV = memo((props: CallVProps) => {
       : 'running'
     : 'not-started';
 
-  return (
-    execInfo &&
-    <div className="inline-flex flex-col items-start">
-      { showCodeLabel &&
-        <div className="text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis">
-          {script.srcForNode(callExpr)}
-        </div>
-      }
-      <div
-        className={clsx(
-          className,
-          "inline-flex flex-col bg-gray-500 rounded mb-1 mr-1",
-          status === 'running' && "-ml-[3px] border-l-[3px] border-green-500",
-        )}
-        data-exec-id={execId}
-      >
-        { header &&
-          <div className="relative rounded">
-            <div className="absolute h-6 w-full bg-gray-600 rounded-t"/>
-            <div className="relative px-2">{header}</div>
-          </div>
-        }
-        <CallInfoV {...{ callExpr, execInfo, callInfoClassName }}/>
-      </div>
-    </div>
-  );
-});
-
-type CallInfoVProps = {
-  callExpr: sh.CallExpr,
-  execInfo: ExecInfo,
-  callInfoClassName?: string,
-}
-
-export const CallInfoV = memo((props: CallInfoVProps) => {
-  const {callExpr, execInfo, callInfoClassName} = props;
-
   const posInfo = nodePosInfo(callExpr);
   const { selections, abbreviateInfo } = useContext(HVContext);
   let isInSelection = false;
@@ -88,6 +55,10 @@ export const CallInfoV = memo((props: CallInfoVProps) => {
     }
   }
 
+  if (!execInfo) {
+    return null;
+  }
+
   const short =
     abbreviateInfo === 'always'
     ? true
@@ -95,18 +66,53 @@ export const CallInfoV = memo((props: CallInfoVProps) => {
     ? false
     : !isInSelection;
 
-  const providerOutputs = infoProviders.map((provider, i) =>
-    [provider({ short, execInfo }), i] as const
-  ).filter(([result]) => result);
+  const providerOutputs = getInfoProviderOutputs(execInfo, short);
 
-  return <div className={clsx("call__info", callInfoClassName, providerOutputs.length === 0 && "bg-gray-700")} style={{fontSize: '80%'}} data-hi={providerOutputs.map(([_, b]) => b)}>
-    { providerOutputs.map(([providerOutput, i]) =>
+  return (
+    execInfo &&
+    <div data-dg-name="CallV" className="inline-flex flex-col items-start">
+      { showCodeLabel &&
+        <div data-dg-name="CallV code label" className="text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis">
+          {script.srcForNode(callExpr)}
+        </div>
+      }
+      <div
+        data-dg-name="CallV filled area"
+        className={clsx(
+          className,
+          "inline-flex flex-col bg-gray-500 rounded mb-1 mr-1",
+          status === 'running' && "-ml-[3px] border-l-[3px] border-green-500",
+          providerOutputs.length === 0 && "bg-gray-600",
+        )}
+        data-exec-id={execId}
+      >
+        { header &&
+          <div className="relative rounded">
+            <div className="absolute h-6 w-full bg-gray-600 rounded-t"/>
+            <div className="relative px-2">{header}</div>
+          </div>
+        }
+        <div className={callInfoClassName}>
+          {providerOutputs}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+function getInfoProviderOutputs(execInfo: ExecInfo, short: boolean): ReactNode[] {
+  return (
+    infoProviders.map((provider, i) =>
+      [provider({ short, execInfo }), i] as const
+    )
+    .filter(([result]) => result)
+    .map(([providerOutput, i]) =>
       <Fragment key={i}>
         {providerOutput}
       </Fragment>
-    )}
-  </div>;
-});
+    )
+  );
+}
 
 // rest of this file is all just...
 
@@ -121,7 +127,7 @@ export const InfoEntryIcon = memo((props: {
 }) => {
   const { title, children, className } = props;
   return <Tooltip title={title} placement="top" arrow className={clsx('info-entry__icon', className)}>
-    <div>
+    <div style={{paddingTop: 2}}>
       {children}
     </div>
   </Tooltip>
@@ -160,14 +166,14 @@ function infoProviderForStream(stream: 'stdout' | 'stderr'): InfoProvider {
       return <div className="info-entry">
         { stream === 'stdout'
           ? <InfoEntryIcon title="stdout">
-              <octicons.ChevronRightIcon/>
+              <octicons.ChevronRightIcon {...octiconProps}/>
             </InfoEntryIcon>
           : <InfoEntryIcon title="stderr">
               <div style={{position: 'absolute', left: 3}}>
-                <octicons.ChevronRightIcon/>
+                <octicons.ChevronRightIcon {...octiconProps}/>
               </div>
               <div style={{position: 'absolute', left: -3}}>
-                <octicons.ChevronRightIcon/>
+                <octicons.ChevronRightIcon {...octiconProps}/>
               </div>
             </InfoEntryIcon>
         }
@@ -187,7 +193,7 @@ infoProviders.push(({ execInfo }) => {
     return <div key="suppressed">
       <div className="info-entry">
         <InfoEntryIcon title="effect">
-          <octicons.AlertIcon/>
+          <octicons.AlertIcon {...octiconProps}/>
         </InfoEntryIcon>
         <div className="info-entry__contents">
           <button onClick={async () => {
@@ -238,9 +244,7 @@ infoProviders.push(({ short, execInfo }) => {
         {Object.entries(eventCounts).map(([event, count]) => {
           if (count > 0) {
             return <Fragment key={event}>
-              <InfoEntryIcon title={eventNames[event] || event}>
-                {eventIcons[event] || <InfoEntryIcon title={event}><octicons.DiffIgnoredIcon/></InfoEntryIcon>}
-              </InfoEntryIcon>
+              {eventIcons[event] || <InfoEntryIcon title={event}><octicons.DiffIgnoredIcon {...octiconProps}/></InfoEntryIcon>}
               <div className="info-entry__contents">
                 {count}
               </div>
@@ -262,7 +266,7 @@ infoProviders.push(({ execInfo }) => {
   if (execExitInfo && execExitInfo.exitCode !== 0) {
     return <div className="info-entry">
       <InfoEntryIcon title="exit code">
-        <octicons.SignOutIcon/>
+        <octicons.SignOutIcon {...octiconProps}/>
       </InfoEntryIcon>
       <div className="info-entry__contents">
         exit {execExitInfo.exitCode}
@@ -277,7 +281,7 @@ infoProviders.push(({ execInfo }) => {
   if (execExitInfo && execExitInfo.cwd !== execInfo.enterCwd) {
     return <div className="info-entry">
       <InfoEntryIcon title="change dir">
-        <octicons.FileSubmoduleIcon/>
+        <octicons.FileSubmoduleIcon {...octiconProps}/>
       </InfoEntryIcon>
       <div title={execExitInfo.cwd}>
         {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
@@ -333,11 +337,11 @@ infoProviders.push(({ short, execInfo }) => {
 });
 
 const eventIcons: Record<string, ReactNode> = {
-  'deleted': <InfoEntryIcon title="file/dir deleted"><octicons.DiffRemovedIcon /></InfoEntryIcon>,
-  'new dir': <InfoEntryIcon title="dir added"><octicons.DiffAddedIcon /></InfoEntryIcon>,
-  'modified': <InfoEntryIcon title="file modified"><octicons.DiffModifiedIcon /></InfoEntryIcon>,
-  'dir replaced with file': <InfoEntryIcon title="dir to file"><octicons.DiffModifiedIcon /></InfoEntryIcon>,
-  'new file': <InfoEntryIcon title="file added"><octicons.DiffAddedIcon /></InfoEntryIcon>,
+  'deleted': <InfoEntryIcon title="file/dir deleted"><octicons.DiffRemovedIcon {...octiconProps} /></InfoEntryIcon>,
+  'new dir': <InfoEntryIcon title="dir added"><octicons.DiffAddedIcon {...octiconProps} /></InfoEntryIcon>,
+  'modified': <InfoEntryIcon title="file modified"><octicons.DiffModifiedIcon {...octiconProps} /></InfoEntryIcon>,
+  'dir replaced with file': <InfoEntryIcon title="dir to file"><octicons.DiffModifiedIcon {...octiconProps} /></InfoEntryIcon>,
+  'new file': <InfoEntryIcon title="file added"><octicons.DiffAddedIcon {...octiconProps} /></InfoEntryIcon>,
 }
 
 // TODO: make into component?
@@ -348,7 +352,7 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): ReactNode {
         somePath = path.relative(baseDir, somePath);
       }
       return <div key={somePath} className="info-entry">
-        {eventIcons[event] || <InfoEntryIcon title={eventNames[event] || event}><octicons.DiffIgnoredIcon/></InfoEntryIcon>}
+        {eventIcons[event] || <InfoEntryIcon title={eventNames[event] || event}><octicons.DiffIgnoredIcon {...octiconProps}/></InfoEntryIcon>}
         <div className="info-entry__contents info-entry__contents--no-wrap">
           {somePath}
           <span className="info-entry__details">({event})</span>
@@ -362,19 +366,19 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): ReactNode {
 const varChangeIcons: Record<ShellVarChange["type"], ReactNode> = {
   add:
     <InfoEntryIcon title="var add" className="text-sky-300">
-      <octicons.DiffAddedIcon/>
+      <octicons.DiffAddedIcon {...octiconProps}/>
     </InfoEntryIcon>,
   remove:
     <InfoEntryIcon title="var remove" className="text-sky-300">
-      <octicons.DiffRemovedIcon/>
+      <octicons.DiffRemovedIcon {...octiconProps}/>
     </InfoEntryIcon>,
   changeValue:
     <InfoEntryIcon title="var change" className="text-sky-300">
-      <octicons.DiffModifiedIcon/>
+      <octicons.DiffModifiedIcon {...octiconProps}/>
     </InfoEntryIcon>,
   changeAttributes:
     <InfoEntryIcon title="var change attrib" className="text-sky-300">
-      <octicons.DiffModifiedIcon/>
+      <octicons.DiffModifiedIcon {...octiconProps}/>
     </InfoEntryIcon>,
 }
 

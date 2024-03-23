@@ -5,80 +5,106 @@ import { ScriptWatcherParams } from "../shared/types.js";
 import { CliWithSessionUrlV } from "./CliV.js";
 import { WithAutomergeV } from "./WithAutomergeV.js";
 
-const examples: Record<string, ScriptWatcherParams> = {
+const examples: Record<string, ScriptWatcherParams & {desc?: string}> = {
   "minimal": {
     path: "./examples/minimal.sh",
     cwd: ".",
     env: 'process.env',
+    desc: "one command",
+  },
+  "stdouts": {
+    path: "./examples/stdouts.sh",
+    cwd: ".",
+    env: 'process.env',
+    desc: "stdouts of varying lengths",
   },
   "pipes": {
     path: "./examples/pipes.sh",
     cwd: ".",
     env: 'process.env',
+    desc: "pipeline of three commands",
   },
   "info-types": {
     path: "./examples/info-types.sh",
     cwd: ".",
     env: 'process.env',
+    desc: "all the info types",
   },
   "nested-calls": {
     path: "./examples/nested-calls.sh",
     cwd: ".",
     env: 'process.env',
-  },
-  "test": {
-    path: "./examples/test.sh",
-    cwd: ".",
-    env: 'process.env',
+    desc: "calls inside of calls"
   },
   "loops": {
     path: "./examples/loops.sh",
     cwd: ".",
     env: 'process.env',
+    desc: "lotsa loops lol"
+  },
+  "nice-and-slow": {
+    path: "./examples/nice-and-slow.sh",
+    cwd: ".",
+    env: 'process.env',
+    desc: "for testing run status"
+  },
+  "suppression": {
+    path: "./examples/suppression.sh",
+    cwd: ".",
+    env: 'process.env',
+    desc: "suppressing side-effects",
+  },
+  "pics": {
+    path: "./examples/pics/script.sh",
+    cwd: "./examples/pics",
+    env: 'process.env',
+    desc: "demo: move images",
+  },
+  "pics-finished": {
+    path: "./examples/pics/finished.sh",
+    cwd: "./examples/pics",
+    env: 'process.env',
+    desc: "demo: move images (finished)",
   },
   "source-submission": {
     path: "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old/source-submission.fish",
     cwd: "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old",
     env: 'process.env',
+    desc: "practical",
   },
   "git-gone": {
     path: "/Users/joshuah/bin/git-gone",
     cwd: "/Users/joshuah/Documents/research/shell-live/shell",
     env: 'process.env',
     args: "actuallyBroadcast",
-  },
-  "suppression": {
-    path: "./examples/suppression.sh",
-    cwd: ".",
-    env: 'process.env',
+    desc: "practical",
   },
   "convert-css": {
     path: "./examples/convert-css.sh",
     cwd: "/Users/joshuah/Documents/research/engraft/engraft-repo/packages/core-widgets",
     env: 'process.env',
     args: "src lib",
-  },
-  "pics": {
-    path: "./examples/pics/script.sh",
-    cwd: "./examples/pics",
-    env: 'process.env',
-  },
-  "pics-finished": {
-    path: "./examples/pics/finished.sh",
-    cwd: "./examples/pics",
-    env: 'process.env',
+    desc: "practical",
   },
   "infinite-pipes": {
     path: "./examples/infinite-pipes.sh",
     cwd: ".",
     env: 'process.env',
+    desc: "problem: pipes with infinite generators"
+  },
+  "test": {
+    path: "./examples/test.sh",
+    cwd: ".",
+    env: 'process.env',
+    desc: "big old mess",
   },
 }
 
 export const TestbedLinksV = memo(() => {
   return <ul>
-    {Object.keys(examples).map(name => <li key={name}>
+    {Object.entries(examples).map(([name, {desc}]) => <li key={name}>
       <Link to={`/testbed/${name}`}>{name}</Link>
+      {desc && <span className="opacity-50"> - {desc}</span>}
     </li>)}
   </ul>;
 });
