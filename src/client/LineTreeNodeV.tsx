@@ -9,6 +9,7 @@ import { LineTreeNode, Script, getNodeId, nodePosInfo } from '../shared/mvdan-sh
 import { CallOnGridV, CallInPlaceV } from './CallV.js';
 import { HVContext } from './HVContext.js';
 import tw from './tailwind-styled-component/index.js';
+import clsx from 'clsx';
 
 
 export type LineTreeNodeVProps = {
@@ -89,13 +90,22 @@ type LineVProps = {
 
 const LineV = memo((props: LineVProps) => {
   const { script, trace, line, i, context } = props;
-  let { detailsMode } = useContext(HVContext);
+  let { detailsMode, selections, abbreviateInfo } = useContext(HVContext);
 
   const callExprs = Object.values(script.nodesByTypeById.CallExpr);
   const callExprsOnLine = callExprs.filter((callExpr) => {
     // TODO: everything's limited to single lines
     return nodePosInfo(callExpr).pos.line === i + 1;
   });
+
+  const abbreviate =
+    abbreviateInfo === 'always'
+    ? true
+    : abbreviateInfo === 'never'
+    ? false
+    : !selections.some(selection =>
+        selection.start.line <= i && i <= selection.end.line
+      );
 
   let [ nodes, starts, ends ] = addDecorationsToLineStarter(line);
   const colorDecorations: Decoration[] = script.tokensByLine![i].flatMap((token) => {
@@ -128,6 +138,7 @@ const LineV = memo((props: LineVProps) => {
             callExpr={callExpr}
             context={context}
             trace={trace}
+            abbreviate={abbreviate}
           />,
     };
   });
@@ -147,17 +158,35 @@ const LineV = memo((props: LineVProps) => {
     <LineNum>{i + 1}</LineNum>
     <LineContents>{nodes}</LineContents>
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
-      <LineCalls style={{paddingLeft: depth * 20}}>
-        {callExprsOnLine.map((callExpr) =>
-          <CallOnGridV
-            key={getNodeId(callExpr)}
-            callExpr={callExpr}
-            context={context}
-            script={script}
-            trace={trace}
-            showCodeLabel={callExprsOnLine.length > 1}
-          />
-        )}
+      <LineCalls style={{paddingLeft: depth * 20}} className='flex relative my-1'>
+        <div className={clsx('flex flex-wrap gap-1', !abbreviate && 'invisible')}>
+          {callExprsOnLine.map((callExpr) =>
+            <CallOnGridV
+              key={getNodeId(callExpr)}
+              callExpr={callExpr}
+              context={context}
+              script={script}
+              trace={trace}
+              showCodeLabel={callExprsOnLine.length > 1}
+              abbreviate={true}
+            />
+          )}
+        </div>
+        { !abbreviate &&
+          <div className='flex absolute z-10 bg-zinc-700 -mx-1 px-1 -mb-1 pb-1 rounded'>
+            {callExprsOnLine.map((callExpr) =>
+              <CallOnGridV
+                key={getNodeId(callExpr)}
+                callExpr={callExpr}
+                context={context}
+                script={script}
+                trace={trace}
+                showCodeLabel={callExprsOnLine.length > 1}
+                abbreviate={false}
+              />
+            )}
+          </div>
+        }
       </LineCalls>
     }
   </Line>;

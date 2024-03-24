@@ -3,6 +3,7 @@ import { LineTreeNodeV } from './LineTreeNodeV.js';
 import { TraceVProps } from './TraceV.js';
 import { HVContext } from './HVContext.js';
 import { rafLoop } from './rafLoop.js';
+import clsx from 'clsx';
 
 type BackgroundPos = {
   top: number,
@@ -77,24 +78,24 @@ export const TraceInPlaceAndGridV = memo((props: TraceVProps) => {
 
   return <div
     ref={setTraceElem}
-    className={detailsMode === 'grid'
-      ? 'inline-grid grid-cols-[fit-content(0%)_auto_minmax(min-content,max-content)]'
-      : ''}
-    style={{position: 'relative'}}
+    className={clsx(
+      'relative mx-3 my-10',
+      detailsMode === 'grid' && 'inline-grid grid-cols-[fit-content(0%)_auto_minmax(min-content,max-content)]'
+    )}
   >
     { backgroundPos &&
-      <div
-        className='trace-background'
+      <div data-dbg='TraceInPlaceAndGridV trace background'
+        className={`
+          absolute w-screen
+          -mx-3
+          bg-zinc-700
+          -z-50
+        `}
         ref={setBackgroundElem}
         style={{
-          position: 'absolute',
-          width: 'calc(400vw)',
-          left: '-100vw',
           top: backgroundPos.top,
           height: backgroundPos.height,
-          backgroundColor: 'hsl(0, 0%, 20%)',
-          zIndex: -100,
-          // transition: 'top 0.05s, height 0.05s',
+          transition: 'top 0.05s, height 0.05s',
         }}
       />
     }

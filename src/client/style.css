@@ -68,34 +68,3 @@ body {
   /* TODO: hmmm */
   overflow-x: hidden;
 }
-
-#root {
-  margin: 0px;
-  padding: 40px 10px 0px 10px;
-}
-
-.info-entry {
-  display: flex;
-  flex-direction: row;
-  gap: 10px;
-}
-
-.info-entry__icon {
-  width: 16px;
-  height: 16px;
-  position: relative;
-}
-
-.info-entry__details {
-  opacity: 50%;
-  margin-left: 10px;
-}
-
-.info-entry__contents {
-  overflow: auto;
-  display: flex;
-}
-
-.info-entry__contents--no-wrap {
-  white-space: nowrap;
-}
