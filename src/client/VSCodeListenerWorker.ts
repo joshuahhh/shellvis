@@ -6,7 +6,6 @@ import { WebSocketListener } from './WebSocketListener.js';
 const workerGlobal = self as unknown as SharedWorkerGlobalScope;
 
 workerGlobal.onconnect = function (event) {
-
   const port = event.ports[0];
 
   // listen to websockets and

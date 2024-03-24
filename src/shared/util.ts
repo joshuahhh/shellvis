@@ -33,7 +33,7 @@ export async function* chunksToLines(chunkIterable: AsyncIterable<string>): Asyn
     previous += chunk;
     while (true) {
       const eolIndex = previous.indexOf('\n', startSearch);
-      if (eolIndex < 0) break;
+      if (eolIndex < 0) { break; }
       // line includes the EOL
       const line = previous.slice(0, eolIndex+1);
       yield line;

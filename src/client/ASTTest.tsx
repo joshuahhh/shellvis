@@ -58,8 +58,8 @@ const Pane = memo(({ code }: { code: string }) => {
 });
 
 function removeBoringProperties(obj: any): any {
-  if (Array.isArray(obj)) return obj.map(removeBoringProperties);
-  if (typeof obj !== 'object' || obj === null) return obj;
+  if (Array.isArray(obj)) { return obj.map(removeBoringProperties); }
+  if (typeof obj !== 'object' || obj === null) { return obj; }
   return Object.fromEntries(
     Object.entries(obj)
     .filter(([_, v]) => v !== undefined && v !== null && v !== false && !(Array.isArray(v) && v.length === 0))

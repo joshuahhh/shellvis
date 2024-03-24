@@ -99,7 +99,7 @@ const LineV = memo((props: LineVProps) => {
 
   let [ nodes, starts, ends ] = addDecorationsToLineStarter(line);
   const colorDecorations: Decoration[] = script.tokensByLine![i].flatMap((token) => {
-    if (token.settings.foreground){
+    if (token.settings.foreground) {
       return {
         start: token.startIndex,
         end: token.endIndex,

@@ -330,7 +330,6 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           suppressed: message.suppressed,
         };
       });
-
     } else if (message.type === 'call-exit') {
       const execId = mkExecId(message);
 
