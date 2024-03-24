@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import sh from 'mvdan-sh';
 import path from 'path-browserify';
 import { Fragment, ReactNode, memo, useContext } from 'react';
-import { DeltaLogEntry, ExecInfo, Trace, mkExecId } from '../shared/execution.js';
+import { DeltaLogEntry, ExecInfo, Trace, execStatus, mkExecId } from '../shared/execution.js';
 import { Script, getNodeId, nodePosInfo } from '../shared/mvdan-sh-helpers.js';
 import { ExecuteRequest } from '../shared/types.js';
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from '../shared/typeset.js';
@@ -18,87 +18,113 @@ const octiconProps: Parameters<octicons.Icon>[0] = {
   verticalAlign: 'top',
 };
 
-type CallVProps = {
-  header?: ReactNode,
+type CallOnGridVProps = {
   callExpr: sh.CallExpr,
   context: string,
   trace: Trace,
   script: Script,
   className?: string,
   showCodeLabel?: boolean,
-  callInfoClassName?: string,
 };
 
-export const CallV = memo((props: CallVProps) => {
-  const {header, callExpr, context, trace, script, className, showCodeLabel = false, callInfoClassName} = props;
+export const CallOnGridV = memo((props: CallOnGridVProps) => {
+  const {callExpr, context, trace, script, className, showCodeLabel = false} = props;
 
   const nodeId = getNodeId(callExpr);
   const execId = mkExecId({ context, nodeId });
   const execInfo = trace.execInfos[execId] as ExecInfo | undefined;
-  const execExitInfo = execInfo?.exitInfo;
-  const status =
-    execInfo
-    ? execExitInfo
-      ? execExitInfo.exitCode === 0
-        ? 'done-success'
-        : 'done-failure'
-      : 'running'
-    : 'not-started';
+  const status = execStatus(execInfo);
 
-  const posInfo = nodePosInfo(callExpr);
-  const { selections, abbreviateInfo } = useContext(HVContext);
-  let isInSelection = false;
-  for (const selection of selections) {
-    if (selection.start.line <= posInfo.pos.line - 1 && posInfo.end.line - 1 <= selection.end.line) {
-      isInSelection = true;
-      break;
-    }
-  }
+  const short = useShouldAbbreviate(callExpr);
 
-  if (!execInfo) {
-    return null;
-  }
-
-  const short =
-    abbreviateInfo === 'always'
-    ? true
-    : abbreviateInfo === 'never'
-    ? false
-    : !isInSelection;
+  if (!execInfo) { return null; }
 
   const providerOutputs = getInfoProviderOutputs(execInfo, short);
 
   return (
     execInfo &&
-    <div data-dg-name='CallV' className='inline-flex flex-col items-start'>
+    <div data-dbg='CallOnGridV'
+      className='inline-flex flex-col items-start'>
       { showCodeLabel &&
-        <div data-dg-name='CallV code label' className='text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis'>
+        <div data-dg-name='CallOnGridV code label' className='text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis'>
           {script.srcForNode(callExpr)}
         </div>
       }
-      <div
-        data-dg-name='CallV filled area'
+      <div data-dbg='CallOnGridV filled area'
         className={clsx(
           className,
-          'inline-flex flex-col bg-gray-500 rounded mb-1 mr-1',
+          `inline-flex flex-col bg-gray-500 rounded
+          mb-1 mr-1 p-1
+          min-w-5 min-h-5`,
           status === 'running' && '-ml-[3px] border-l-[3px] border-green-500',
           providerOutputs.length === 0 && 'bg-gray-600'
         )}
         data-exec-id={execId}
       >
-        { header &&
-          <div className='relative rounded'>
-            <div className='absolute h-6 w-full bg-gray-600 rounded-t'/>
-            <div className='relative px-2'>{header}</div>
-          </div>
-        }
-        <div className={callInfoClassName}>
-          {providerOutputs}
-        </div>
+        {providerOutputs}
       </div>
     </div>
   );
 });
+
+type CallInPlaceVProps = {
+  header: ReactNode,
+  callExpr: sh.CallExpr,
+  context: string,
+  trace: Trace,
+};
+
+export const CallInPlaceV = memo((props: CallInPlaceVProps) => {
+  const {header, callExpr, context, trace} = props;
+
+  const nodeId = getNodeId(callExpr);
+  const execId = mkExecId({ context, nodeId });
+  const execInfo = trace.execInfos[execId] as ExecInfo | undefined;
+  const status = execStatus(execInfo);
+
+  const short = useShouldAbbreviate(callExpr);
+
+  if (!execInfo) { return null; }
+
+  const providerOutputs = getInfoProviderOutputs(execInfo, short);
+
+  return (
+    execInfo &&
+    <div data-dbg='CallInPlaceV'
+      className={clsx(
+        'inline-flex flex-col bg-gray-500 rounded mb-1 mr-1',
+        status === 'running' && '-ml-[3px] border-l-[3px] border-green-500',
+        providerOutputs.length === 0 && 'bg-gray-600'
+      )}
+      data-exec-id={execId}
+    >
+      { header &&
+        <div className='relative rounded'>
+          <div className='absolute h-[20px] w-full bg-gray-600 rounded-t'/>
+          <div className='relative px-2'>{header}</div>
+        </div>
+      }
+      <div className='p-1'>
+        {providerOutputs}
+      </div>
+    </div>
+  );
+});
+
+function useShouldAbbreviate(callExpr: sh.CallExpr) {
+  const { selections, abbreviateInfo } = useContext(HVContext);
+  if (abbreviateInfo === 'always') {
+    return true;
+  }
+  if (abbreviateInfo === 'never') {
+    return false;
+  }
+
+  const posInfo = nodePosInfo(callExpr);
+  return !selections.some(selection =>
+    selection.start.line <= posInfo.pos.line - 1 && posInfo.end.line - 1 <= selection.end.line
+  );
+}
 
 function getInfoProviderOutputs(execInfo: ExecInfo, short: boolean): ReactNode[] {
   return (

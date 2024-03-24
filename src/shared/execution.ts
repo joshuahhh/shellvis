@@ -24,6 +24,13 @@ export type ExecInfo = {
   deltaLog: DeltaLogEntry[] | null,  // TODO: put in exitInfo? idk
 };
 
+export function execStatus (execInfo: ExecInfo | undefined) {
+  if (!execInfo) { return 'not-started'; }
+  if (!execInfo.exitInfo) { return 'running'; }
+  if (execInfo.exitInfo.exitCode !== 0) { return 'done-failure'; }
+  return 'done-success';
+}
+
 export type PipeProgress = {
   data: string[],  // interesting reflection of Automerge usage; push to array instead of appending to string!
   done: boolean,

@@ -6,7 +6,7 @@ import React, { Fragment, memo, useCallback, useContext, useEffect, useState } f
 import { Decoration, addDecorationsToLineHelper, addDecorationsToLineStarter } from './decorations.js';
 import { Iteration, Trace, mkExecId } from '../shared/execution.js';
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from '../shared/mvdan-sh-helpers.js';
-import { CallV } from './CallV.js';
+import { CallOnGridV, CallInPlaceV } from './CallV.js';
 import { HVContext } from './HVContext.js';
 import tw from './tailwind-styled-component/index.js';
 
@@ -122,13 +122,12 @@ const LineV = memo((props: LineVProps) => {
         ? <div className='inline-block border-b border-b-gray-500 mb-1 border-dashed'>
             {contents}
           </div>
-        : <CallV
+        : <CallInPlaceV
             key={getNodeId(callExpr)}
             header={contents}
             callExpr={callExpr}
             context={context}
             trace={trace}
-            script={script}
           />,
     };
   });
@@ -150,14 +149,13 @@ const LineV = memo((props: LineVProps) => {
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
       <LineCalls style={{paddingLeft: depth * 20}}>
         {callExprsOnLine.map((callExpr) =>
-          <CallV
+          <CallOnGridV
             key={getNodeId(callExpr)}
             callExpr={callExpr}
             context={context}
             script={script}
             trace={trace}
             showCodeLabel={callExprsOnLine.length > 1}
-            callInfoClassName='mx-1 min-w-5 min-h-5'
           />
         )}
       </LineCalls>

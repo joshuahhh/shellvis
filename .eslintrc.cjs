@@ -7,6 +7,7 @@ module.exports = {
   plugins: [
     '@stylistic',
     '@stylistic/ts',
+    '@stylistic/js',
   ],
   settings: {
     'import/resolver': {
@@ -45,6 +46,12 @@ module.exports = {
       },
     ],
     'import/no-anonymous-default-export': 'off',
+    'curly': ['warn', 'all'],
+    '@stylistic/js/block-spacing': ['warn', 'always'],  // needs 'js' cuz ts rule is overbroad
+    '@stylistic/padded-blocks': ['warn', 'never'],
+    '@stylistic/space-before-blocks': ['warn', 'always'],
+    // '@stylistic/space-before-function-paren': ['warn', 'always'],
+    // '@stylistic/object-curly-spacing': ['warn', 'always'],
     '@stylistic/semi': ['warn', 'always'],
     '@stylistic/quotes': ['warn', 'single'],
     '@stylistic/jsx-quotes': ['warn', 'prefer-single'],
