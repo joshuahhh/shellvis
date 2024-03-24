@@ -1,9 +1,11 @@
 import { AutomergeUrl } from '@automerge/automerge-repo';
 import { useUpdateProxy } from '@engraft/update-proxy-react';
 import AnsiToHtml from 'ansi-to-html';
+import { AnimatePresence, motion } from 'framer-motion';
 import sh from 'mvdan-sh';
 import React, { Fragment, memo, useEffect, useMemo } from 'react';
 import * as util from 'util';
+import { type Selection, type TextEditorSelectionChangeEvent } from 'vscode';
 import { Trace } from '../shared/execution.js';
 import { Script, expandObject } from '../shared/mvdan-sh-helpers.js';
 import { Message } from '../shared/tracing.js';
@@ -11,12 +13,10 @@ import { ExecuteRequest } from '../shared/types.js';
 import { HVContext, defaultHVContext } from './HVContext.js';
 import { TraceV } from './TraceV.js';
 import { VSCodeListener } from './VSCodeListener.js';
-import { WebHighlighter } from './WebHighlighter.js';
+import { getGlobalWebHighlighter } from './WebHighlighter.js';
 import { Button } from './shadcn/Button.js';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './shadcn/Select.js';
 import { Label } from './shadcn/Label.js';
-import { AnimatePresence, motion } from 'framer-motion';
-import { type TextEditorSelectionChangeEvent, type Selection } from 'vscode';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './shadcn/Select.js';
 
 const ansiToHtml = new AnsiToHtml({});
 
@@ -27,8 +27,7 @@ type TraceViewerVProps = {
 };
 
 const parser = sh.syntax.NewParser();
-const highlighter = new WebHighlighter();
-highlighter.init();
+const highlighter = getGlobalWebHighlighter();
 
 export const TraceViewerV = memo((props: TraceViewerVProps) => {
   const { sessionAutomergeUrl, traceAutomergeUrl, trace } = props;
@@ -154,12 +153,10 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
     {false && partForInfo()}
 
 
-    <button
-      style={{
-        position: 'fixed', top: 10, right: 10,
-        display: 'flex', flexDirection: 'column', gap: 5,
-        textAlign: 'right',
-      }}
+    <Button
+      className='fixed top-2 right-2'
+      variant='outline'
+      size='sm'
       onClick={async () => {
         await fetch(
           `http://localhost:8080/restart/${sessionAutomergeUrl}`,
@@ -168,7 +165,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
       }}
     >
       restart
-    </button>
+    </Button>
 
     <div className='fixed bottom-2 right-2
                     flex flex-row-reverse items-end gap-4

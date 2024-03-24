@@ -173,7 +173,7 @@ const LineV = memo((props: LineVProps) => {
           )}
         </div>
         { !abbreviate &&
-          <div className='flex absolute z-10 bg-zinc-700 -mx-1 px-1 -mb-1 pb-1 rounded'>
+          <div className='flex flex-wrap gap-1 absolute z-10 bg-zinc-700 -mx-1 px-1 -mb-1 pb-1 rounded'>
             {callExprsOnLine.map((callExpr) =>
               <CallOnGridV
                 key={getNodeId(callExpr)}

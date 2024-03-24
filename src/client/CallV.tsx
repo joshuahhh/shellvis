@@ -44,7 +44,8 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
     <div data-dbg='CallOnGridV'
       className='inline-flex flex-col items-start'>
       { showCodeLabel &&
-        <div data-dg-name='CallOnGridV code label' className='text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis'>
+        <div data-dg-name='CallOnGridV code label'
+          className='text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis -mt-1'>
           {script.srcForNode(callExpr)}
         </div>
       }
@@ -149,7 +150,7 @@ const InfoEntryDetails = tw.div`ml-2`;
 
 // TODO: "computer" and "human"; figure this out
 const C = tw.span`font-mono`;
-const H = tw.span`italic text-gray-400`;
+const H = tw.span`italic text-gray-300`;
 
 type InfoProvider = (props: InfoProviderProps) => ReactNode;
 
@@ -184,20 +185,13 @@ function infoProviderForStream(stream: 'stdout' | 'stderr'): InfoProvider {
       return <InfoEntry>
         { stream === 'stdout'
           ? <InfoEntryIcon title='stdout'>
-              <octicons.ChevronRightIcon {...octiconProps}/>
+              <octicons.ArrowRightIcon {...octiconProps}/>
             </InfoEntryIcon>
           : <InfoEntryIcon title='stderr'>
-              <div style={{position: 'absolute', left: 3}}>
-                <octicons.ChevronRightIcon {...octiconProps}/>
-              </div>
-              <div style={{position: 'absolute', left: -3}}>
-                <octicons.ChevronRightIcon {...octiconProps}/>
-              </div>
+              <octicons.CircleSlashIcon {...octiconProps}/>
             </InfoEntryIcon>
         }
-        <InfoEntryDetails>
-          {contents}
-        </InfoEntryDetails>
+        <InfoEntryContents>{contents}</InfoEntryContents>
       </InfoEntry>;
     }
   };
@@ -212,7 +206,7 @@ infoProviders.push(({ execInfo }) => {
       <InfoEntryIcon title='effect'>
         <octicons.AlertIcon {...octiconProps}/>
       </InfoEntryIcon>
-      <InfoEntryDetails>
+      <InfoEntryContents>
         <button onClick={async () => {
           await fetch(
             'http://localhost:8080/execute',
@@ -228,7 +222,7 @@ infoProviders.push(({ execInfo }) => {
         }}>
           <pre>{execInfo.stdout.data}</pre>
         </button>
-      </InfoEntryDetails>
+      </InfoEntryContents>
     </InfoEntry>;
   }
 });
@@ -284,9 +278,9 @@ infoProviders.push(({ execInfo }) => {
       <InfoEntryIcon title='exit code'>
         <octicons.SignOutIcon {...octiconProps}/>
       </InfoEntryIcon>
-      <InfoEntryDetails>
-        exit {execExitInfo.exitCode}
-      </InfoEntryDetails>
+      <InfoEntryContents>
+        <H>exit {execExitInfo.exitCode}</H>
+      </InfoEntryContents>
     </InfoEntry>;
   }
 });
@@ -333,9 +327,9 @@ infoProviders.push(({ abbreviate, execInfo }) => {
           if (count > 0) {
             return <Fragment key={type}>
               {varChangeIcons[type as ShellVarChange['type']]}
-              <InfoEntryDetails>
+              <InfoEntryContents>
                 {count}
-              </InfoEntryDetails>
+              </InfoEntryContents>
             </Fragment>;
           } else {
             return null;
