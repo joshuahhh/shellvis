@@ -6,7 +6,6 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@automerge/automerge": "2.1.11",
     "@automerge/automerge-repo": "^1.1.0",
     "@automerge/automerge-repo-network-websocket": "^1.1.0",
     "@automerge/automerge-repo-react-hooks": "^1.1.0",
@@ -83,6 +82,8 @@
   "scripts": {
     "dev": "vite",
     "server": "tsx src/server/server.ts",
+    "test:watch": "vitest watch",
+    "test:run": "vitest run",
     "test:ui": "vitest --ui",
     "bench": "vitest bench"
   }
