@@ -8,10 +8,12 @@ import { Sh2Fr } from '../src/server/Sh2Fr.js';
 import { Run } from '../src/server/run.js';
 import { DeltaLogEntry, ForInfo, Trace, mkExecId } from '../src/shared/execution.js';
 import { Script } from '../src/shared/mvdan-sh-helpers.js';
+import { getUnionFSMounts } from '../src/server/sandbox.js';
 
 const cwd = process.cwd();
 
 export async function runAndGetTrace(run: Run): Promise<Trace> {
+  onTestFinished(async () => await run.stop());
   await run.start();
   await run.isClosedPromise();
   const trace = await run.traceDoc.doc();
@@ -41,10 +43,24 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
         env: process.env,
         scriptSrc: 'echo hello',
       }, repo, mkSh2Fr());
-      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       expect(trace.exitCode).toEqual(0);
+    });
+
+    it('cleans up sandbox unionfs ok', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: 'DUMMY-PATH',
+        cwd,
+        env: process.env,
+        scriptSrc: 'echo hello',
+      }, repo, mkSh2Fr());
+      await runAndGetTrace(run);
+
+      const unionFSMounts = await getUnionFSMounts();
+      expect(unionFSMounts).not.toContain(run.sandbox!.sandboxUnionDir);
+      expect(unionFSMounts).not.toContain(run.sandbox!.deltaUnionDir);
     });
 
     it('exit codes work', async () => {
@@ -55,7 +71,6 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
         env: process.env,
         scriptSrc: 'exit 42',
       }, repo, mkSh2Fr());
-      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       expect(trace.exitCode).toEqual(42);
@@ -69,7 +84,6 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
         env: process.env,
         scriptSrc: 'echo hello',
       }, repo, mkSh2Fr());
-      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const echoExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('echo', run.script!) });
@@ -93,7 +107,6 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           good
         `,
       }, repo, mkSh2Fr());
-      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const goodExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('good', run.script!) });
@@ -116,7 +129,6 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           bad
         `,
       }, repo, mkSh2Fr());
-      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const badExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('bad', run.script!) });
@@ -136,7 +148,6 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           jot -b hello 10 | rev | tr a-z A-Z
         `,
       }, repo, mkSh2Fr());
-      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const jotExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('jot', run.script!) });
@@ -166,7 +177,6 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           gen | head -n 4
         `,
       }, repo, mkSh2Fr());
-      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const headExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('head', run.script!) });
@@ -184,7 +194,6 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           touch testfile.txt
         `,
       }, repo, mkSh2Fr());
-      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const touchExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('touch testfile.txt', run.script!) });
@@ -203,7 +212,6 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           rm package.json
         `,
       }, repo, mkSh2Fr());
-      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const rmExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('rm package.json', run.script!) });
@@ -227,7 +235,6 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           done
         `,
       }, repo, mkSh2Fr());
-      onTestFinished(() => run.stop());
       const trace = await runAndGetTrace(run);
 
       const forInfos = Object.entries(trace.forInfos);

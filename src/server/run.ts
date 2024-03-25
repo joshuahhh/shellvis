@@ -235,12 +235,12 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
     );
     console.log('fr: spawned child process at', this.childProcess.pid);
 
-    this.childProcess.on('close', (exitCode: number) => {
+    this.childProcess.on('close', async (exitCode: number) => {
       console.log('child process exited with code', exitCode);
       this.traceDoc.change((trace) => {
         trace.exitCode = exitCode;
       });
-      this.stop();
+      await this.stop();
       this.dispatchEvent(new Event('close'));
     });
 
@@ -356,8 +356,8 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
     if (this.childProcess && this.childProcess.exitCode === null) {
       this.childProcess.kill();
     }
-    this.sandbox && removeSandbox(this.sandbox);
-    this.sh2fr.stop();
+    this.sandbox && await removeSandbox(this.sandbox);
+    await this.sh2fr.stop();
   }
 
   async isClosedPromise() {

@@ -1,7 +1,7 @@
 import fsP from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it, onTestFinished } from 'vitest';
-import { Sandbox, afterRun, beforeRun, isMountPoint, makeSandbox, mkTmpDir, removeSandbox } from '../src/server/sandbox.js';
+import { Sandbox, afterRun, beforeRun, getUnionFSMounts, isMountPoint, makeSandbox, mkTmpDir, removeSandbox } from '../src/server/sandbox.js';
 import { DeltaLogEntry } from '../src/shared/execution.js';
 
 
@@ -130,5 +130,22 @@ describe('sandbox', () => {
       const originalFileContents = await fsP.readFile(path.join(sandbox.sandboxUnionDir, 'original-dir-or-file'), 'utf8');
       expect(originalFileContents).toBe('goodbye');
     });
+  });
+
+  it('cleans up unionfs ok', async () => {
+    const sandbox = await makeSandbox('/');
+    onTestFinished(() => removeSandbox(sandbox));  // for backup
+
+    const unionFSMounts = await getUnionFSMounts();
+    expect(unionFSMounts).toContain(sandbox.sandboxUnionDir);
+    expect(unionFSMounts).toContain(sandbox.deltaUnionDir);
+
+    await removeSandbox(sandbox);
+
+    const unionFSMountsAfter = await getUnionFSMounts();
+    expect(unionFSMountsAfter).not.toContain(sandbox.sandboxUnionDir);
+    expect(unionFSMountsAfter).not.toContain(sandbox.deltaUnionDir);
+
+    await removeSandbox(sandbox);  // should be idempotent
   });
 });

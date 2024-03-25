@@ -235,16 +235,10 @@ export function pathInSandbox(path: string, sandbox: Sandbox): string | null {
   return path.slice(sandbox.deltaUnionDir.length);
 }
 
-
-// function execHandler(error: child_process.ExecException | null, stdout: string, stderr: string) {
-//   if (error) {
-//     console.error(`exec error: ${error}`);
-//     return;
-//   }
-//   if (stdout) {
-//     console.log(`stdout: ${stdout}`);
-//   }
-//   if (stderr) {
-//     console.error(`stderr: ${stderr}`);
-//   }
-// };
+export async function getUnionFSMounts(): Promise<string[]> {
+  const mount = await exec('mount');
+  return mount.stdout
+    .split('\n')
+    .filter((line) => line.startsWith('unionfs@'))
+    .map((line) => line.match(/on ([^ ]+)/)![1]);
+}
