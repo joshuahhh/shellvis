@@ -5,10 +5,13 @@ export function mkExecId({ context, nodeId }: { context: string, nodeId: string 
   return `${context}/${nodeId}`;
 }
 
-export type DeltaLogEntry = {
-  path: string,
-  event: string,
-};
+export type DeltaLogEntry =
+  | { event: 'deletedDir', path: string }
+  | { event: 'deletedFile', path: string }
+  | { event: 'newDir', path: string }
+  | { event: 'modifiedFile', path: string }
+  | { event: 'dirReplacedWithFile', path: string }
+  | { event: 'newFile', path: string };
 
 export type ExecInfo = {
   suppressed: boolean,
@@ -44,20 +47,6 @@ export type Iteration = {
 export type ForInfo = {
   iterations: Iteration[],
 };
-
-export function parseDeltaLog(log: string): DeltaLogEntry[] {
-  const lines = log.split('\n');
-  lines.pop();  // last line is empty
-  return lines.map((line) => {
-    // pattern is "path (event)"
-    const match = line.match(/^(.*) \((.*)\)$/);
-    if (!match) {
-      throw new Error(`invalid delta log line: ${line}`);
-    }
-    const [, path, event] = match;
-    return { path: '/' + path, event };
-  });
-}
 
 export type Trace = {
   path: string | null,

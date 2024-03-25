@@ -10,11 +10,10 @@ import sh from 'mvdan-sh';
 import * as child_process from 'node:child_process';
 import * as fsOld from 'node:fs';
 import * as fs from 'node:fs/promises';
-import * as os from 'node:os';
 import * as path from 'node:path';
 import * as tmp from 'tmp';
 import { TypedEventTarget } from '../shared/TypedEventTarget.js';
-import { PipeProgress, Trace, mkExecId, parseDeltaLog } from '../shared/execution.js';
+import { PipeProgress, Trace, mkExecId } from '../shared/execution.js';
 import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } from '../shared/mvdan-sh-helpers.js';
 import { RunParams } from '../shared/types.js';
 import { parseTypeset } from '../shared/typeset.js';
@@ -23,45 +22,7 @@ import { Sh2Fr, UploadName } from './Sh2Fr.js';
 import { changeAt } from './automerge.js';
 import { Sh2FrViaTcp } from './Sh2FrViaTcp.js';
 import { Message } from '../shared/tracing.js';
-
-type Sandbox = {
-  sandboxDir: string,
-  sandboxUnionDir: string,
-  deltaDir: string,
-  deltaUnionDir: string,
-};
-
-async function makeSandbox(): Promise<Sandbox> {
-  const sandboxDirUnreal = await fs.mkdtemp(path.join(os.tmpdir(), 'sandbox-'));
-  const sandboxDir = await fs.realpath(sandboxDirUnreal);
-  const sandboxUnionDir = path.join(sandboxDir, 'union');
-  const deltaDirUnreal = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-'));
-  const deltaDir = await fs.realpath(deltaDirUnreal);
-  const deltaUnionDir = path.join(deltaDir, 'union');
-
-  child_process.execSync(`fr-sandbox make ${sandboxDir} /`);
-  child_process.execSync(`fr-sandbox make ${deltaDir} ${sandboxUnionDir}`);
-
-  return { sandboxDir, sandboxUnionDir, deltaDir, deltaUnionDir };
-}
-
-function execHandler(error: child_process.ExecException | null, stdout: string, stderr: string) {
-  if (error) {
-    console.error(`exec error: ${error}`);
-    return;
-  }
-  if (stdout) {
-    console.log(`stdout: ${stdout}`);
-  }
-  if (stderr) {
-    console.error(`stderr: ${stderr}`);
-  }
-};
-
-function removeSandbox(sandbox: Sandbox) {
-  child_process.exec(`fr-sandbox remove ${sandbox.deltaDir}`, execHandler);
-  child_process.exec(`fr-sandbox remove ${sandbox.sandboxDir}`, execHandler);
-}
+import { Sandbox, afterRun, beforeRun, makeDeltaLogEntryAbsolute, makeSandbox, pathInSandbox, removeSandbox } from './sandbox.js';
 
 const parser = sh.syntax.NewParser(sh.syntax.KeepComments(true));
 const printer = sh.syntax.NewPrinter();
@@ -72,14 +33,6 @@ function parseStmt(s: string): sh.Stmt {
     throw new Error('need one stmt');
   }
   return stmts[0];
-}
-
-// null if path is not in sandbox
-function pathInSandbox(path: string, sandbox: Sandbox): string | null {
-  if (!path.startsWith(sandbox.deltaUnionDir)) {
-    return null;
-  }
-  return path.slice(sandbox.deltaUnionDir.length);
 }
 
 async function handlePipeProgress(lines: AsyncIterable<string>, changePipeProgress: DocHandle<PipeProgress>['change']):
@@ -186,12 +139,10 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
                 cwd: '$PWD',
                 suppressed,
               })}
-              fr-sandbox before-run $fr_sandbox_delta_dir
               ${this.sh2fr.sendUpload('fr_typeset', 'varsEnter')}
               ${this.sh2fr.interceptAndUploadStds('___', 'stdout', 'stderr')}
               fr_ret=$?
               ${this.sh2fr.sendUpload('fr_typeset', 'varsExit')}
-              ${this.sh2fr.sendUpload('fr-sandbox after-run $fr_sandbox_delta_dir $fr_sandbox_sandbox_dir -', 'deltaLog')}
               ${this.sh2fr.sendMessage({
                 type: 'call-exit',
                 nodeId: callId,
@@ -275,8 +226,6 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           ...process.env,  // TODO
           // ...this.params.env === 'process.env' ? process.env : this.params.env,
           ...sh2frStart.env,
-          fr_sandbox_delta_dir: this.sandbox.deltaDir,
-          fr_sandbox_sandbox_dir: this.sandbox.sandboxDir,
           ROOT: this.sandbox.deltaUnionDir,
         },
         stdio: ['ignore', 'ignore', 'inherit'],
@@ -330,8 +279,15 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           suppressed: message.suppressed,
         };
       });
+
+      beforeRun(this.sandbox!);
     } else if (message.type === 'call-exit') {
+      const deltaLog = (await afterRun(this.sandbox!)).map(
+        (entry) => makeDeltaLogEntryAbsolute(entry, '/')
+      );
+
       const execId = mkExecId(message);
+      console.log('call-exit', execId, deltaLog);
 
       const cwd = pathInSandbox(message.cwd, this.sandbox!);
 
@@ -346,6 +302,8 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           exitCode: +message.exitCode,
           cwd,
         };
+        // TODO: put in exitInfo
+        trace.execInfos[execId].deltaLog = deltaLog;
       });
       // console.log("fr: stmt-exit", execId);
     } else if (message.type === 'for-body-enter') {
@@ -390,11 +348,6 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       this.traceDoc.change((trace) => {
         const execInfo = trace.execInfos[execId];
         execInfo.varsExitStr = new RawString(varsExitStr);
-      });
-    } else if (uploadName === 'deltaLog') {
-      const deltaLogStr = await joinIterable(lines);
-      this.traceDoc.change((trace) => {
-        trace.execInfos[execId].deltaLog = parseDeltaLog(deltaLogStr);
       });
     }
   }

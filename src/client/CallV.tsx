@@ -10,7 +10,7 @@ import { DeltaLogEntry, ExecInfo, Trace, execStatus, mkExecId } from '../shared/
 import { Script, getNodeId } from '../shared/mvdan-sh-helpers.js';
 import { ExecuteRequest } from '../shared/types.js';
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from '../shared/typeset.js';
-import { last, weakMapCache2 } from '../shared/util.js';
+import { last, objectEntries, weakMapCache2 } from '../shared/util.js';
 import tw from './tailwind-styled-component/index.js';
 
 
@@ -44,8 +44,7 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
     <div data-dbg='CallOnGridV'
       className='inline-flex flex-col items-start'>
       { showCodeLabel &&
-        <div data-dg-name='CallOnGridV code label'
-          className='text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis -mt-1'>
+        <div data-dg-name='CallOnGridV code label' className='text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis'>
           {script.srcForNode(callExpr)}
         </div>
       }
@@ -150,7 +149,7 @@ const InfoEntryDetails = tw.div`ml-2`;
 
 // TODO: "computer" and "human"; figure this out
 const C = tw.span`font-mono`;
-const H = tw.span`italic text-gray-300`;
+const H = tw.span`italic text-gray-400`;
 
 type InfoProvider = (props: InfoProviderProps) => ReactNode;
 
@@ -185,13 +184,20 @@ function infoProviderForStream(stream: 'stdout' | 'stderr'): InfoProvider {
       return <InfoEntry>
         { stream === 'stdout'
           ? <InfoEntryIcon title='stdout'>
-              <octicons.ArrowRightIcon {...octiconProps}/>
+              <octicons.ChevronRightIcon {...octiconProps}/>
             </InfoEntryIcon>
           : <InfoEntryIcon title='stderr'>
-              <octicons.CircleSlashIcon {...octiconProps}/>
+              <div style={{position: 'absolute', left: 3}}>
+                <octicons.ChevronRightIcon {...octiconProps}/>
+              </div>
+              <div style={{position: 'absolute', left: -3}}>
+                <octicons.ChevronRightIcon {...octiconProps}/>
+              </div>
             </InfoEntryIcon>
         }
-        <InfoEntryContents>{contents}</InfoEntryContents>
+        <InfoEntryDetails>
+          {contents}
+        </InfoEntryDetails>
       </InfoEntry>;
     }
   };
@@ -206,7 +212,7 @@ infoProviders.push(({ execInfo }) => {
       <InfoEntryIcon title='effect'>
         <octicons.AlertIcon {...octiconProps}/>
       </InfoEntryIcon>
-      <InfoEntryContents>
+      <InfoEntryDetails>
         <button onClick={async () => {
           await fetch(
             'http://localhost:8080/execute',
@@ -222,39 +228,44 @@ infoProviders.push(({ execInfo }) => {
         }}>
           <pre>{execInfo.stdout.data}</pre>
         </button>
-      </InfoEntryContents>
+      </InfoEntryDetails>
     </InfoEntry>;
   }
 });
 
 // delta log
-const eventNames: Record<string, string> = {
-  'deleted': 'file/dir deleted',
+const eventNames: Record<DeltaLogEntry['event'], string> = {
+  deletedDir: 'dir deleted',
+  deletedFile: 'file deleted',
+  dirReplacedWithFile: 'dir replaced with file',
+  modifiedFile: 'modified',
+  newDir: 'new dir',
+  newFile: 'new file',
 };
 infoProviders.push(({ abbreviate, execInfo }) => {
   const deltaLog = execInfo?.deltaLog;
   if (deltaLog && deltaLog.length > 0) {
     if (abbreviate && deltaLog.length > 1) {
-      let eventCounts: {[event: string]: number} = {
-        'new file': 0,
-        'new dir': 0,
-        'deleted': 0,
-        'modified': 0,
-        'dir replaced with file': 0,
-        'other': 0,
+      let eventCounts: Record<DeltaLogEntry['event'], number> = {
+        deletedDir: 0,
+        deletedFile: 0,
+        dirReplacedWithFile: 0,
+        modifiedFile: 0,
+        newDir: 0,
+        newFile: 0,
       };
       for (const entry of deltaLog) {
         if (entry.event in eventCounts) {
           eventCounts[entry.event] += 1;
         } else {
-          eventCounts['other'] += 1;
+          throw new Error(`unknown event ${entry.event}`);
         }
       }
       return <InfoEntry>
-        {Object.entries(eventCounts).map(([event, count]) => {
+        {objectEntries(eventCounts).map(([event, count]) => {
           if (count > 0) {
             return <Fragment key={event}>
-              {eventIcons[event] || <InfoEntryIcon title={event}><octicons.DiffIgnoredIcon {...octiconProps}/></InfoEntryIcon>}
+              <InfoEntryIcon title={eventNames[event] || event}>{eventIcons[event]}</InfoEntryIcon>
               <InfoEntryContents>
                 {count}
               </InfoEntryContents>
@@ -270,6 +281,33 @@ infoProviders.push(({ abbreviate, execInfo }) => {
   }
 });
 
+const eventIcons: Record<DeltaLogEntry['event'], ReactNode> = {
+  deletedDir: <octicons.DiffRemovedIcon {...octiconProps} />,
+  deletedFile: <octicons.DiffRemovedIcon {...octiconProps} />,
+  dirReplacedWithFile: <octicons.DiffModifiedIcon {...octiconProps} />,
+  modifiedFile: <octicons.DiffModifiedIcon {...octiconProps} />,
+  newDir: <octicons.DiffAddedIcon {...octiconProps} />,
+  newFile: <octicons.DiffAddedIcon {...octiconProps} />,
+};
+
+// TODO: make into component?
+function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): ReactNode {
+  return <>
+    {log.map(({path: somePath, event}) => {
+      if (baseDir) {
+        somePath = path.relative(baseDir, somePath);
+      }
+      return <InfoEntry key={somePath}>
+        <InfoEntryIcon title={eventNames[event] || event}>{eventIcons[event]}</InfoEntryIcon>
+        <InfoEntryContents>
+          <C>{somePath}</C>
+          <InfoEntryDetails><H>({eventNames[event]})</H></InfoEntryDetails>
+        </InfoEntryContents>
+      </InfoEntry>;
+    })}
+  </>;
+}
+
 // exit code
 infoProviders.push(({ execInfo }) => {
   const execExitInfo = execInfo?.exitInfo;
@@ -278,9 +316,9 @@ infoProviders.push(({ execInfo }) => {
       <InfoEntryIcon title='exit code'>
         <octicons.SignOutIcon {...octiconProps}/>
       </InfoEntryIcon>
-      <InfoEntryContents>
-        <H>exit {execExitInfo.exitCode}</H>
-      </InfoEntryContents>
+      <InfoEntryDetails>
+        exit {execExitInfo.exitCode}
+      </InfoEntryDetails>
     </InfoEntry>;
   }
 });
@@ -327,9 +365,9 @@ infoProviders.push(({ abbreviate, execInfo }) => {
           if (count > 0) {
             return <Fragment key={type}>
               {varChangeIcons[type as ShellVarChange['type']]}
-              <InfoEntryContents>
+              <InfoEntryDetails>
                 {count}
-              </InfoEntryContents>
+              </InfoEntryDetails>
             </Fragment>;
           } else {
             return null;
@@ -345,33 +383,6 @@ infoProviders.push(({ abbreviate, execInfo }) => {
     }
   }
 });
-
-const eventIcons: Record<string, ReactNode> = {
-  'deleted': <InfoEntryIcon title='file/dir deleted'><octicons.DiffRemovedIcon {...octiconProps} /></InfoEntryIcon>,
-  'new dir': <InfoEntryIcon title='dir added'><octicons.DiffAddedIcon {...octiconProps} /></InfoEntryIcon>,
-  'modified': <InfoEntryIcon title='file modified'><octicons.DiffModifiedIcon {...octiconProps} /></InfoEntryIcon>,
-  'dir replaced with file': <InfoEntryIcon title='dir to file'><octicons.DiffModifiedIcon {...octiconProps} /></InfoEntryIcon>,
-  'new file': <InfoEntryIcon title='file added'><octicons.DiffAddedIcon {...octiconProps} /></InfoEntryIcon>,
-};
-
-// TODO: make into component?
-function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): ReactNode {
-  return <>
-    {log.map(({path: somePath, event}) => {
-      if (baseDir) {
-        somePath = path.relative(baseDir, somePath);
-      }
-      return <InfoEntry key={somePath}>
-        {eventIcons[event] || <InfoEntryIcon title={eventNames[event] || event}><octicons.DiffIgnoredIcon {...octiconProps}/></InfoEntryIcon>}
-        <InfoEntryContents>
-          <C>{somePath}</C>
-          <InfoEntryDetails><H>({event})</H></InfoEntryDetails>
-        </InfoEntryContents>
-      </InfoEntry>;
-    })}
-  </>;
-}
-
 
 const varChangeIcons: Record<ShellVarChange['type'], ReactNode> = {
   add:

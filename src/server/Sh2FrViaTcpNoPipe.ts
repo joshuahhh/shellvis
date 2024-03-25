@@ -135,6 +135,8 @@ const PRELUDE = normalizeIndent`
       read \${=2} </dev/fd/$fr_sh2fr_fd
       # echo "sh: fr_msg got response \${=2}" >&$fr_top_stderr
     else
+      # TODO: we want to block on the response anyway; not sure this is the cleanest place to do this
+      read </dev/fd/$fr_sh2fr_fd
       # echo "sh: fr_msg got no return vars" >&$fr_top_stderr
     fi
     ztcp -c $fr_sh2fr_fd

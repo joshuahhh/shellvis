@@ -12,7 +12,7 @@ export type Sh2Fr = {
   stop: () => Promise<void>,
 };
 
-export const uploadNames = ['stdout', 'stderr', 'varsEnter', 'varsExit', 'deltaLog'] as const;
+export const uploadNames = ['stdout', 'stderr', 'varsEnter', 'varsExit'] as const;
 export type UploadName = typeof uploadNames[number];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare

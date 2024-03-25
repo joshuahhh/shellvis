@@ -6,7 +6,7 @@ import R from 'remeda';
 import { assert, describe, expect, it, onTestFinished } from 'vitest';
 import { Sh2Fr } from '../src/server/Sh2Fr.js';
 import { Run } from '../src/server/run.js';
-import { ForInfo, Trace, mkExecId } from '../src/shared/execution.js';
+import { DeltaLogEntry, ForInfo, Trace, mkExecId } from '../src/shared/execution.js';
 import { Script } from '../src/shared/mvdan-sh-helpers.js';
 
 const cwd = process.cwd();
@@ -189,8 +189,8 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
 
       const touchExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('touch testfile.txt', run.script!) });
       expect(trace.execInfos[touchExecId].deltaLog).toEqual([
-        { event: 'new file', path: path.resolve(cwd, 'testfile.txt') },
-      ]);
+        { event: 'newFile', path: path.resolve(cwd, 'testfile.txt') },
+      ] satisfies DeltaLogEntry[]);
     });
 
     it('file deletion works', async () => {
@@ -208,8 +208,8 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
 
       const rmExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('rm package.json', run.script!) });
       expect(trace.execInfos[rmExecId].deltaLog).toEqual([
-        { event: 'deleted', path: path.resolve(cwd, 'package.json') },
-      ]);
+        { event: 'deletedFile', path: path.resolve(cwd, 'package.json') },
+      ] satisfies DeltaLogEntry[]);
     });
 
     // TODO: can't think of a function that modifies files lol

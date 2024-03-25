@@ -57,12 +57,3 @@ export class WebHighlighter {
     return tokenizeLines(lines, this.grammar, this.rules);
   }
 }
-
-let globalWebHighlighter = null as WebHighlighter | null;
-export function getGlobalWebHighlighter() {
-  if (globalWebHighlighter === null) {
-    globalWebHighlighter = new WebHighlighter();
-    globalWebHighlighter.init();
-  }
-  return globalWebHighlighter;
-}
