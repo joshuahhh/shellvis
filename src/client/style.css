@@ -50,21 +50,3 @@
     color-scheme: dark;
   }
 }
-
-html {
-  box-sizing: border-box;
-}
-*, *:before, *:after {
-  box-sizing: inherit;
-}
-
-body {
-  background-color: #1F1F1F;
-  /* background-color: #333; */
-  color: white;
-  line-height: 20px;
-  font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
-
-  /* TODO: hmmm */
-  overflow-x: hidden;
-}
