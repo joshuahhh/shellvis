@@ -287,7 +287,6 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       );
 
       const execId = mkExecId(message);
-      console.log('call-exit', execId, deltaLog);
 
       const cwd = pathInSandbox(message.cwd, this.sandbox!);
 
