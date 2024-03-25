@@ -1,6 +1,7 @@
 import React, { CSSProperties } from "react"
 import domElements from "./domElements.js"
 import { twMerge } from "tailwind-merge"
+import { objectFromEntries } from "../../shared/util.js"
 
 const isTwElement = Symbol("isTwElement?")
 
@@ -257,13 +258,9 @@ const templateFunctionFactory: TailwindInterface = (<C extends React.ElementType
   }
 }) as any
 
-const intrinsicElementsMap: IntrinsicElementsTemplateFunctionsMap = domElements.reduce(
-  (acc: IntrinsicElementsTemplateFunctionsMap, DomElement: keyof JSX.IntrinsicElements) => ({
-    ...acc,
-    [DomElement]: templateFunctionFactory(DomElement)
-  }),
-  {} as IntrinsicElementsTemplateFunctionsMap
-)
+const intrinsicElementsMap: IntrinsicElementsTemplateFunctionsMap = objectFromEntries(
+  domElements.map((DomElement) => [DomElement, templateFunctionFactory(DomElement)])
+);
 
 const tw: TailwindInterface = Object.assign(templateFunctionFactory, intrinsicElementsMap)
 
