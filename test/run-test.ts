@@ -1,5 +1,4 @@
 import { Repo } from '@automerge/automerge-repo';
-import { normalizeIndent } from '@engraft/shared/lib/normalizeIndent.js';
 import sh from 'mvdan-sh';
 import path from 'node:path';
 import R from 'remeda';
@@ -9,6 +8,7 @@ import { Run } from '../src/server/run.js';
 import { DeltaLogEntry, ForInfo, Trace, mkExecId } from '../src/shared/execution.js';
 import { Script } from '../src/shared/mvdan-sh-helpers.js';
 import { getUnionFSMounts } from '../src/server/sandbox.js';
+import { normalizeIndent } from '../src/shared/normalizeIndent.js';
 
 const cwd = process.cwd();
 
@@ -220,8 +220,30 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
       ] satisfies DeltaLogEntry[]);
     });
 
-    // TODO: can't think of a function that modifies files lol
-    it.todo('file modification works');
+    it('file modification works', async () => {
+      const repo = new Repo({ network: [] });
+      const run = new Run({
+        path: 'DUMMY-PATH',
+        cwd,
+        env: process.env,
+        scriptSrc: normalizeIndent`
+          touch testfile.txt
+
+          modify () {
+            echo "hello" > testfile.txt
+          }
+
+          modify
+        `,
+      }, repo, mkSh2Fr());
+      const trace = await runAndGetTrace(run);
+
+      const touchExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('modify', run.script!) });
+      expect(trace.execInfos[touchExecId].deltaLog).toEqual([
+        { event: 'modifiedFile', path: path.resolve(cwd, 'testfile.txt') },
+      ] satisfies DeltaLogEntry[]);
+    });
+
 
     it('for loops work', async () => {
       const repo = new Repo({ network: [] });

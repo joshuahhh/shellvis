@@ -111,6 +111,12 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
     const transformedAst = this.script.freshAst();
 
     myWalk(transformedAst, {
+      enter: (node) => {
+        // TODO: for now, function bodies are not traced
+        if (hasNodeType(node, 'FuncDecl')) {
+          return 'skip';
+        }
+      },
       exit: (node) => {
         if (hasNodeType(node, 'Stmt')) {
           const cmd = node.Cmd;

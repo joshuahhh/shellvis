@@ -1,4 +1,3 @@
-import { normalizeIndent } from '@engraft/shared/lib/normalizeIndent.js';
 import express from 'express';
 import getPort from 'get-port';
 import * as net from 'node:net';
@@ -6,6 +5,7 @@ import { mkExecId } from '../shared/execution.js';
 import { Message } from '../shared/tracing.js';
 import { FATAL, chunksToLines } from '../shared/util.js';
 import { Sh2Fr, UploadName, uploadNames } from './Sh2Fr.js';
+import { normalizeIndent } from '../shared/normalizeIndent.js';
 
 
 export class Sh2FrViaHttp implements Sh2Fr {

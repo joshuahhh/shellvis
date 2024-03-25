@@ -1,11 +1,11 @@
+import AnsiToHtmlConverter from 'ansi-to-html';
 import sh from 'mvdan-sh';
-import { Fragment, memo, useMemo } from 'react';
+import { memo, useMemo } from 'react';
+import * as yaml from 'yaml';
 import json5StringifyPrettyCompact from '../shared/json5-stringify-pretty-compact.js';
 import { Script, expandObject } from '../shared/mvdan-sh-helpers.js';
+import { normalizeIndent } from '../shared/normalizeIndent.js';
 import { Highlighted } from './HighlightingTest.js';
-import * as yaml from 'yaml';
-import AnsiToHtmlConverter from 'ansi-to-html';
-import { normalizeIndent } from '@engraft/shared/lib/normalizeIndent.js';
 
 const ansiToHtml = new AnsiToHtmlConverter();
 
@@ -20,6 +20,13 @@ export const ASTTest = memo(() => {
         for i in 1 2 3; do
           echo "hello $i"
         done
+      `}/>
+      <Pane code={normalizeIndent`
+        myfunc() {
+          echo "hello"
+        }
+
+        hello
       `}/>
     </div>
   </div>;

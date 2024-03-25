@@ -85,14 +85,12 @@ export function expandObject(obj: any, opts: ExpandObjectOptions = {}): any {
   }
 }
 
-enum EnterResponse { Continue, Skip, Abort }
-
-enum ExitResponse { Continue, Abort }
-
 type Walker = {
   enter?(node: sh.Node, ancestors: sh.Node[]): EnterResponse | void | (() => void),
   exit?(node: sh.Node, ancestors: sh.Node[]): ExitResponse | void,
 };
+type EnterResponse = 'contine' | 'skip' | 'abort';
+type ExitResponse = 'contine' | 'abort';
 
 export function myWalk (
   node: sh.Node,
@@ -109,13 +107,13 @@ export function myWalk (
 
     if (node !== null) {
       // entering
-      const response = walker.enter ? walker.enter(node, ancestors) : EnterResponse.Continue;
-      if (response === EnterResponse.Abort) {
+      const response = walker.enter ? walker.enter(node, ancestors) : 'continue';
+      if (response === 'abort') {
         aborted = true;
         return false;
-      } else if (response === EnterResponse.Skip) {
+      } else if (response === 'skip') {
         return false;
-      } else if (response === EnterResponse.Continue || response === undefined || typeof response === 'function') {
+      } else if (response === 'continue' || response === undefined || typeof response === 'function') {
         ancestors.push(node);
         if (typeof response === 'function') {
           finalizers.set(node, response);
@@ -132,8 +130,8 @@ export function myWalk (
         finalizer();
         finalizers.delete(exitedNode);
       }
-      const response = walker.exit ? walker.exit(exitedNode, ancestors) : ExitResponse.Continue;
-      if (response === ExitResponse.Abort) {
+      const response = walker.exit ? walker.exit(exitedNode, ancestors) : 'continue';
+      if (response === 'abort') {
         aborted = true;
       }
       return true;  // meaningless but required by API
@@ -162,7 +160,7 @@ export function wrapStmt(parser: sh.Parser, stmt: sh.Stmt, templateStr: string):
           if (sh.syntax.NodeType(node) === 'Stmt') {
             const foundStmt = node as sh.Stmt;
             foundStmt.Cmd = stmt.Cmd;
-            return EnterResponse.Abort;
+            return 'abort';
           }
         }
         throw new Error('found ___ outside of Stmt');
@@ -239,7 +237,7 @@ export function parseFirstOfType<T extends keyof NodeTypes>(parser: sh.Parser, s
     enter(node) {
       if (hasNodeType(node, nodeType)) {
         foundNode = node;
-        return EnterResponse.Abort;
+        return 'abort';
       }
     },
   });

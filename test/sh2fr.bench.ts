@@ -1,5 +1,4 @@
 import { Repo } from '@automerge/automerge-repo';
-import { normalizeIndent } from '@engraft/shared/lib/normalizeIndent.js';
 import { bench, describe } from 'vitest';
 import { Sh2Fr } from '../src/server/Sh2Fr.js';
 import { Sh2FrViaHttp } from '../src/server/Sh2FrViaHttp.js';
@@ -7,6 +6,7 @@ import { Sh2FrViaTcp } from '../src/server/Sh2FrViaTcp.js';
 import { Sh2FrViaTcpNoPipe } from '../src/server/Sh2FrViaTcpNoPipe.js';
 import { Run } from '../src/server/run.js';
 import { runAndGetTrace } from './run-test.js';
+import { normalizeIndent } from '../src/shared/normalizeIndent.js';
 
 const cwd = process.cwd();
 
