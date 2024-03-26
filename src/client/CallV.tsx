@@ -42,9 +42,9 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
   return (
     execInfo &&
     <div data-dbg='CallOnGridV'
-      className='inline-flex flex-col items-start'>
+      className='inline-flex flex-col items-start min-w-0'>
       { showCodeLabel &&
-        <div data-dg-name='CallOnGridV code label' className='text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis'>
+        <div data-dg-name='CallOnGridV code label' className='text-gray-500 text-xs w-0 min-w-full whitespace-nowrap overflow-hidden text-ellipsis font-mono'>
           {script.srcForNode(callExpr)}
         </div>
       }
@@ -52,7 +52,9 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
         className={clsx(
           `inline-flex flex-col bg-gray-500 rounded
           p-1
-          min-w-5 min-h-5`,
+          min-w-5 min-h-5
+          max-w-full
+          `,
           status === 'running' && '-ml-[3px] border-l-[3px] border-green-500',
           providerOutputs.length === 0 && 'bg-gray-600'
         )}
@@ -145,7 +147,7 @@ const InfoEntryIcon = memo((props: {
 
 const InfoEntryContents = tw.div`flex overflow-auto whitespace-nowrap`;
 
-const InfoEntryDetails = tw.div`ml-2`;
+const InfoEntryDetails = tw.div`ml-2 min-w-0 overflow-x-auto`;
 
 // TODO: "computer" and "human"; figure this out
 const C = tw.span`font-mono`;

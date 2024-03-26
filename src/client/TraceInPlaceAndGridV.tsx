@@ -21,7 +21,10 @@ export const TraceInPlaceAndGridV = memo((props: TraceVProps) => {
 
   useEffect(() => {
     if (!traceElem) { return; }
-    if (selections.length === 0) { return; }
+    if (selections.length === 0) {
+      setBackgroundPos(null);
+      return;
+    }
 
     // here's the plan...
     // run a function in a loop
@@ -33,19 +36,18 @@ export const TraceInPlaceAndGridV = memo((props: TraceVProps) => {
     const traceElemSaved = traceElem;
 
     function update() {
-      const traceBox = traceElemSaved.getBoundingClientRect();
+      const traceTop = traceElemSaved.offsetTop;
 
       let top = Infinity;
       let bottom = -Infinity;
       for (const selection of selections) {
         const elems = [
-          ...traceElemSaved.querySelectorAll(`[data-line="${selection.start.line}"] > *`),
-          ...traceElemSaved.querySelectorAll(`[data-line="${selection.end.line}"] > *`),
-        ];
+          ...traceElemSaved.querySelectorAll(`[data-line="${selection.start.line}"]`),
+          ...traceElemSaved.querySelectorAll(`[data-line="${selection.end.line}"]`),
+        ] as HTMLElement[];
         for (const elem of elems) {
-          const rect = (elem as HTMLElement).getBoundingClientRect();
-          top = Math.min(top, rect.top - traceBox.top);
-          bottom = Math.max(bottom, rect.bottom - traceBox.top);
+          top = Math.min(top, elem.offsetTop - traceTop);
+          bottom = Math.max(bottom, elem.offsetTop + elem.offsetHeight - traceTop);
         }
       };
 
@@ -76,15 +78,16 @@ export const TraceInPlaceAndGridV = memo((props: TraceVProps) => {
     return rafLoop(update);
   }, [backgroundElem, selections, traceElem]);
 
-  return <div
+  return <div data-dbg='TraceInPlaceAndGridV'
     ref={setTraceElem}
     className={clsx(
-      'relative mx-3 my-10',
-      detailsMode === 'grid' && 'inline-grid grid-cols-[fit-content(0%)_auto_minmax(min-content,max-content)]'
+      'relative px-3 pt-10 w-full',
+      detailsMode === 'grid' &&
+        'inline-grid grid-cols-[fit-content(0%)_minmax(min-content,max-content)_auto]'
     )}
   >
     { backgroundPos &&
-      <div data-dbg='TraceInPlaceAndGridV trace background'
+      <div data-dbg='TraceInPlaceAndGridV (selection background)'
         className={`
           absolute w-screen
           -mx-3

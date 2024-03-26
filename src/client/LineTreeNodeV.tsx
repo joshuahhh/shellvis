@@ -39,21 +39,48 @@ const Line = tw.div<{$inPlace: boolean}>`
   ${p => p.$inPlace ? 'flex flex-row' : 'contents'}
 `;
 
-const LineNum = tw.div`
-  col-start-1
-  text-gray-500
-  mr-5
-  text-right
-  min-w-7
-  font-mono
-`;
+const LineNum = memo((props: {children?: number}) => {
+  const { children } = props;
 
-const LineContents = tw.div`
+  const { hvContextUP, selections } = useContext(HVContext);
+
+  const onClick = useCallback((e: React.MouseEvent) => {
+    if (!hvContextUP || !children) { return; }
+    if (selections.some(selection =>
+      selection.start.line <= children - 1 && children - 1 <= selection.end.line
+    )) {
+      hvContextUP.selections.$set([]);
+    } else {
+      hvContextUP.selections.$set([
+        { start: { line: children - 1 }, end: { line: children - 1 } },
+      ]);
+    }
+  }, [hvContextUP, children, selections]);
+
+  return <div
+    className={clsx(`
+      col-start-1
+      text-gray-500
+      mr-5
+      text-right
+      min-w-7
+      font-mono
+      select-none
+    `, children && 'cursor-pointer')}
+    onClick={onClick}
+  >
+    {props.children}
+  </div>;
+});
+
+const LineContents = tw.div<{'data-line': number}>`
   col-start-2
   grow basis-0 min-w-0 overflow-hidden
   whitespace-pre
   font-mono
   pr-5
+  self-start  // vertically shrink to contents
+  min-h-5  // TODO: line height; delicate
 `;
 
 const LineCalls = tw.div`
@@ -67,9 +94,9 @@ const DeadLineTreeNodeV = memo((props: DeadLineTreeNodeVProps) => {
 
   if (node.type === 'line') {
     // TODO: duplication from LineV
-    return <Line data-line={node.lineNumStart - 1} $inPlace={detailsMode === 'in-place'} className='text-gray-400'>
+    return <Line $inPlace={detailsMode === 'in-place'} className='text-gray-400'>
       <LineNum>{node.lineNumStart}</LineNum>
-      <LineContents>{node.line}</LineContents>
+      <LineContents data-line={node.lineNumStart - 1}>{node.line}</LineContents>
     </Line>;
   } else if (node.type === 'loop-body') {
     return node.children.map((child, i) =>
@@ -154,11 +181,11 @@ const LineV = memo((props: LineVProps) => {
   // count /s in context
   const depth = context.match(/\//g)?.length || 0;
 
-  return <Line data-line={i} $inPlace={detailsMode === 'in-place'}>
+  return <Line $inPlace={detailsMode === 'in-place'}>
     <LineNum>{i + 1}</LineNum>
-    <LineContents>{nodes}</LineContents>
+    <LineContents data-line={i}>{nodes}</LineContents>
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
-      <LineCalls style={{paddingLeft: depth * 20}} className='flex relative my-1'>
+      <LineCalls style={{paddingLeft: depth * 20}} className='relative my-1'>
         <div className={clsx('flex flex-wrap gap-1', !abbreviate && 'invisible')}>
           {callExprsOnLine.map((callExpr) =>
             <CallOnGridV
@@ -173,7 +200,7 @@ const LineV = memo((props: LineVProps) => {
           )}
         </div>
         { !abbreviate &&
-          <div className='flex absolute z-10 bg-zinc-700 -mx-1 px-1 -mb-1 pb-1 rounded'>
+          <div className='flex flex-wrap gap-1 absolute z-10 bg-zinc-700 -mx-1 px-1 -mb-1 pb-1 rounded max-w-full'>
             {callExprsOnLine.map((callExpr) =>
               <CallOnGridV
                 key={getNodeId(callExpr)}
@@ -219,9 +246,9 @@ const LoopBodyV = memo((props: {
   if (detailsMode === 'in-place') {
     if (iterations.length === 0) {
       return <>
-        <Line data-line={forLineNum} $inPlace={true}>
+        <Line $inPlace={true}>
           <LineNum/>
-          <LineContents>
+          <LineContents data-line={forLineNum}>
             <ForLoopIterationHeader>
               <div>{forIndent}</div>
               <ForLoopIterationHeaderLabel>
@@ -249,9 +276,9 @@ const LoopBodyV = memo((props: {
       >
         {iterations.map((iteration, iterationIdx) =>
           <div key={iteration.counter}>
-            <Line data-line={forLineNum} $inPlace={true}>
+            <Line $inPlace={true}>
               <LineNum/>
-              <LineContents>
+              <LineContents data-line={forLineNum}>
                 <div className='flex flex-row'>
                   <div>{forIndent}</div>
                   <LoopHeader
@@ -284,9 +311,9 @@ const LoopBodyV = memo((props: {
       }
       const iteration = iterations[viewState.collapsedOn];
       return <>
-        <Line data-line={forLineNum} $inPlace={true}>
+        <Line $inPlace={true}>
           <LineNum/>
-          <LineContents>
+          <LineContents data-line={forLineNum}>
             <div className='flex flex-row'>
               <div>{forIndent}</div>
               <LoopHeader
@@ -317,7 +344,7 @@ const LoopBodyV = memo((props: {
 
     if (iterations.length === 0) {
       return <>
-        <LineCalls style={{paddingLeft: depth * 20}} data-line={forLineNum}>
+        <LineCalls style={{paddingLeft: depth * 20}}>
           <ForLoopIterationHeader>
             <div>{forIndent}</div>
             <ForLoopIterationHeaderLabel>
@@ -341,7 +368,7 @@ const LoopBodyV = memo((props: {
     }
     const iteration = iterations[viewState.collapsedOn];
     return <>
-      <LineCalls style={{paddingLeft: depth * 20}} data-line={forLineNum}>
+      <LineCalls style={{paddingLeft: depth * 20}}>
         <LoopHeader
           viewState={viewState}
           setViewState={setViewState}

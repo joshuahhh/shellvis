@@ -40,6 +40,11 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
   const { showMessages, showAST, showTrace } = hvContext;
 
   useEffect(() => {
+    // omg love this 😍
+    hvContextUP.hvContextUP.$set(hvContextUP as any);
+  }, [hvContextUP]);
+
+  useEffect(() => {
     const vsCodeListener = new VSCodeListener();
     const onMessage = (e: MessageEvent<string>) => {
       const vsEvent: TextEditorSelectionChangeEvent = JSON.parse(e.data);

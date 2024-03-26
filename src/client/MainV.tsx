@@ -22,7 +22,7 @@ export const MainV = memo(() => {
         <Route path='*' element={<HomeV/>}/>
       </Routes>
     </HashRouter>
-    <Body className='bg-[#1F1F1F] text-white leading-5 font-sans'/>
+    <Body className='bg-[#1F1F1F] text-white leading-5 font-sans overflow-x-hidden w-full h-full'/>
   </>;
 });
 
