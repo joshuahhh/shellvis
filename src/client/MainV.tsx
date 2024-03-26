@@ -3,6 +3,7 @@ import { faEllipsisVertical, faRotateLeft, faRotateRight } from '@fortawesome/fr
 import { memo } from 'react';
 import { HashRouter, Link, Route, Routes } from 'react-router-dom';
 import { ASTTest } from './ASTTest.js';
+import { GridTest } from './GridTest.js';
 import { Body } from './Body.js';
 import { CliV } from './CliV.js';
 import { HighlightingTest } from './HighlightingTest.js';
@@ -19,6 +20,7 @@ export const MainV = memo(() => {
         <Route path='/testbed/:name' element={<TestbedV/>}/>
         <Route path='/highlighting-test' element={<HighlightingTest/>}/>
         <Route path='/ast-test' element={<ASTTest/>}/>
+        <Route path='/grid-test' element={<GridTest/>}/>
         <Route path='*' element={<HomeV/>}/>
       </Routes>
     </HashRouter>
@@ -39,12 +41,9 @@ const HomeV = memo(() => {
       <li>
         tests
         <ul>
-          <li>
-            <Link to='/highlighting-test'>highlighting test</Link>
-          </li>
-          <li>
-            <Link to='/ast-test'>ast test</Link>
-          </li>
+          <li><Link to='/highlighting-test'>highlighting test</Link></li>
+          <li><Link to='/ast-test'>ast test</Link></li>
+          <li><Link to='/grid-test'>grid test</Link></li>
         </ul>
       </li>
     </ul>

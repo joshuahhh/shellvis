@@ -9,7 +9,7 @@ import { LineTreeNode, Script, getNodeId, nodePosInfo } from '../shared/mvdan-sh
 import { CallOnGridV, CallInPlaceV } from './CallV.js';
 import { HVContext } from './HVContext.js';
 import tw from './tailwind-styled-component/index.js';
-import clsx from 'clsx';
+import { clsy } from './clsy.js';
 
 
 export type LineTreeNodeVProps = {
@@ -44,7 +44,7 @@ const LineNum = memo((props: {children?: number}) => {
 
   const { hvContextUP, selections } = useContext(HVContext);
 
-  const onClick = useCallback((e: React.MouseEvent) => {
+  const onClick = useCallback(() => {
     if (!hvContextUP || !children) { return; }
     if (selections.some(selection =>
       selection.start.line <= children - 1 && children - 1 <= selection.end.line
@@ -58,7 +58,7 @@ const LineNum = memo((props: {children?: number}) => {
   }, [hvContextUP, children, selections]);
 
   return <div
-    className={clsx(`
+    className={clsy(`
       col-start-1
       text-gray-500
       mr-5
@@ -66,7 +66,7 @@ const LineNum = memo((props: {children?: number}) => {
       min-w-7
       font-mono
       select-none
-    `, children && 'cursor-pointer')}
+    `, children !== undefined && 'cursor-pointer')}
     onClick={onClick}
   >
     {props.children}
@@ -83,8 +83,9 @@ const LineContents = tw.div<{'data-line': number}>`
   min-h-5  // TODO: line height; delicate
 `;
 
+// non-pop-up third-col content should go in LineCalls
 const LineCalls = tw.div`
-  flex flex-row flex-wrap items-start
+  min-w-0 col-span-1
 `;
 
 const DeadLineTreeNodeV = memo((props: DeadLineTreeNodeVProps) => {
@@ -185,22 +186,10 @@ const LineV = memo((props: LineVProps) => {
     <LineNum>{i + 1}</LineNum>
     <LineContents data-line={i}>{nodes}</LineContents>
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
-      <LineCalls style={{paddingLeft: depth * 20}} className='relative my-1'>
-        <div className={clsx('flex flex-wrap gap-1', !abbreviate && 'invisible')}>
-          {callExprsOnLine.map((callExpr) =>
-            <CallOnGridV
-              key={getNodeId(callExpr)}
-              callExpr={callExpr}
-              context={context}
-              script={script}
-              trace={trace}
-              showCodeLabel={callExprsOnLine.length > 1}
-              abbreviate={true}
-            />
-          )}
-        </div>
-        { !abbreviate &&
-          <div className='flex flex-wrap gap-1 absolute z-10 bg-zinc-700 -mx-1 px-1 -mb-1 pb-1 rounded max-w-full'>
+      // this div makes it easier to overlap a two-col popup over a one-col abbreviation
+      <div className='grid grid-cols-subgrid col-span-2'>
+        <LineCalls style={{paddingLeft: depth * 20}} className='row-start-1 col-start-1 my-1 mx-1'>
+          <div className={clsy('flex flex-wrap gap-1', !abbreviate && 'invisible')}>
             {callExprsOnLine.map((callExpr) =>
               <CallOnGridV
                 key={getNodeId(callExpr)}
@@ -209,12 +198,37 @@ const LineV = memo((props: LineVProps) => {
                 script={script}
                 trace={trace}
                 showCodeLabel={callExprsOnLine.length > 1}
-                abbreviate={false}
+                abbreviate={true}
               />
             )}
           </div>
+        </LineCalls>
+        { !abbreviate &&
+          <div style={{marginLeft: depth * 20}} className='row-start-1 col-start-1 col-span-2 my-1 relative'>
+            <div className={clsy`
+              absolute left-0 right-0 z-10  // external positioning
+            `}>
+              <div className={clsy`
+                w-fit max-w-[calc(100%_+_8px)]                  // external positioning
+                bg-zinc-700 px-1 pb-1 rounded-md  // selection background
+                flex flex-wrap gap-1                            // layout of children
+              `}>
+              {callExprsOnLine.map((callExpr) =>
+                <CallOnGridV
+                  key={getNodeId(callExpr)}
+                  callExpr={callExpr}
+                  context={context}
+                  script={script}
+                  trace={trace}
+                  showCodeLabel={callExprsOnLine.length > 1}
+                  abbreviate={false}
+                />
+              )}
+              </div>
+            </div>
+          </div>
         }
-      </LineCalls>
+      </div>
     }
   </Line>;
 });
@@ -407,6 +421,8 @@ const ForLoopIterationHeaderLabel = tw.div`
   text-white
   px-1
   w-fit
+  whitespace-nowrap
+  font-mono
 `;
 
 
@@ -490,7 +506,7 @@ const LoopHeader = memo((props: {
         onMouseDown={() => { setSliderIsDragging(true); }}
         onChangeCommitted={() => { setSliderIsDragging(false); }}
       />
-      <div className='text-blue-400'>
+      <div className='text-blue-400 whitespace-nowrap'>
         {viewState.collapsedOn + 1} / {numIterations}
       </div>
     </>}

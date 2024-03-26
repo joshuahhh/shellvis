@@ -185,7 +185,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
       </div>
       <AnimatePresence>
         { showSettings && <motion.div
-          className='flex flex-col gap-2 min-w-0 overflow-x-hidden'
+          className='flex flex-col gap-2 min-w-0'
           initial='absent' animate='present' exit='absent'
           variants={{
             present: { opacity: '100%', width: 'auto', height: 'auto' },

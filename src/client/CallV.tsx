@@ -2,7 +2,6 @@ import { RawString } from '@automerge/automerge/next';
 import { count } from '@engraft/shared/lib/count.js';
 import { Tooltip } from '@mui/material';
 import * as octicons from '@primer/octicons-react';
-import clsx from 'clsx';
 import sh from 'mvdan-sh';
 import path from 'path-browserify';
 import { Fragment, ReactNode, memo } from 'react';
@@ -12,6 +11,7 @@ import { ExecuteRequest } from '../shared/types.js';
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from '../shared/typeset.js';
 import { last, objectEntries, weakMapCache2 } from '../shared/util.js';
 import tw from './tailwind-styled-component/index.js';
+import { clsy } from './clsy.js';
 
 
 const octiconProps: Parameters<octicons.Icon>[0] = {
@@ -49,11 +49,12 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
         </div>
       }
       <div data-dbg='CallOnGridV filled area'
-        className={clsx(
+        className={clsy(
           `inline-flex flex-col bg-gray-500 rounded
           p-1
           min-w-5 min-h-5
           max-w-full
+          max-h-72 overflow-x-auto
           `,
           status === 'running' && '-ml-[3px] border-l-[3px] border-green-500',
           providerOutputs.length === 0 && 'bg-gray-600'
@@ -89,7 +90,7 @@ export const CallInPlaceV = memo((props: CallInPlaceVProps) => {
   return (
     execInfo &&
     <div data-dbg='CallInPlaceV'
-      className={clsx(
+      className={clsy(
         'inline-flex flex-col bg-gray-500 rounded mb-1 mr-1',
         status === 'running' && '-ml-[3px] border-l-[3px] border-green-500',
         providerOutputs.length === 0 && 'bg-gray-600'
@@ -138,7 +139,7 @@ const InfoEntryIcon = memo((props: {
 }) => {
   const { title, children, className } = props;
   // TODO: mt depends on line height
-  return <Tooltip title={title} placement='top' arrow className={clsx('w-4 h-4 relative mt-[2px]', className)}>
+  return <Tooltip title={title} placement='top' arrow className={clsy('w-4 h-4 relative mt-[2px]', className)}>
     <div>
       {children}
     </div>
@@ -147,7 +148,7 @@ const InfoEntryIcon = memo((props: {
 
 const InfoEntryContents = tw.div`flex overflow-auto whitespace-nowrap`;
 
-const InfoEntryDetails = tw.div`ml-2 min-w-0 overflow-x-auto`;
+const InfoEntryDetails = tw.div`pl-2 pr-1 min-w-0 overflow-x-auto`;
 
 // TODO: "computer" and "human"; figure this out
 const C = tw.span`font-mono`;
