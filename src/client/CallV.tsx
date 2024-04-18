@@ -187,14 +187,14 @@ function infoProviderForStream(stream: 'stdout' | 'stderr'): InfoProvider {
       return <InfoEntry>
         { stream === 'stdout'
           ? <InfoEntryIcon title='stdout'>
-              <octicons.ChevronRightIcon {...octiconProps}/>
+              <octicons.ArrowRightIcon {...octiconProps}/>
             </InfoEntryIcon>
           : <InfoEntryIcon title='stderr'>
               <div style={{position: 'absolute', left: 3}}>
-                <octicons.ChevronRightIcon {...octiconProps}/>
+                <octicons.ArrowRightIcon {...octiconProps}/>
               </div>
               <div style={{position: 'absolute', left: -3}}>
-                <octicons.ChevronRightIcon {...octiconProps}/>
+                <octicons.ArrowRightIcon {...octiconProps}/>
               </div>
             </InfoEntryIcon>
         }
