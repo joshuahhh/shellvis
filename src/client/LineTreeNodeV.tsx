@@ -265,7 +265,7 @@ const LoopBodyV = memo((props: {
           <LineContents data-line={forLineNum}>
             <ForLoopIterationHeader>
               <div>{forIndent}</div>
-              <ForLoopIterationHeaderLabel>
+              <ForLoopIterationHeaderLabel className='border border-blue-500'>
                 no iterations
               </ForLoopIterationHeaderLabel>
             </ForLoopIterationHeader>
@@ -361,7 +361,7 @@ const LoopBodyV = memo((props: {
         <LineCalls style={{paddingLeft: depth * 20}}>
           <ForLoopIterationHeader>
             <div>{forIndent}</div>
-            <ForLoopIterationHeaderLabel>
+            <ForLoopIterationHeaderLabel className='border border-blue-500 text-blue-500'>
               no iterations
             </ForLoopIterationHeaderLabel>
           </ForLoopIterationHeader>
@@ -422,7 +422,6 @@ const ForLoopIterationHeaderLabel = tw.div`
   px-1
   w-fit
   whitespace-nowrap
-  font-mono
 `;
 
 
@@ -456,7 +455,7 @@ const LoopHeader = memo((props: {
 
   return <ForLoopIterationHeader className={sliderIsDragging ? 'for-loop-iteration-header--slider-is-dragging' : ''}>
     <LockSize lock={sliderIsDragging}>
-      <ForLoopIterationHeaderLabel className='bg-blue-500'>
+      <ForLoopIterationHeaderLabel className='bg-blue-500 text-black font-mono'>
         {varName} = {iteration.loopVarValue}
       </ForLoopIterationHeaderLabel>
     </LockSize>
