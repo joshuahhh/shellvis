@@ -23,6 +23,7 @@ import { changeAt } from './automerge.js';
 import { Sh2FrViaTcp } from './Sh2FrViaTcp.js';
 import { Message } from '../shared/tracing.js';
 import { Sandbox, afterRun, beforeRun, makeDeltaLogEntryAbsolute, makeSandbox, pathInSandbox, removeSandbox } from './sandbox.js';
+import { Sh2FrViaHttp } from './Sh2FrViaHttp.js';
 
 const parser = sh.syntax.NewParser(sh.syntax.KeepComments(true));
 const printer = sh.syntax.NewPrinter();
@@ -68,7 +69,8 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   constructor(
     public params: RunParams,
     public repo: Repo,
-    public sh2fr: Sh2Fr = new Sh2FrViaTcp()
+    // public sh2fr: Sh2Fr = new Sh2FrViaTcp()
+    public sh2fr: Sh2Fr = new Sh2FrViaHttp()
   ) {
     super();
 
