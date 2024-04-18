@@ -502,6 +502,7 @@ const LoopHeader = memo((props: {
         marks={numIterations < 30}
         style={{
           width: Math.min(Math.max(10 * numIterations, 0), 100),
+          padding: 0,
         }}
         onMouseDown={() => { setSliderIsDragging(true); }}
         onChangeCommitted={() => { setSliderIsDragging(false); }}
