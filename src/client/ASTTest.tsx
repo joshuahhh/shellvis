@@ -10,7 +10,7 @@ import { Highlighted } from './HighlightingTest.js';
 const ansiToHtml = new AnsiToHtmlConverter();
 
 export const ASTTest = memo(() => {
-  return <div>
+  return <div className='px-16 mt-4'>
     <h1 className='text-4xl mb-6 text-gray-300'>some ASTs</h1>
     <div className='grid grid-cols-[max-content_minmax(0,_1fr)]'>
       <Pane code='a | b'/>
@@ -27,6 +27,14 @@ export const ASTTest = memo(() => {
         }
 
         hello
+      `}/>
+      <Pane code={normalizeIndent`
+        x=1
+        while [ $x -le 5 ]
+        do
+          echo "Welcome $x times"
+          x=$(( $x + 1 ))
+        done
       `}/>
     </div>
   </div>;

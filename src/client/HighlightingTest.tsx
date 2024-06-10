@@ -19,7 +19,7 @@ export const HighlightingTest = memo(() => {
     })();
   }, []);
 
-  return <div>
+  return <div className='px-16 mt-4'>
     <h1 className='text-4xl mb-6 text-gray-300'>Highlighting Test</h1>
     <Highlighted lines={lines || []}/>
   </div>;

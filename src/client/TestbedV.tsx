@@ -42,6 +42,12 @@ const examples: Record<string, ScriptWatcherParams & {desc?: string}> = {
     env: 'process.env',
     desc: 'lotsa loops lol',
   },
+  'while': {
+    path: './examples/while.sh',
+    cwd: '.',
+    env: 'process.env',
+    desc: 'the famed "while" loop',
+  },
   'nice-and-slow': {
     path: './examples/nice-and-slow.sh',
     cwd: '.',

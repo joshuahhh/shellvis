@@ -29,7 +29,7 @@ export const MainV = memo(() => {
 });
 
 const HomeV = memo(() => {
-  return <div className='prose dark:prose-invert prose-a:text-blue-400 hover:prose-a:text-blue-500'>
+  return <div className='px-16 mt-4 prose dark:prose-invert prose-a:text-blue-400 hover:prose-a:text-blue-500'>
     <ul>
       <li>
         <Link to='/cli'>cli</Link>
