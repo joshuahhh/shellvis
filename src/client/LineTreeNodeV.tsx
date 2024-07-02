@@ -1,15 +1,13 @@
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Slider } from '@mui/material';
-import * as octicons from '@primer/octicons-react';
 import sh from 'mvdan-sh';
 import React, { Fragment, memo, useCallback, useContext, useEffect, useState } from 'react';
-import { Decoration, addDecorationsToLineHelper, addDecorationsToLineStarter } from './decorations.js';
-import { Iteration, Trace, mkExecId } from '../shared/execution.js';
+import { ForIteration, Trace, mkExecId } from '../shared/execution.js';
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from '../shared/mvdan-sh-helpers.js';
-import { CallOnGridV, CallInPlaceV } from './CallV.js';
+import { CallInPlaceV, CallOnGridV } from './CallV.js';
 import { HVContext } from './HVContext.js';
-import tw from './tailwind-styled-component/index.js';
 import { clsy } from './clsy.js';
+import { Decoration, addDecorationsToLineHelper, addDecorationsToLineStarter } from './decorations.js';
+import tw from './tailwind-styled-component/index.js';
 
 
 export type LineTreeNodeVProps = {
@@ -233,9 +231,6 @@ const LineV = memo((props: LineVProps) => {
   </Line>;
 });
 
-type LoopViewState = 'expanded' | { collapsedOn: number };
-type LoopOrientation = 'horizontal' | 'vertical';
-
 const LoopBodyV = memo((props: {
   node: LineTreeNode & { type: 'loop-body' },
   script: Script,
@@ -254,8 +249,11 @@ const LoopBodyV = memo((props: {
   const forLine = script.lines[forLineNum];
   const forIndent = (forLine.match(/^\s*/)?.[0] || '  ');
 
-  let [ viewState, setViewState ] = useState<LoopViewState>({ collapsedOn: 0 });
-  const [ orientation, setOrientation ] = useState<LoopOrientation>('horizontal');
+  let [ iterationIdx, setIterationIdx ] = useState(0);
+  if (iterationIdx >= iterations.length) {
+    iterationIdx = iterations.length - 1;
+  }
+  const iteration = iterations[iterationIdx];
 
   if (detailsMode === 'in-place') {
     if (iterations.length === 0) {
@@ -279,80 +277,31 @@ const LoopBodyV = memo((props: {
       </>;
     }
 
-    if (viewState === 'expanded') {
-      return <div
-        style={{
-          display: 'flex',
-          flexDirection: orientation === 'horizontal' ? 'row' : 'column',
-          ...orientation === 'horizontal' && {gap: 30},
-          overflowX: 'auto',
-        }}
-      >
-        {iterations.map((iteration, iterationIdx) =>
-          <div key={iteration.counter}>
-            <Line $inPlace={true}>
-              <LineNum/>
-              <LineContents data-line={forLineNum}>
-                <div className='flex flex-row'>
-                  <div>{forIndent}</div>
-                  <LoopHeader
-                    viewState={viewState}
-                    setViewState={setViewState}
-                    orientation={orientation}
-                    setOrientation={setOrientation}
-                    iteration={iteration}
-                    iterationIdx={iterationIdx}
-                    varName={varName}
-                    numIterations={iterations.length}
-                  />
-                </div>
-              </LineContents>
-            </Line>
-            {node.children.map((child, i) =>
-              <Fragment key={i}>
-                <LineTreeNodeV
-                  script={script} trace={trace} node={child}
-                  context={`${context}/${forNodeId}-${iteration.counter}`}
-                />
-              </Fragment>
-            )}
-          </div>
-        )}
-      </div>;
-    } else {
-      if (viewState.collapsedOn >= iterations.length) {
-        viewState = { collapsedOn: iterations.length - 1 };
-      }
-      const iteration = iterations[viewState.collapsedOn];
-      return <>
-        <Line $inPlace={true}>
-          <LineNum/>
-          <LineContents data-line={forLineNum}>
-            <div className='flex flex-row'>
-              <div>{forIndent}</div>
-              <LoopHeader
-                viewState={viewState}
-                setViewState={setViewState}
-                orientation={orientation}
-                setOrientation={setOrientation}
-                iteration={iteration}
-                iterationIdx={viewState.collapsedOn}
-                varName={varName}
-                numIterations={iterations.length}
-              />
-            </div>
-          </LineContents>
-        </Line>
-        {node.children.map((child, i) =>
-          <Fragment key={i}>
-            <LineTreeNodeV
-              script={script} trace={trace} node={child}
-              context={`${context}/${forNodeId}-${iteration.counter}`}
+    return <>
+      <Line $inPlace={true}>
+        <LineNum/>
+        <LineContents data-line={forLineNum}>
+          <div className='flex flex-row'>
+            <div>{forIndent}</div>
+            <LoopHeader
+              iteration={iteration}
+              iterationIdx={iterationIdx}
+              setIterationIdx={setIterationIdx}
+              varName={varName}
+              numIterations={iterations.length}
             />
-          </Fragment>
-        )}
-      </>;
-    }
+          </div>
+        </LineContents>
+      </Line>
+      {node.children.map((child, i) =>
+        <Fragment key={i}>
+          <LineTreeNodeV
+            script={script} trace={trace} node={child}
+            context={`${context}/${forNodeId}-${iteration.counter}`}
+          />
+        </Fragment>
+      )}
+    </>;
   } else if (detailsMode === 'grid') {
     const depth = context.match(/\//g)?.length || 0;
 
@@ -373,26 +322,14 @@ const LoopBodyV = memo((props: {
         )}
       </>;
     }
-
-    if (viewState === 'expanded') {
-      throw new Error('not implemented');
-    }
-    if (viewState.collapsedOn >= iterations.length) {
-      viewState = { collapsedOn: iterations.length - 1 };
-    }
-    const iteration = iterations[viewState.collapsedOn];
     return <>
       <LineCalls style={{paddingLeft: depth * 20}}>
         <LoopHeader
-          viewState={viewState}
-          setViewState={setViewState}
-          orientation={orientation}
-          setOrientation={setOrientation}
           iteration={iteration}
-          iterationIdx={viewState.collapsedOn}
+          iterationIdx={iterationIdx}
+          setIterationIdx={setIterationIdx}
           varName={varName}
           numIterations={iterations.length}
-          allowExpand={false}
         />
       </LineCalls>
       {node.children.map((child, i) =>
@@ -426,90 +363,41 @@ const ForLoopIterationHeaderLabel = tw.div`
 
 
 const LoopHeader = memo((props: {
-  viewState: LoopViewState,
-  setViewState: (newState: LoopViewState) => void,
-  orientation: LoopOrientation,
-  setOrientation: (newOrientation: LoopOrientation) => void,
-  iteration: Iteration,
+  iteration: ForIteration,
   iterationIdx: number,
+  setIterationIdx: (i: number) => void,
   varName: string,
   numIterations: number,
-  allowExpand?: boolean,
 }) => {
-  const { viewState, setViewState, orientation, setOrientation, iteration, iterationIdx, varName, numIterations, allowExpand = true } = props;
+  const { iteration, iterationIdx, setIterationIdx, varName, numIterations } = props;
 
   const [ sliderIsDragging, setSliderIsDragging ] = useState(false);
 
-  const toggleExpanded = useCallback(() => {
-    if (viewState === 'expanded') {
-      setViewState({ collapsedOn: iterationIdx });
-    } else {
-      setViewState('expanded');
-    }
-  }, [iterationIdx, setViewState, viewState]);
-
-  const toggleOrientation = useCallback(() => {
-    setOrientation(orientation === 'horizontal' ? 'vertical' : 'horizontal');
-  }, [orientation, setOrientation]);
-
-
-  return <ForLoopIterationHeader className={sliderIsDragging ? 'for-loop-iteration-header--slider-is-dragging' : ''}>
+  return <ForLoopIterationHeader>
     <LockSize lock={sliderIsDragging}>
       <ForLoopIterationHeaderLabel className='bg-blue-500 text-black font-mono'>
         {varName} = {iteration.loopVarValue}
       </ForLoopIterationHeaderLabel>
     </LockSize>
-    { allowExpand &&
-      <div
-        className='invisible group-hover:visible cursor-pointer px-2 flex'
-        onClick={toggleExpanded}
-        style={{
-          transform: orientation === 'horizontal' ? 'rotate(90deg)' : 'rotate(180deg)',
-          transition: 'transform 0.2s',
-        }}
-      >
-        { viewState === 'expanded'
-        ? <octicons.FoldIcon verticalAlign='middle'/>
-        : <octicons.UnfoldIcon verticalAlign='middle'/>
-        }
-      </div>
-    }
-    { viewState === 'expanded' &&
-      <div
-        className='invisible group-hover:visible cursor-pointer px-2 flex'
-        onClick={toggleOrientation}
-      >
-        <div
-          style={{
-            transform: orientation === 'horizontal' ? 'rotate(90deg)' : 'rotate(180deg)',
-            transition: 'transform 0.2s',
-          }}
-        >
-          <FontAwesomeIcon icon='ellipsis-vertical' />
-        </div>
-      </div>
-    }
-    { viewState !== 'expanded' && <>
-      <Slider
-        className='mx-4'
-        size='small'
-        min={0} max={numIterations - 1} step={1}
-        value={viewState.collapsedOn}
-        onChange={(_, newValue) =>
-          setViewState({ collapsedOn: newValue as number })
-        }
-        marks={numIterations < 30}
-        style={{
-          width: Math.min(Math.max(10 * numIterations, 0), 100),
-          padding: 0,
-        }}
-        onMouseDown={() => { setSliderIsDragging(true); }}
-        onChangeCommitted={() => { setSliderIsDragging(false); }}
-      />
-      <div className='text-blue-400 whitespace-nowrap'>
-        {viewState.collapsedOn + 1} / {numIterations}
-      </div>
-    </>}
+    <Slider
+      className='mx-4'
+      size='small'
+      min={0} max={numIterations - 1} step={1}
+      value={iterationIdx}
+      onChange={(_, newValue) =>
+        setIterationIdx(newValue as number)
+      }
+      marks={numIterations < 30}
+      style={{
+        width: Math.min(Math.max(10 * numIterations, 0), 100),
+        padding: 0,
+      }}
+      onMouseDown={() => { setSliderIsDragging(true); }}
+      onChangeCommitted={() => { setSliderIsDragging(false); }}
+    />
+    <div className='text-blue-400 whitespace-nowrap'>
+      {iterationIdx + 1} / {numIterations}
+    </div>
   </ForLoopIterationHeader>;
 });
 

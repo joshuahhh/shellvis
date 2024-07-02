@@ -39,13 +39,13 @@ export type PipeProgress = {
   done: boolean,
 };
 
-export type Iteration = {
+export type ForIteration = {
   counter: number,
   loopVarValue: string,
 };
 
 export type ForInfo = {
-  iterations: Iteration[],
+  iterations: ForIteration[],
 };
 
 export type Trace = {
