@@ -15,15 +15,14 @@ import * as tmp from 'tmp';
 import { TypedEventTarget } from '../shared/TypedEventTarget.js';
 import { PipeProgress, Trace, mkExecId } from '../shared/execution.js';
 import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } from '../shared/mvdan-sh-helpers.js';
+import { Message } from '../shared/tracing.js';
 import { RunParams } from '../shared/types.js';
 import { parseTypeset } from '../shared/typeset.js';
 import { joinIterable } from '../shared/util.js';
 import { Sh2Fr, UploadName } from './Sh2Fr.js';
-import { changeAt } from './automerge.js';
-import { Sh2FrViaTcp } from './Sh2FrViaTcp.js';
-import { Message } from '../shared/tracing.js';
-import { Sandbox, afterRun, beforeRun, makeDeltaLogEntryAbsolute, makeSandbox, pathInSandbox, removeSandbox } from './sandbox.js';
 import { Sh2FrViaHttp } from './Sh2FrViaHttp.js';
+import { changeAt } from './automerge.js';
+import { Sandbox, afterRun, beforeRun, makeDeltaLogEntryAbsolute, makeSandbox, pathInSandbox, removeSandbox } from './sandbox.js';
 
 const parser = sh.syntax.NewParser(sh.syntax.KeepComments(true));
 const printer = sh.syntax.NewPrinter();
@@ -80,6 +79,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       messageLog: [],
       execInfos: {},
       forInfos: {},
+      whileInfos: {},
       exitCode: null,
       startTime: null,
       transformedSrc: null,
@@ -190,6 +190,32 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
                 nodeId: forNodeId,
                 context: '$(fr_ctx_str)',
               })),
+              parseStmt(`${counterVar}=$(($${counterVar} + 1))`),
+            ];
+          } else if (hasNodeType(cmd, 'WhileClause')) {
+            const whileNodeId = getNodeId(cmd);
+
+            // we could probably get away without new message,
+            // but this is more brain-dead
+            const counterVar = `fr_loop_counter_${whileNodeId}`;
+            wrapStmt(parser, node, `{ ${counterVar}=0; ___; }`);
+            cmd.Cond = [
+              parseStmt(this.sh2fr.sendMessage({
+                type: 'while-cond-enter',
+                nodeId: whileNodeId,
+                context: '$(fr_ctx_str)',
+                counter: `$${counterVar}`,
+              })),
+              parseStmt(`fr_ctx_push "${whileNodeId}-$${counterVar}"`),
+              ...cmd.Cond,
+              parseStmt('fr_ret=$?'),
+              parseStmt('fr_ctx_pop'),
+              parseStmt('fr_exitcode $fr_ret'),
+            ];
+            cmd.Do = [
+              parseStmt(`fr_ctx_push "${whileNodeId}-$${counterVar}"`),
+              ...cmd.Do,
+              parseStmt('fr_ctx_pop'),
               parseStmt(`${counterVar}=$(($${counterVar} + 1))`),
             ];
           }
@@ -329,6 +355,20 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
           counter: +message.counter,
           loopVarValue: message.loopVarValue,
         });
+      });
+    } else if (message.type === 'while-cond-enter') {
+      const execId = mkExecId(message);
+      const trace = await this.traceDoc.doc();
+      if (!trace) { throw new Error('trace not found'); }
+      if (!trace.whileInfos[execId]) {
+        this.traceDoc.change((trace) => {
+          trace.whileInfos[execId] = {
+            numIterations: 0,
+          };
+        });
+      }
+      this.traceDoc.change((trace) => {
+        trace.whileInfos[execId].numIterations++;
       });
     }
   }

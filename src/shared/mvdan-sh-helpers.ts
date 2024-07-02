@@ -328,7 +328,8 @@ export type LineTreeNode =
   // also note: these are 1-indexed line numbers
   { lineNumStart: number, lineNumEnd: number } & (
     | { type: 'line', line: string }
-    | { type: 'loop-body', forClause: sh.ForClause, children: LineTreeNode[] }
+    | { type: 'for-loop-body', forClause: sh.ForClause, children: LineTreeNode[] }
+    | { type: 'while-loop-cond-and-body', whileClause: sh.WhileClause, children: LineTreeNode[] }
   );
 
 function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
@@ -338,13 +339,26 @@ function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
     enter: (node) => {
       if (hasNodeType(node, 'ForClause')) {
         const lineTreeNode = {
-          type: 'loop-body',
+          type: 'for-loop-body',
           forClause: node,
           children: [],
           lineNumStart: node.DoPos.Line() + 1,
           lineNumEnd: node.DonePos.Line(),
         } satisfies LineTreeNode;
-        last(stack).push(lineTreeNode);
+        last(stack)!.push(lineTreeNode);
+        stack.push(lineTreeNode.children);
+        return () => {
+          stack.pop();
+        };
+      } else if (hasNodeType(node, 'WhileClause')) {
+        const lineTreeNode = {
+          type: 'while-loop-cond-and-body',
+          whileClause: node,
+          children: [],
+          lineNumStart: node.Pos().Line(),
+          lineNumEnd: node.DonePos.Line(),
+        } satisfies LineTreeNode;
+        last(stack)!.push(lineTreeNode);
         stack.push(lineTreeNode.children);
         return () => {
           stack.pop();
@@ -372,7 +386,8 @@ function addLinesToNodes(nodes: LineTreeNode[], lineNumStart: number, lineNumEnd
   }
   for (const child of nodes) {
     addLinesUpTo(child.lineNumStart);
-    if (child.type === 'loop-body') {
+    if (child.type === 'for-loop-body' ||
+        child.type === 'while-loop-cond-and-body') {
       addLinesToNodes(child.children, child.lineNumStart, child.lineNumEnd, lines);
     }
     newNodes.push(child);

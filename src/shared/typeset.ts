@@ -14,7 +14,7 @@ export function parseTypesetLine(line: string): ShellVar {
   const beforeEq = beforeAndAfterEq[0];
   const afterEq = beforeAndAfterEq[1] as string | undefined;
   const beforeEqParts = beforeEq.split(' ');
-  let name = last(beforeEqParts);
+  let name = last(beforeEqParts)!;
   if (name[0] === '\'' && last(name) === '\'') {
     name = name.slice(1, name.length - 1);
   }

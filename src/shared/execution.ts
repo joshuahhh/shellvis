@@ -48,11 +48,17 @@ export type ForInfo = {
   iterations: ForIteration[],
 };
 
+export type WhileInfo = {
+  numIterations: number,
+  // reachedCondFalse: boolean,
+};
+
 export type Trace = {
   path: string | null,
   scriptSrc: string,
   execInfos: Record<string, ExecInfo>,
   forInfos: Record<string, ForInfo>,
+  whileInfos: Record<string, WhileInfo>,
   startTime: Date | null,
   messageLog: Message[],
   exitCode: number | null,

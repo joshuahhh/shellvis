@@ -1,8 +1,8 @@
 import { weakMapCache } from '@engraft/shared/lib/cache.js';
 
-export function last<T>(arr: T[]): T;
-export function last(arr: string): string;
-export function last<T>(arr: T[] | string): T | string {
+export function last<T>(arr: T[]): T | undefined;
+export function last(arr: string): string | undefined;
+export function last<T>(arr: T[] | string): T | string | undefined {
   return arr[arr.length - 1];
 }
 

@@ -28,4 +28,11 @@ export type Message =
       type: 'for-body-exit',
       nodeId: string,
       context: string,
-    };
+    }
+  | {
+      type: 'while-cond-enter',
+      nodeId: string,
+      context: string,
+      counter: string,  // number as string
+    }
+  ;

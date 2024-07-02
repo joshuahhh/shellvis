@@ -22,8 +22,10 @@ export const LineTreeNodeV = memo((props: LineTreeNodeVProps) => {
 
   if (node.type === 'line') {
     return <LineV script={script} trace={trace} line={node.line} i={node.lineNumStart - 1} context={context}/>;
-  } else if (node.type === 'loop-body') {
-    return <LoopBodyV node={node} script={script} trace={trace} context={context} />;
+  } else if (node.type === 'for-loop-body') {
+    return <ForLoopBodyV node={node} script={script} trace={trace} context={context} />;
+  } else if (node.type === 'while-loop-cond-and-body') {
+    return <WhileLoopCondAndBodyV node={node} script={script} trace={trace} context={context} />;
   }
 });
 
@@ -97,7 +99,7 @@ const DeadLineTreeNodeV = memo((props: DeadLineTreeNodeVProps) => {
       <LineNum>{node.lineNumStart}</LineNum>
       <LineContents data-line={node.lineNumStart - 1}>{node.line}</LineContents>
     </Line>;
-  } else if (node.type === 'loop-body') {
+  } else if (node.type === 'for-loop-body') {
     return node.children.map((child, i) =>
       <Fragment key={i}>
         <DeadLineTreeNodeV script={script} node={child}/>
@@ -231,8 +233,8 @@ const LineV = memo((props: LineVProps) => {
   </Line>;
 });
 
-const LoopBodyV = memo((props: {
-  node: LineTreeNode & { type: 'loop-body' },
+const ForLoopBodyV = memo((props: {
+  node: LineTreeNode & { type: 'for-loop-body' },
   script: Script,
   trace: Trace,
   context: string,
@@ -422,4 +424,71 @@ const LockSize = memo((props: {
   return <div style={{...wrapperStyle}} ref={setWrapper}>
     {children}
   </div>;
+});
+
+const WhileLoopCondAndBodyV = memo((props: {
+  node: LineTreeNode & { type: 'while-loop-cond-and-body' },
+  script: Script,
+  trace: Trace,
+  context: string,
+}) => {
+  const { node, script, trace, context } = props;
+
+  const whileClause = node.whileClause;
+  const whileNodeId = getNodeId(whileClause);
+  const whileInfo = trace.whileInfos[mkExecId({ context, nodeId: whileNodeId })];
+  const numIterations = whileInfo?.numIterations || 0;
+  const forLineNum = whileClause.Pos().Line() - 1;
+  const forLine = script.lines[forLineNum];
+  const forIndent = (forLine.match(/^\s*/)?.[0] || '  ');
+
+  let [ selectedIteration, setSelectedIteration ] = useState<number>(0);
+
+  const depth = context.match(/\//g)?.length || 0;
+
+  if (numIterations === 0) {
+    return <>
+      <LineCalls style={{paddingLeft: depth * 20}}>
+        <ForLoopIterationHeader>
+          <div>{forIndent}</div>
+          <ForLoopIterationHeaderLabel className='border border-blue-500 text-blue-500'>
+            no iterations
+          </ForLoopIterationHeaderLabel>
+        </ForLoopIterationHeader>
+      </LineCalls>
+      {node.children.map((child, i) =>
+        <Fragment key={i}>
+          <DeadLineTreeNodeV script={script} node={child}/>
+        </Fragment>
+      )}
+    </>;
+  }
+
+  if (selectedIteration >= numIterations) {
+    selectedIteration = numIterations - 1;
+  }
+
+  return <>
+    <LineCalls style={{paddingLeft: depth * 20}}>
+      {/* <LoopHeader
+        viewState={viewState}
+        setViewState={setViewState}
+        orientation={orientation}
+        setOrientation={setOrientation}
+        iteration={iteration}
+        iterationIdx={viewState.collapsedOn}
+        varName={varName}
+        numIterations={iterations.length}
+        allowExpand={false}
+      /> */}
+    </LineCalls>
+    {node.children.map((child, i) =>
+      <Fragment key={i}>
+        <LineTreeNodeV
+          script={script} trace={trace} node={child}
+          context={`${context}/${whileNodeId}-${selectedIteration}`}
+        />
+      </Fragment>
+    )}
+  </>;
 });

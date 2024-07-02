@@ -36,6 +36,14 @@ export const ASTTest = memo(() => {
           x=$(( $x + 1 ))
         done
       `}/>
+      <Pane code={normalizeIndent`
+        while
+          cmd1; cmd2
+          cmd3
+        do
+          echo "multiple commands in cond"
+        done
+      `}/>
     </div>
   </div>;
 });

@@ -82,6 +82,7 @@
   "scripts": {
     "dev": "vite",
     "server": "tsx src/server/server.ts",
+    "server:watch": "git ls-files | entr -rc tsx src/server/server.ts",
     "test:watch": "vitest watch",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
