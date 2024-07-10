@@ -40,7 +40,6 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
   const providerOutputs = getInfoProviderOutputs(execInfo, abbreviate);
 
   return (
-    execInfo &&
     <div data-dbg='CallOnGridV'
       className='inline-flex flex-col items-start min-w-0'>
       { showCodeLabel &&
@@ -52,12 +51,12 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
         className={clsy(
           `inline-flex flex-col bg-gray-500 rounded
           p-1
-          min-w-5 min-h-5
+          min-w-7 min-h-7
           max-w-full
           max-h-72 overflow-x-auto
           `,
           status === 'running' && '-ml-[3px] border-l-[3px] border-green-500',
-          providerOutputs.length === 0 && 'bg-gray-600'
+          // providerOutputs.length === 0 && 'bg-gray-600'
         )}
         data-exec-id={execId}
       >

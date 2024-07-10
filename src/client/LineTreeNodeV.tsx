@@ -17,7 +17,7 @@ export type LineTreeNodeVProps = {
   context: string,
 };
 
-export const LineTreeNodeV = memo((props: LineTreeNodeVProps) => {
+export const LineTreeNodeV = memo(function LineTreeNodeV (props: LineTreeNodeVProps) {
   const {script, trace, node, context} = props;
 
   if (node.type === 'line') {
@@ -39,7 +39,7 @@ const Line = tw.div<{$inPlace: boolean}>`
   ${p => p.$inPlace ? 'flex flex-row' : 'contents'}
 `;
 
-const LineNum = memo((props: {children?: number}) => {
+const LineNum = memo(function LineNum (props: {children?: number}) {
   const { children } = props;
 
   const { hvContextUP, selections } = useContext(HVContext);
@@ -74,6 +74,7 @@ const LineNum = memo((props: {children?: number}) => {
 });
 
 const LineContents = tw.div<{'data-line': number}>`
+  LineContents
   col-start-2
   grow basis-0 min-w-0 overflow-hidden
   whitespace-pre
@@ -85,10 +86,11 @@ const LineContents = tw.div<{'data-line': number}>`
 
 // non-pop-up third-col content should go in LineCalls
 const LineCalls = tw.div`
+  LineCalls
   min-w-0 col-span-1
 `;
 
-const DeadLineTreeNodeV = memo((props: DeadLineTreeNodeVProps) => {
+const DeadLineTreeNodeV = memo(function DeadLineTreeNodeV (props: DeadLineTreeNodeVProps) {
   const {script, node} = props;
 
   const { detailsMode } = useContext(HVContext);
@@ -116,7 +118,7 @@ type LineVProps = {
   context: string,
 };
 
-const LineV = memo((props: LineVProps) => {
+const LineV = memo(function LineV (props: LineVProps) {
   const { script, trace, line, i, context } = props;
   let { detailsMode, selections, abbreviateInfo } = useContext(HVContext);
 
@@ -233,12 +235,12 @@ const LineV = memo((props: LineVProps) => {
   </Line>;
 });
 
-const ForLoopBodyV = memo((props: {
+const ForLoopBodyV = memo(function ForLoopBodyV (props: {
   node: LineTreeNode & { type: 'for-loop-body' },
   script: Script,
   trace: Trace,
   context: string,
-}) => {
+}) {
   const { node, script, trace, context } = props;
   const { detailsMode } = useContext(HVContext);
 
@@ -364,25 +366,27 @@ const ForLoopIterationHeaderLabel = tw.div`
 `;
 
 
-const LoopHeader = memo((props: {
-  iteration: ForIteration,
+const LoopHeader = memo(function LoopHeade (props: {
+  varName?: string,
+  iteration?: ForIteration,
   iterationIdx: number,
   setIterationIdx: (i: number) => void,
-  varName: string,
   numIterations: number,
-}) => {
+}) {
   const { iteration, iterationIdx, setIterationIdx, varName, numIterations } = props;
 
   const [ sliderIsDragging, setSliderIsDragging ] = useState(false);
 
   return <ForLoopIterationHeader>
-    <LockSize lock={sliderIsDragging}>
-      <ForLoopIterationHeaderLabel className='bg-blue-500 text-black font-mono'>
-        {varName} = {iteration.loopVarValue}
-      </ForLoopIterationHeaderLabel>
-    </LockSize>
+    { varName && iteration &&
+      <LockSize lock={sliderIsDragging}>
+        <ForLoopIterationHeaderLabel className='bg-blue-500 text-black font-mono'>
+          {varName} = {iteration.loopVarValue}
+        </ForLoopIterationHeaderLabel>
+      </LockSize>
+    }
     <Slider
-      className='mx-4'
+      className={varName && iteration ? 'mx-4' : 'mx-2'}
       size='small'
       min={0} max={numIterations - 1} step={1}
       value={iterationIdx}
@@ -403,10 +407,10 @@ const LoopHeader = memo((props: {
   </ForLoopIterationHeader>;
 });
 
-const LockSize = memo((props: {
+const LockSize = memo(function LockSize (props: {
   children: React.ReactNode,
   lock: boolean,
-}) => {
+}) {
   const { children, lock } = props;
   const [ wrapper, setWrapper ] = React.useState<HTMLElement | null>(null);
   const [ wrapperStyle, setWrapperStyle ] = React.useState<React.CSSProperties | null>(null);
@@ -426,12 +430,12 @@ const LockSize = memo((props: {
   </div>;
 });
 
-const WhileLoopCondAndBodyV = memo((props: {
+const WhileLoopCondAndBodyV = memo(function WhileLoopCondAndBodyV (props: {
   node: LineTreeNode & { type: 'while-loop-cond-and-body' },
   script: Script,
   trace: Trace,
   context: string,
-}) => {
+}) {
   const { node, script, trace, context } = props;
 
   const whileClause = node.whileClause;
@@ -442,13 +446,13 @@ const WhileLoopCondAndBodyV = memo((props: {
   const forLine = script.lines[forLineNum];
   const forIndent = (forLine.match(/^\s*/)?.[0] || '  ');
 
-  let [ selectedIteration, setSelectedIteration ] = useState<number>(0);
+  let [ iterationIdx, setIterationIdx ] = useState<number>(0);
 
   const depth = context.match(/\//g)?.length || 0;
 
   if (numIterations === 0) {
     return <>
-      <LineCalls style={{paddingLeft: depth * 20}}>
+      <LineCalls style={{paddingLeft: depth * 20}} className='col-start-3'>
         <ForLoopIterationHeader>
           <div>{forIndent}</div>
           <ForLoopIterationHeaderLabel className='border border-blue-500 text-blue-500'>
@@ -464,30 +468,29 @@ const WhileLoopCondAndBodyV = memo((props: {
     </>;
   }
 
-  if (selectedIteration >= numIterations) {
-    selectedIteration = numIterations - 1;
+  if (iterationIdx >= numIterations) {
+    iterationIdx = numIterations - 1;
   }
 
   return <>
-    <LineCalls style={{paddingLeft: depth * 20}}>
-      {/* <LoopHeader
-        viewState={viewState}
-        setViewState={setViewState}
-        orientation={orientation}
-        setOrientation={setOrientation}
-        iteration={iteration}
-        iterationIdx={viewState.collapsedOn}
-        varName={varName}
-        numIterations={iterations.length}
-        allowExpand={false}
-      /> */}
+    <LineCalls style={{paddingLeft: depth * 20}} className='col-start-3'>
+      <LoopHeader
+        iterationIdx={iterationIdx}
+        setIterationIdx={setIterationIdx}
+        numIterations={numIterations}
+      />
     </LineCalls>
     {node.children.map((child, i) =>
       <Fragment key={i}>
         <LineTreeNodeV
           script={script} trace={trace} node={child}
-          context={`${context}/${whileNodeId}-${selectedIteration}`}
+          context={`${context}/${whileNodeId}-${iterationIdx}`}
         />
+        {/* { iterationIdx === numIterations - 1  // TODO: not robust to in-progress?
+          ? <DeadLineTreeNodeV script={script} node={child}/>
+          :
+            // TODO: doesn't just fade out the body!
+        } */}
       </Fragment>
     )}
   </>;

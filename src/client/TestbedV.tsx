@@ -6,6 +6,18 @@ import { CliWithSessionUrlV } from './CliV.js';
 import { WithAutomergeV } from './WithAutomergeV.js';
 
 const examples: Record<string, ScriptWatcherParams & {desc?: string}> = {
+  'study-pics': {
+    path: './examples/study-pics/script.sh',
+    cwd: './examples/study-pics',
+    env: 'process.env',
+    desc: 'study: pics',
+  },
+  'study-count': {
+    path: './examples/study-count/script.sh',
+    cwd: './examples/study-count',
+    env: 'process.env',
+    desc: 'study: count',
+  },
   'minimal': {
     path: './examples/minimal.sh',
     cwd: '.',
@@ -47,6 +59,13 @@ const examples: Record<string, ScriptWatcherParams & {desc?: string}> = {
     cwd: '.',
     env: 'process.env',
     desc: 'the famed "while" loop',
+  },
+  'getopts': {
+    path: './examples/getopts.sh',
+    cwd: '.',
+    env: 'process.env',
+    args: '-p "hi" -s 50',
+    desc: 'while loop with getopts',
   },
   'nice-and-slow': {
     path: './examples/nice-and-slow.sh',

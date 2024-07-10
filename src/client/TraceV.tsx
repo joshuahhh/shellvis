@@ -84,6 +84,7 @@ export const TraceV = memo((props: TraceVProps) => {
       'relative px-3 pt-10 w-full',
       detailsMode === 'grid' &&
         'inline-grid grid-cols-[fit-content(0%)_minmax(0,max-content)_minmax(min-content,max-content)_1fr]'
+        // 'inline-grid grid-cols-[fit-content(0%)_2fr_1fr_0px]'
     )}
   >
     { backgroundPos &&

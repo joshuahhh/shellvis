@@ -45,6 +45,9 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
   }, [hvContextUP]);
 
   useEffect(() => {
+    console.log("vsCodeListener is disabled");
+    return;
+    console.log("vsCodeListener is enabled");
     const vsCodeListener = new VSCodeListener();
     const onMessage = (e: MessageEvent<string>) => {
       const vsEvent: TextEditorSelectionChangeEvent = JSON.parse(e.data);
