@@ -49,18 +49,24 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
       }
       <div data-dbg='CallOnGridV filled area'
         className={clsy(
-          `inline-flex flex-col bg-gray-500 rounded
+          `inline-flex flex-col rounded
+          ${status === 'done-failure' ? 'bg-red-900' : 'bg-gray-500'}
           p-1
           min-w-7 min-h-7
           max-w-full
           max-h-72 overflow-x-auto
           `,
-          status === 'running' && '-ml-[3px] border-l-[3px] border-green-500',
+          status === 'running' && 'loading-animation'
           // providerOutputs.length === 0 && 'bg-gray-600'
         )}
         data-exec-id={execId}
       >
-        {providerOutputs}
+        {status === 'done-success' && providerOutputs.length === 0 ?
+          <div className='opacity-50'>
+            ok
+          </div> :
+          providerOutputs
+        }
       </div>
     </div>
   );
