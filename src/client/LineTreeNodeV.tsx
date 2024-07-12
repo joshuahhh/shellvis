@@ -8,6 +8,7 @@ import { HVContext } from './HVContext.js';
 import { clsy } from './clsy.js';
 import { Decoration, addDecorationsToLineHelper, addDecorationsToLineStarter } from './decorations.js';
 import tw from './tailwind-styled-component/index.js';
+import { useHover } from '@engraft/shared/lib/useHover.js';
 
 
 export type LineTreeNodeVProps = {
@@ -122,6 +123,8 @@ const LineV = memo(function LineV (props: LineVProps) {
   const { script, trace, line, i, context } = props;
   let { detailsMode, selections, abbreviateInfo } = useContext(HVContext);
 
+  const [ setElem, isHovered ] = useHover();
+
   const callExprs = Object.values(script.nodesByTypeById.CallExpr);
   const callExprsOnLine = callExprs.filter((callExpr) => {
     // TODO: everything's limited to single lines
@@ -133,7 +136,7 @@ const LineV = memo(function LineV (props: LineVProps) {
     ? true
     : abbreviateInfo === 'never'
     ? false
-    : !selections.some(selection =>
+    : !isHovered && !selections.some(selection =>
         selection.start.line <= i && i <= selection.end.line
       );
 
@@ -189,7 +192,7 @@ const LineV = memo(function LineV (props: LineVProps) {
     <LineContents data-line={i}>{nodes}</LineContents>
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
       // this div makes it easier to overlap a two-col popup over a one-col abbreviation
-      <div className='grid grid-cols-subgrid col-span-2'>
+      <div className='grid grid-cols-subgrid col-span-2' ref={setElem}>
         <LineCalls style={{paddingLeft: depth * 20}} className='row-start-1 col-start-1 my-1 mx-1'>
           <div className={clsy('flex flex-wrap gap-1', !abbreviate && 'invisible')}>
             {callExprsOnLine.map((callExpr) =>
@@ -378,15 +381,8 @@ const LoopHeader = memo(function LoopHeade (props: {
   const [ sliderIsDragging, setSliderIsDragging ] = useState(false);
 
   return <ForLoopIterationHeader>
-    { varName && iteration &&
-      <LockSize lock={sliderIsDragging}>
-        <ForLoopIterationHeaderLabel className='bg-blue-500 text-black font-mono'>
-          {varName} = {iteration.loopVarValue}
-        </ForLoopIterationHeaderLabel>
-      </LockSize>
-    }
     <Slider
-      className={varName && iteration ? 'mx-4' : 'mx-2'}
+      className='mx-4'
       size='small'
       min={0} max={numIterations - 1} step={1}
       value={iterationIdx}
@@ -401,9 +397,16 @@ const LoopHeader = memo(function LoopHeade (props: {
       onMouseDown={() => { setSliderIsDragging(true); }}
       onChangeCommitted={() => { setSliderIsDragging(false); }}
     />
-    <div className='text-blue-400 whitespace-nowrap'>
+    <div className='text-blue-400 whitespace-nowrap mr-4'>
       {iterationIdx + 1} / {numIterations}
     </div>
+    { varName && iteration &&
+      <LockSize lock={sliderIsDragging}>
+        <ForLoopIterationHeaderLabel className='bg-blue-500 text-black font-mono'>
+          {varName} = {iteration.loopVarValue}
+        </ForLoopIterationHeaderLabel>
+      </LockSize>
+    }
   </ForLoopIterationHeader>;
 });
 

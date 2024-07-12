@@ -1,5 +1,6 @@
 import { RawString } from '@automerge/automerge/next';
 import { count } from '@engraft/shared/lib/count.js';
+import { useHover } from '@engraft/shared/lib/useHover.js';
 import { Tooltip } from '@mui/material';
 import * as octicons from '@primer/octicons-react';
 import sh from 'mvdan-sh';
@@ -10,8 +11,8 @@ import { Script, getNodeId } from '../shared/mvdan-sh-helpers.js';
 import { ExecuteRequest } from '../shared/types.js';
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from '../shared/typeset.js';
 import { last, objectEntries, weakMapCache2 } from '../shared/util.js';
-import tw from './tailwind-styled-component/index.js';
 import { clsy } from './clsy.js';
+import tw from './tailwind-styled-component/index.js';
 
 
 const octiconProps: Parameters<octicons.Icon>[0] = {

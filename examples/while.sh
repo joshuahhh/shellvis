@@ -20,3 +20,16 @@ fi
 for x in {1..5}; do
   echo "Welcome $x times"
 done
+
+
+yay () {
+  for x in {1..5}; do
+    echo "yay! $x"
+  done
+}
+
+# an idiomatic "while read" loop
+yay |
+while read LINE; do
+  echo "read: $LINE"
+done
