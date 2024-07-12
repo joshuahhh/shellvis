@@ -1,6 +1,5 @@
 import { RawString } from '@automerge/automerge/next';
 import { count } from '@engraft/shared/lib/count.js';
-import { useHover } from '@engraft/shared/lib/useHover.js';
 import { Tooltip } from '@mui/material';
 import * as octicons from '@primer/octicons-react';
 import sh from 'mvdan-sh';

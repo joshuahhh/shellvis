@@ -2,7 +2,7 @@ import { AutomergeUrl } from '@automerge/automerge-repo';
 import { memo, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ScriptWatcherParams } from '../shared/types.js';
-import { CliWithSessionUrlV } from './CliV.js';
+import { SessionV } from './SessionV.js';
 import { WithAutomergeV } from './WithAutomergeV.js';
 
 const examples: Record<string, ScriptWatcherParams & {desc?: string}> = {
@@ -163,7 +163,7 @@ export const TestbedV = memo(() => {
     return <div>Loading session document URL from server...</div>;
   } else {
     return <WithAutomergeV>
-      <CliWithSessionUrlV sessionAutomergeUrl={sessionAutomergeUrl} />
+      <SessionV sessionAutomergeUrl={sessionAutomergeUrl} />
     </WithAutomergeV>;
   }
 });

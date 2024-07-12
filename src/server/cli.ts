@@ -20,7 +20,7 @@ const app = express();
 
 app.use(cors());
 
-app.get('/session-automerge-url', (req, res) => {
+app.get('/cli-session-automerge-url', (req, res) => {
   res.send(sessionHandle.url);
 });
 

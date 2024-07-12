@@ -5,7 +5,7 @@ import { HashRouter, Link, Route, Routes } from 'react-router-dom';
 import { ASTTest } from './ASTTest.js';
 import { GridTest } from './GridTest.js';
 import { Body } from './Body.js';
-import { CliV } from './CliV.js';
+import { CliSessionV } from './SessionV.js';
 import { HighlightingTest } from './HighlightingTest.js';
 import { TestbedLinksV, TestbedV } from './TestbedV.js';
 import './style.css';
@@ -16,7 +16,7 @@ export const MainV = memo(() => {
   return <>
     <HashRouter>
       <Routes>
-        <Route path='/cli' element={<CliV/>}/>
+        <Route path='/cli' element={<CliSessionV/>}/>
         <Route path='/testbed/:name' element={<TestbedV/>}/>
         <Route path='/highlighting-test' element={<HighlightingTest/>}/>
         <Route path='/ast-test' element={<ASTTest/>}/>

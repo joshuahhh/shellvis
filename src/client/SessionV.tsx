@@ -6,30 +6,7 @@ import { Session } from '../shared/types.js';
 import { WithAutomergeV } from './WithAutomergeV.js';
 import { TraceViewerV } from './TraceViewerV.js';
 
-export const CliV = memo(() => {
-  // TODO: should I do something smarter than polling here?
-  const [ sessionAutomergeUrl, setSessionAutomergeUrl ] = useState<AutomergeUrl | null>(null);
-  useEffect(() => {
-    async function check() {
-      const sessionAutomergeUrlRequest = await fetch('http://localhost:8080/session-automerge-url');
-      const sessionAutomergeUrl = await sessionAutomergeUrlRequest.text() as AutomergeUrl;
-      setSessionAutomergeUrl(sessionAutomergeUrl);  // won't rerender if it's the same
-    }
-    const interval = setInterval(check, 1000);
-    check();
-    return () => clearInterval(interval);
-  }, []);
-
-  if (!sessionAutomergeUrl) {
-    return <div>Loading session document URL from server...</div>;
-  } else {
-    return <WithAutomergeV>
-      <CliWithSessionUrlV sessionAutomergeUrl={sessionAutomergeUrl} />
-    </WithAutomergeV>;
-  }
-});
-
-export const CliWithSessionUrlV = memo((props: {
+export const SessionV = memo((props: {
   sessionAutomergeUrl: AutomergeUrl,
 }) => {
   const { sessionAutomergeUrl } = props;
@@ -42,13 +19,13 @@ export const CliWithSessionUrlV = memo((props: {
     return <div>Session document lacks a traceAutomergeUrl!</div>;
   }
 
-  return <CliWithTraceAutomergeUrl
+  return <SessionWithTraceAutomergeUrlV
     sessionAutomergeUrl={sessionAutomergeUrl}
     traceAutomergeUrl={session.traceAutomergeUrl}
   />;
 });
 
-const CliWithTraceAutomergeUrl = memo((props: {
+const SessionWithTraceAutomergeUrlV = memo((props: {
   sessionAutomergeUrl: AutomergeUrl,
   traceAutomergeUrl: AutomergeUrl,
 }) => {
@@ -77,4 +54,27 @@ const CliWithTraceAutomergeUrl = memo((props: {
       </div>
     }
   </>;
+});
+
+export const CliSessionV = memo(() => {
+  // TODO: should I do something smarter than polling here?
+  const [ sessionAutomergeUrl, setSessionAutomergeUrl ] = useState<AutomergeUrl | null>(null);
+  useEffect(() => {
+    async function check() {
+      const sessionAutomergeUrlRequest = await fetch('http://localhost:8080/cli-session-automerge-url');
+      const sessionAutomergeUrl = await sessionAutomergeUrlRequest.text() as AutomergeUrl;
+      setSessionAutomergeUrl(sessionAutomergeUrl);  // won't rerender if it's the same
+    }
+    const interval = setInterval(check, 1000);
+    check();
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!sessionAutomergeUrl) {
+    return <div>Loading session document URL from server...</div>;
+  } else {
+    return <WithAutomergeV>
+      <SessionV sessionAutomergeUrl={sessionAutomergeUrl} />
+    </WithAutomergeV>;
+  }
 });
