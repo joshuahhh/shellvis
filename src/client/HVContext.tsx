@@ -3,6 +3,7 @@ import { createContext } from 'react';
 
 type HVContext1 = {
   detailsMode: 'grid' | 'in-place',  // todo:  | 'one-by-one' | 'none'
+  showTimeSlider: boolean,
   showMessages: boolean,
   showTrace: boolean,
   showAST: boolean,
@@ -18,6 +19,7 @@ export type HVContext = HVContext1 & {
 
 export const defaultHVContext: HVContext = {
   detailsMode: 'grid',
+  showTimeSlider: false,
   showMessages: false,
   showTrace: false,
   showAST: false,

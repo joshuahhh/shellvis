@@ -1,5 +1,5 @@
 import { AutomergeUrl } from '@automerge/automerge-repo';
-import { useDocument } from '@automerge/automerge-repo-react-hooks';
+import { useDocument, useHandle } from '@automerge/automerge-repo-react-hooks';
 import { memo, useEffect, useRef, useState } from 'react';
 import { Trace } from '../shared/execution.js';
 import { Session } from '../shared/types.js';

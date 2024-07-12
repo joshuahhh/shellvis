@@ -5,7 +5,7 @@ import * as octicons from '@primer/octicons-react';
 import sh from 'mvdan-sh';
 import path from 'path-browserify';
 import { Fragment, ReactNode, memo } from 'react';
-import { DeltaLogEntry, ExecInfo, Trace, execStatus, mkExecId } from '../shared/execution.js';
+import { DeltaLogEntry, ExecInfo, Trace, execStatus, mkExecId, pipeData } from '../shared/execution.js';
 import { Script, getNodeId } from '../shared/mvdan-sh-helpers.js';
 import { ExecuteRequest } from '../shared/types.js';
 import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from '../shared/typeset.js';
@@ -187,7 +187,7 @@ function infoProviderForStream(stream: 'stdout' | 'stderr'): InfoProvider {
           </div>;
         }
       } else {
-        contents = <pre>{data}</pre>;
+        contents = <pre>{data.map((s) => s.val)}</pre>;
       }
       return <InfoEntry>
         { stream === 'stdout'
@@ -234,7 +234,7 @@ infoProviders.push(({ execInfo }) => {
             }
           );
         }}>
-          <pre>{execInfo.stdout.data}</pre>
+          <pre>{pipeData(execInfo.stdout)}</pre>
         </button>
       </InfoEntryDetails>
     </InfoEntry>;

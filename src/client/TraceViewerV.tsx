@@ -4,7 +4,7 @@ import AnsiToHtml from 'ansi-to-html';
 import sh from 'mvdan-sh';
 import React, { Fragment, memo, useEffect, useMemo } from 'react';
 import * as util from 'util';
-import { Trace } from '../shared/execution.js';
+import { pipeData, Trace } from '../shared/execution.js';
 import { Script, expandObject } from '../shared/mvdan-sh-helpers.js';
 import { Message } from '../shared/tracing.js';
 import { ExecuteRequest } from '../shared/types.js';
@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Label } from './shadcn/Label.js';
 import { AnimatePresence, motion } from 'framer-motion';
 import { type TextEditorSelectionChangeEvent, type Selection } from 'vscode';
+import { next as A } from '@automerge/automerge';
+import { Slider } from '@mui/material';
 
 const ansiToHtml = new AnsiToHtml({});
 
@@ -31,7 +33,19 @@ const highlighter = new WebHighlighter();
 highlighter.init();
 
 export const TraceViewerV = memo((props: TraceViewerVProps) => {
-  const { sessionAutomergeUrl, traceAutomergeUrl, trace } = props;
+  const { sessionAutomergeUrl, traceAutomergeUrl } = props;
+  let { trace } = props;
+
+  const history = useMemo(() => A.getHistory(trace), [trace]);
+
+  let [ historyIdx, setHistoryIdx ] = React.useState<number | undefined>(undefined);
+
+  if (historyIdx !== undefined) {
+    if (historyIdx > history.length - 1) {
+      historyIdx = history.length - 1;
+    }
+    trace = history[historyIdx].snapshot;
+  }
 
   const [ showSettings, setShowSettings ] = React.useState(false);
 
@@ -117,9 +131,9 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           <dt>{execId}</dt>
           <dd>
             <div><b>stdout</b> {stdout.done && <small>✓</small>}</div>
-            <pre>{stdout.data}</pre>
+            <pre>{pipeData(stdout)}</pre>
             <div><b>stderr</b> {stderr.done && <small>✓</small>}</div>
-            <pre>{stderr.data}</pre>
+            <pre>{pipeData(stderr)}</pre>
             <div><b>rest</b>
               {inspectHtml(rest)}
             </div>
@@ -161,22 +175,36 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
     {false && partExecInfo()}
     {false && partForInfo()}
 
-
-    <button
-      style={{
-        position: 'fixed', top: 10, right: 10,
-        display: 'flex', flexDirection: 'column', gap: 5,
-        textAlign: 'right',
-      }}
-      onClick={async () => {
-        await fetch(
-          `http://localhost:8080/restart/${sessionAutomergeUrl}`,
-          { method: 'POST' }
-        );
-      }}
+    <div
+      className='fixed top-3 right-3 flex flex-row gap-4 items-center'
     >
-      restart
-    </button>
+      <Slider
+        className='mx-4'
+        size='small'
+        min={0} max={history.length} step={1}
+        value={historyIdx === undefined ? history.length : historyIdx}
+        onChange={(_, v) =>
+          setHistoryIdx(v === history.length ? undefined : v as number)
+        }
+        marks={history.length < 30}
+        style={{
+          width: Math.min(Math.max(10 * (history.length), 0), 400),
+          padding: 0,
+        }}
+        // onMouseDown={() => { setSliderIsDragging(true); }}
+        // onChangeCommitted={() => { setSliderIsDragging(false); }}
+      />
+      <button
+        onClick={async () => {
+          await fetch(
+            `http://localhost:8080/restart/${sessionAutomergeUrl}`,
+            { method: 'POST' }
+          );
+        }}
+      >
+        restart
+      </button>
+    </div>
 
     <div className='fixed bottom-2 right-2
                     flex flex-row-reverse items-end gap-4
@@ -227,6 +255,15 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
               </SelectContent>
             </Select>
           </Label>
+          <label>
+            <input
+              type='checkbox'
+              checked={hvContext.showTimeSlider}
+              onChange={(e) => hvContextUP.showTimeSlider.$set(e.target.checked)}
+              style={{marginRight: 10}}
+            />
+            Show time slider
+          </label>
           <label>
             <input
               type='checkbox'

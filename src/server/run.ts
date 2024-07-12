@@ -40,7 +40,7 @@ async function handlePipeProgress(lines: AsyncIterable<string>, changePipeProgre
 {
   for await (const line of lines) {
     changePipeProgress((pipeProgress) => {
-      pipeProgress.data.push(line);
+      pipeProgress.data.push(new RawString(line));
     });
   }
   changePipeProgress((pipeProgress) => {

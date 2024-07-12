@@ -35,9 +35,13 @@ export function execStatus (execInfo: ExecInfo | undefined) {
 }
 
 export type PipeProgress = {
-  data: string[],  // interesting reflection of Automerge usage; push to array instead of appending to string!
+  data: RawString[],  // interesting reflection of Automerge usage; push to array instead of appending to string!
   done: boolean,
 };
+
+export function pipeData (pipeProgress: PipeProgress): string[] {
+  return pipeProgress.data.map((s) => s.val);
+}
 
 export type ForIteration = {
   counter: number,
