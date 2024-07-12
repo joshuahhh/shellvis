@@ -209,13 +209,15 @@ const LineV = memo(function LineV (props: LineVProps) {
           </div>
         </LineCalls>
         { !abbreviate &&
-          <div style={{marginLeft: depth * 20}} className='row-start-1 col-start-1 col-span-2 my-1 relative'>
+          <div style={{marginLeft: depth * 20}}
+            className='row-start-1 col-start-1 col-span-2 my-1 relative'
+          >
             <div className={clsy`
-              absolute left-0 right-0 z-10  // external positioning
+              absolute left-0 right-0 z-10 mx-1ee  // external positioning
             `}>
               <div className={clsy`
                 w-fit max-w-[calc(100%_+_8px)]                  // external positioning
-                bg-zinc-700 px-1 pb-1 rounded-md  // selection background
+                // bg-zinc-700 px-1 pb-1 rounded-md  // selection background
                 flex flex-wrap gap-1                            // layout of children
               `}>
               {callExprsOnLine.map((callExpr) =>
