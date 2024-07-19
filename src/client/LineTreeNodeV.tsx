@@ -209,7 +209,7 @@ const LineV = memo(function LineV (props: LineVProps) {
           </div>
         </LineCalls>
         { !abbreviate &&
-          <div style={{marginLeft: depth * 20}}
+          <div style={{marginLeft: depth * 20 + 4}}
             className='row-start-1 col-start-1 col-span-2 my-1 relative'
           >
             <div className={clsy`
