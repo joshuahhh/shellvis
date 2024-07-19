@@ -178,22 +178,24 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
     <div
       className='fixed top-3 right-3 flex flex-row gap-4 items-center'
     >
-      <Slider
-        className='mx-4'
-        size='small'
-        min={0} max={history.length} step={1}
-        value={historyIdx === undefined ? history.length : historyIdx}
-        onChange={(_, v) =>
-          setHistoryIdx(v === history.length ? undefined : v as number)
-        }
-        marks={history.length < 30}
-        style={{
-          width: Math.min(Math.max(10 * (history.length), 0), 400),
-          padding: 0,
-        }}
-        // onMouseDown={() => { setSliderIsDragging(true); }}
-        // onChangeCommitted={() => { setSliderIsDragging(false); }}
-      />
+      { hvContext.showTimeSlider &&
+        <Slider
+          className='mx-4'
+          size='small'
+          min={0} max={history.length} step={1}
+          value={historyIdx === undefined ? history.length : historyIdx}
+          onChange={(_, v) =>
+            setHistoryIdx(v === history.length ? undefined : v as number)
+          }
+          marks={history.length < 30}
+          style={{
+            width: Math.min(Math.max(10 * (history.length), 0), 400),
+            padding: 0,
+          }}
+          // onMouseDown={() => { setSliderIsDragging(true); }}
+          // onChangeCommitted={() => { setSliderIsDragging(false); }}
+        />
+      }
       <button
         onClick={async () => {
           await fetch(
