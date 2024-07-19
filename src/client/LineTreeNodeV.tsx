@@ -1,6 +1,6 @@
 import { Slider } from '@mui/material';
 import sh from 'mvdan-sh';
-import React, { Fragment, memo, useCallback, useContext, useEffect, useState } from 'react';
+import React, { Fragment, memo, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { ForIteration, Trace, mkExecId } from '../shared/execution.js';
 import { LineTreeNode, Script, getNodeId, nodePosInfo } from '../shared/mvdan-sh-helpers.js';
 import { CallInPlaceV, CallOnGridV } from './CallV.js';
@@ -16,13 +16,18 @@ export type LineTreeNodeVProps = {
   trace: Trace,
   node: LineTreeNode,
   context: string,
+  doThisOneThingForMeAndStickThisIntoTheFirstRHS?: ReactNode,
 };
 
 export const LineTreeNodeV = memo(function LineTreeNodeV (props: LineTreeNodeVProps) {
-  const {script, trace, node, context} = props;
+  const {script, trace, node, context, doThisOneThingForMeAndStickThisIntoTheFirstRHS} = props;
+
+  if (doThisOneThingForMeAndStickThisIntoTheFirstRHS && node.type !== 'line') {
+    console.warn('doThisOneThingForMeAndStickThisIntoTheFirstRHS is getting lost');
+  }
 
   if (node.type === 'line') {
-    return <LineV script={script} trace={trace} line={node.line} i={node.lineNumStart - 1} context={context}/>;
+    return <LineV script={script} trace={trace} line={node.line} i={node.lineNumStart - 1} context={context} doThisOneThingForMeAndStickThisIntoTheFirstRHS={doThisOneThingForMeAndStickThisIntoTheFirstRHS} />;
   } else if (node.type === 'for-loop-body') {
     return <ForLoopBodyV node={node} script={script} trace={trace} context={context} />;
   } else if (node.type === 'while-loop-cond-and-body') {
@@ -117,10 +122,11 @@ type LineVProps = {
   line: string,
   i: number,
   context: string,
+  doThisOneThingForMeAndStickThisIntoTheFirstRHS?: ReactNode,
 };
 
 const LineV = memo(function LineV (props: LineVProps) {
-  const { script, trace, line, i, context } = props;
+  const { script, trace, line, i, context, doThisOneThingForMeAndStickThisIntoTheFirstRHS } = props;
   let { detailsMode, selections, abbreviateInfo } = useContext(HVContext);
 
   const [ setElem, isHovered ] = useHover();
@@ -190,9 +196,14 @@ const LineV = memo(function LineV (props: LineVProps) {
   return <Line $inPlace={detailsMode === 'in-place'}>
     <LineNum>{i + 1}</LineNum>
     <LineContents data-line={i}>{nodes}</LineContents>
+    { doThisOneThingForMeAndStickThisIntoTheFirstRHS &&
+      <div className='col-start-3'>
+        { doThisOneThingForMeAndStickThisIntoTheFirstRHS }
+      </div>
+    }
     { detailsMode === 'grid' && callExprsOnLine.length > 0 &&
       // this div makes it easier to overlap a two-col popup over a one-col abbreviation
-      <div className='grid grid-cols-subgrid col-span-2' ref={setElem}>
+      <div className='grid grid-cols-subgrid col-span-2 col-start-3' ref={setElem}>
         <LineCalls style={{paddingLeft: depth * 20}} className='row-start-1 col-start-1 my-1 mx-1'>
           <div className={clsy('flex flex-wrap gap-1', !abbreviate && 'invisible')}>
             {callExprsOnLine.map((callExpr) =>
@@ -455,9 +466,9 @@ const WhileLoopCondAndBodyV = memo(function WhileLoopCondAndBodyV (props: {
 
   const depth = context.match(/\//g)?.length || 0;
 
-  if (numIterations === 0) {
-    return <>
-      <LineCalls style={{paddingLeft: depth * 20}} className='col-start-3'>
+  let header =
+    numIterations === 0
+    ? <LineCalls style={{ paddingLeft: depth * 20 }} className='col-start-3'>
         <ForLoopIterationHeader>
           <div>{forIndent}</div>
           <ForLoopIterationHeaderLabel className='border border-blue-500 text-blue-500'>
@@ -465,38 +476,30 @@ const WhileLoopCondAndBodyV = memo(function WhileLoopCondAndBodyV (props: {
           </ForLoopIterationHeaderLabel>
         </ForLoopIterationHeader>
       </LineCalls>
-      {node.children.map((child, i) =>
-        <Fragment key={i}>
-          <DeadLineTreeNodeV script={script} node={child}/>
-        </Fragment>
-      )}
-    </>;
+    : <LineCalls style={{ paddingLeft: depth * 20 }} className='col-start-3'>
+        <LoopHeader
+          iterationIdx={iterationIdx}
+          setIterationIdx={setIterationIdx}
+          numIterations={numIterations}
+        />
+      </LineCalls>;
+
+  if (numIterations === 0) {
+    return node.children.map((child, i) =>
+      <DeadLineTreeNodeV key={i} script={script} node={child} />
+    );
   }
 
   if (iterationIdx >= numIterations) {
     iterationIdx = numIterations - 1;
   }
 
-  return <>
-    <LineCalls style={{paddingLeft: depth * 20}} className='col-start-3'>
-      <LoopHeader
-        iterationIdx={iterationIdx}
-        setIterationIdx={setIterationIdx}
-        numIterations={numIterations}
-      />
-    </LineCalls>
-    {node.children.map((child, i) =>
-      <Fragment key={i}>
-        <LineTreeNodeV
-          script={script} trace={trace} node={child}
-          context={`${context}/${whileNodeId}-${iterationIdx}`}
-        />
-        {/* { iterationIdx === numIterations - 1  // TODO: not robust to in-progress?
-          ? <DeadLineTreeNodeV script={script} node={child}/>
-          :
-            // TODO: doesn't just fade out the body!
-        } */}
-      </Fragment>
-    )}
-  </>;
+  return node.children.map((child, i) =>
+    <LineTreeNodeV
+      key={i}
+      script={script} trace={trace} node={child}
+      context={`${context}/${whileNodeId}-${iterationIdx}`}
+      doThisOneThingForMeAndStickThisIntoTheFirstRHS={i === 0 ? header : undefined}
+    />
+  );
 });
