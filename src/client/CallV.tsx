@@ -157,7 +157,7 @@ const InfoEntryDetails = tw.div`pl-2 pr-1 min-w-0 overflow-x-auto`;
 
 // TODO: "computer" and "human"; figure this out
 const C = tw.span`font-mono`;
-const H = tw.span`italic text-gray-400`;
+const H = tw.span`italic text-gray-400 text-sm`;
 
 type InfoProvider = (props: InfoProviderProps) => ReactNode;
 
