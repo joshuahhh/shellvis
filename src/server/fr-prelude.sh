@@ -1,5 +1,8 @@
 # set -x
 
+# HACK to restore nasty bash behavior for study
+setopt shwordsplit
+
 # open duplicate of stderr for logging
 exec {fr_top_stderr}>&2
 

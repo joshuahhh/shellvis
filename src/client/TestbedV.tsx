@@ -18,6 +18,12 @@ const examples: Record<string, ScriptWatcherParams & {desc?: string}> = {
     env: 'process.env',
     desc: 'study: count',
   },
+  'study-users': {
+    path: './examples/study-users/script.sh',
+    cwd: './examples/study-users',
+    env: 'process.env',
+    desc: 'study: users',
+  },
   'minimal': {
     path: './examples/minimal.sh',
     cwd: '.',

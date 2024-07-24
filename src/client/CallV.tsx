@@ -316,21 +316,6 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): ReactNode {
   </>;
 }
 
-// exit code
-infoProviders.push(({ execInfo }) => {
-  const execExitInfo = execInfo?.exitInfo;
-  if (execExitInfo && execExitInfo.exitCode !== 0) {
-    return <InfoEntry>
-      <InfoEntryIcon title='exit code'>
-        <octicons.SignOutIcon {...octiconProps}/>
-      </InfoEntryIcon>
-      <InfoEntryDetails>
-        exit {execExitInfo.exitCode}
-      </InfoEntryDetails>
-    </InfoEntry>;
-  }
-});
-
 // cwd
 infoProviders.push(({ execInfo }) => {
   const execExitInfo = execInfo?.exitInfo;
@@ -450,4 +435,19 @@ const diffShellVarsFromStr = weakMapCache2((varsEnterStr: RawString, varsExitStr
   const varsExit: Record<string, ShellVar> = JSON.parse(varsExitStr.val);
   const varsDiff = diffShellVars(varsEnter, varsExit);
   return varsDiff;
+});
+
+// exit code
+infoProviders.push(({ execInfo }) => {
+  const execExitInfo = execInfo?.exitInfo;
+  if (execExitInfo && execExitInfo.exitCode !== 0) {
+    return <InfoEntry>
+      <InfoEntryIcon title='exit code'>
+        <octicons.SignOutIcon {...octiconProps}/>
+      </InfoEntryIcon>
+      <InfoEntryDetails>
+        exit {execExitInfo.exitCode}
+      </InfoEntryDetails>
+    </InfoEntry>;
+  }
 });
