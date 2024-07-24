@@ -151,13 +151,13 @@ const InfoEntryIcon = memo((props: {
   </Tooltip>;
 });
 
-const InfoEntryContents = tw.div`flex overflow-auto whitespace-nowrap`;
+const InfoEntryContents = tw.div`flex overflow-auto whitespace-nowrap items-center`;
 
-const InfoEntryDetails = tw.div`pl-2 pr-1 min-w-0 overflow-x-auto`;
+const InfoEntryDetails = tw.div`pl-2 min-w-0 overflow-x-auto`;
 
 // TODO: "computer" and "human"; figure this out
 const C = tw.span`font-mono`;
-const H = tw.span`italic text-gray-400 text-sm`;
+const H = tw.span`italic text-gray-400 text-sm pr-1`;
 
 type InfoProvider = (props: InfoProviderProps) => ReactNode;
 
@@ -420,18 +420,21 @@ function renderShellVarChange(change: ShellVarChange): ReactNode {
     </>;
   } else if (change.type === 'remove') {
     contents = <>
-      <C>{change.oldVar.name}</C>
-      <InfoEntryDetails><H>(← <C>{change.oldVar.value}</C>)</H></InfoEntryDetails>
+      <Tooltip title={<H>was <C>{change.oldVar.value}</C></H>} placement='top' arrow>
+        <div><C>{change.oldVar.name}</C></div>
+      </Tooltip>
     </>;
   } else if (change.type === 'changeValue') {
     contents = <>
-      <C>{change.oldVar.name}</C>=<C>{change.newVar.value}</C>
-      <InfoEntryDetails><H>(← <C>{change.oldVar.value}</C>)</H></InfoEntryDetails>
+      <Tooltip title={<H>was <C>{change.oldVar.value}</C></H>} placement='top' arrow>
+        <div><C>{change.oldVar.name}</C>=<C>{change.newVar.value}</C></div>
+      </Tooltip>
     </>;
   } else if (change.type === 'changeAttributes') {
     contents = <>
-      <C>{change.newVar.name}</C> attributes: <C>{change.newVar.attributes}</C>
-      <InfoEntryDetails><H>(← <C>{change.oldVar.attributes}</C>)</H></InfoEntryDetails>
+      <Tooltip title={<H>was <C>{change.oldVar.attributes}</C></H>} placement='top' arrow>
+        <div><C>{change.newVar.name}</C> attributes: <C>{change.newVar.attributes}</C></div>
+      </Tooltip>
     </>;
   } else {
     throw new Error(`unknown change type ${(change as any).type}`);
