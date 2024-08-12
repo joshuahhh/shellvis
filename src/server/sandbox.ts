@@ -4,6 +4,7 @@ import * as child_process from 'node:child_process';
 import * as util from 'node:util';
 import * as os from 'node:os';
 import { DeltaLogEntry } from '../shared/execution.js';
+import { RawString } from '@automerge/automerge-repo';
 
 const exec = util.promisify(child_process.exec);
 
@@ -177,11 +178,17 @@ export async function afterRun(sandbox: Sandbox): Promise<DeltaLogEntry[]> {
     }
   }
   for (const file of presentFiles) {
-    const fileStat = await fsP.stat(path.join(sandboxUnionDir, file)).catch(() => null);
+    const oldPath = path.join(sandboxUnionDir, file);
+    const fileStat = await fsP.stat(oldPath).catch(() => null);
     if (!fileStat) {
       deltaLog.push({ event: 'newFile', path: file });
     } else if (fileStat.isFile()) {
-      deltaLog.push({ event: 'modifiedFile', path: file });
+      const newPath = path.join(upperDir, file);
+      deltaLog.push({
+        event: 'modifiedFile', path: file,
+        oldContents: new RawString(await fsP.readFile(oldPath, 'utf8')),
+        newContents: new RawString(await fsP.readFile(newPath, 'utf8'))
+      });
     } else if (fileStat.isDirectory()) {
       deltaLog.push({ event: 'dirReplacedWithFile', path: file });
     }

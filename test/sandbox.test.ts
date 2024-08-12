@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it, onTestFinished } from 'vitest';
 import { Sandbox, afterRun, beforeRun, getUnionFSMounts, isMountPoint, makeSandbox, mkTmpDir, removeSandbox } from '../src/server/sandbox.js';
 import { DeltaLogEntry } from '../src/shared/execution.js';
+import { RawString } from '@automerge/automerge-repo';
 
 
 describe('isMountPoint', () => {
@@ -81,7 +82,11 @@ describe('sandbox', () => {
     const deltaLog = await runInSandbox(sandbox, async () => {
       await fsP.writeFile(path.join(sandbox.deltaUnionDir, 'original-file'), 'goodbye');
     });
-    expect(deltaLog).toEqual([{ event: 'modifiedFile', path: 'original-file' }]);
+    expect(deltaLog).toEqual([{
+      event: 'modifiedFile', path: 'original-file',
+      oldContents: new RawString('hello'),
+      newContents: new RawString('goodbye'),
+    }]);
 
     await runInSandbox(sandbox, async () => {
       const originalFileContents = await fsP.readFile(path.join(sandbox.sandboxUnionDir, 'original-file'), 'utf8');

@@ -1,4 +1,4 @@
-import { Repo } from '@automerge/automerge-repo';
+import { RawString, Repo } from '@automerge/automerge-repo';
 import sh from 'mvdan-sh';
 import path from 'node:path';
 import R from 'remeda';
@@ -240,7 +240,11 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
 
       const touchExecId = mkExecId({ context: '', nodeId: callExprIdWithSrc('modify', run.script!) });
       expect(trace.execInfos[touchExecId].deltaLog).toEqual([
-        { event: 'modifiedFile', path: path.resolve(cwd, 'testfile.txt') },
+        {
+          event: 'modifiedFile', path: path.resolve(cwd, 'testfile.txt'),
+          oldContents: new RawString(''),
+          newContents: new RawString('hello\n'),
+        },
       ] satisfies DeltaLogEntry[]);
     });
 
