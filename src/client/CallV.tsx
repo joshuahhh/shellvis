@@ -12,7 +12,9 @@ import { ShellVar, ShellVarChange, diffShellVars, shellVarChangeVarName } from '
 import { last, objectEntries, weakMapCache2 } from '../shared/util.js';
 import { clsy } from './clsy.js';
 import tw from './tailwind-styled-component/index.js';
+import diffViewerModule, { DiffMethod } from 'react-diff-viewer-continued';
 
+const ReactDiffViewer = diffViewerModule as any as typeof diffViewerModule.default;
 
 const octiconProps: Parameters<octicons.Icon>[0] = {
   verticalAlign: 'top',
@@ -285,7 +287,7 @@ infoProviders.push(({ abbreviate, execInfo }) => {
         })}
       </InfoEntry>;
     } else {
-      return renderDeltaLog(deltaLog, execInfo.enterCwd);
+      return renderDeltaLog(deltaLog, execInfo.enterCwd, abbreviate);
     }
   }
 });
@@ -300,18 +302,34 @@ const eventIcons: Record<DeltaLogEntry['event'], ReactNode> = {
 };
 
 // TODO: make into component?
-function renderDeltaLog(log: DeltaLogEntry[], baseDir?: string): ReactNode {
+function renderDeltaLog(log: DeltaLogEntry[], baseDir: string, abbreviate: boolean): ReactNode {
   return <>
-    {log.map(({path: somePath, event}) => {
+    {log.map((entry) => {
+      let {path: somePath, event} = entry;
       if (baseDir) {
         somePath = path.relative(baseDir, somePath);
       }
       return <InfoEntry key={somePath}>
         <InfoEntryIcon title={eventNames[event] || event}>{eventIcons[event]}</InfoEntryIcon>
-        <InfoEntryContents>
-          <C>{somePath}</C>
-          <InfoEntryDetails><H>({eventNames[event]})</H></InfoEntryDetails>
-        </InfoEntryContents>
+        <div>
+          <InfoEntryContents >
+            <C>{somePath}</C>
+            <InfoEntryDetails><H>({eventNames[event]})</H></InfoEntryDetails>
+          </InfoEntryContents>
+        { !abbreviate && entry.event === 'modifiedFile' &&
+            <ReactDiffViewer
+              oldValue={ entry.oldContents.toString() }
+              newValue={ entry.newContents.toString() }
+              splitView={false}
+              useDarkTheme={true}
+              disableWordDiff={true}
+              compareMethod={DiffMethod.LINES}
+              styles={{
+                gutter: { minWidth: 0, padding: '0 5px' },
+              }}
+            />
+          }
+        </div>
       </InfoEntry>;
     })}
   </>;

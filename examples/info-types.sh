@@ -27,6 +27,11 @@ function append() {
   echo "hi" >> hi
 }
 append
+append
+function overwrite() {
+  echo "oh no" > hi
+}
+overwrite
 # multiple
 mv hi hi2
 # delete
