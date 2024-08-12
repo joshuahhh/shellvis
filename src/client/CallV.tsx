@@ -55,6 +55,7 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
           min-w-7 min-h-7
           max-w-full
           max-h-72 overflow-x-auto
+          ${!abbreviate && 'border-b-[#1F1F1F] border-b-2'}
           `,
           status === 'running' && 'loading-animation'
           // providerOutputs.length === 0 && 'bg-gray-600'
