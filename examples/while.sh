@@ -7,7 +7,13 @@ do
   x=$(( $x + 1 ))
 done
 
-# no iterations
+# no execution of body
+while false
+do
+  echo "hi"
+done
+
+# no iterations, no execution
 if false
 then
   while true

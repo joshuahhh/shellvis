@@ -26,3 +26,10 @@ done
 for n in $(false); do
   echo $n
 done
+
+if false
+then
+  for n in {1..5}; do
+    echo "n=$n"
+  done
+fi

@@ -18,6 +18,16 @@ export type Message =
       exitCode: string,  // number as string
     }
   | {
+      type: 'for-enter',
+      nodeId: string,
+      context: string,
+    }
+  | {
+      type: 'for-exit',
+      nodeId: string,
+      context: string,
+    }
+  | {
       type: 'for-body-enter',
       nodeId: string,
       context: string,

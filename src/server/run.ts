@@ -165,7 +165,23 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
             if (!loopVar) {
               throw new Error('wordIter has no Name?');
             }
-            wrapStmt(parser, node, `{ ${counterVar}=0; ___; }`);
+            wrapStmt(parser, node, `{
+              local fr_ret >/dev/null
+              ${this.sh2fr.sendMessage({
+                type: 'for-enter',
+                nodeId: forNodeId,
+                context: '$(fr_ctx_str)',
+              })}
+              ${counterVar}=0
+              ___
+              fr_ret=$?
+              ${this.sh2fr.sendMessage({
+                type: 'for-exit',
+                nodeId: forNodeId,
+                context: '$(fr_ctx_str)',
+              })}
+              fr_exitcode $fr_ret;
+            }`);
             cmd.Do = [
               parseStmt(this.sh2fr.sendMessage({
                 type: 'for-body-enter',
@@ -332,19 +348,33 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
         trace.execInfos[execId].deltaLog = deltaLog;
       });
       // console.log("fr: stmt-exit", execId);
+    } else if (message.type === 'for-enter') {
+      this.traceDoc.change((trace) => {
+        const execId = mkExecId(message);
+        if (trace.forInfos[execId]) {
+          console.warn('for-enter with existing forInfo', execId);
+        }
+        trace.forInfos[execId] = {
+          iterations: [],
+        };
+      });
+    } else if (message.type === 'for-exit') {
+      // nothing to do, keep this so we know it's (vacuously) handled
     } else if (message.type === 'for-body-enter') {
       this.traceDoc.change((trace) => {
         const execId = mkExecId(message);
         if (!trace.forInfos[execId]) {
-          trace.forInfos[execId] = {
-            iterations: [],
-          };
+          console.error('for-body-enter without forInfo', execId, 'aborting');
+          this.stop();
+          throw new Error('for-body-enter without forInfo');
         }
         trace.forInfos[execId].iterations.push({
           counter: +message.counter,
           loopVarValue: message.loopVarValue,
         });
       });
+    } else if (message.type === 'for-body-exit') {
+      // nothing to do, keep this so we know it's (vacuously) handled
     } else if (message.type === 'while-cond-enter') {
       this.traceDoc.change((trace) => {
         const execId = mkExecId(message);
@@ -355,6 +385,8 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
         }
         trace.whileInfos[execId].numIterations++;
       });
+    } else {
+      console.log('fr: unhandled message type', message.type);
     }
   }
 
