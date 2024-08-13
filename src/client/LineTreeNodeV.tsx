@@ -327,7 +327,7 @@ const ForLoopBodyV = memo(function ForLoopBodyV (props: {
 
     if (iterations.length === 0) {
       return <>
-        <LineCalls style={{paddingLeft: depth * 20}}>
+        <LineCalls style={{paddingLeft: depth * 20}} className='col-start-3'>
           <ForLoopIterationHeader>
             <div>{forIndent}</div>
             <ForLoopIterationHeaderLabel className='border border-blue-500 text-blue-500'>
@@ -343,7 +343,7 @@ const ForLoopBodyV = memo(function ForLoopBodyV (props: {
       </>;
     }
     return <>
-      <LineCalls style={{paddingLeft: depth * 20}}>
+      <LineCalls style={{paddingLeft: depth * 20}} className='col-start-3'>
         <LoopHeader
           iteration={iteration}
           iterationIdx={iterationIdx}

@@ -18,3 +18,11 @@ done
 for n in *; do
   file $n
 done
+
+for n in $(echo "a\nb\nc"); do
+  echo $n
+done
+
+for n in $(false); do
+  echo $n
+done
