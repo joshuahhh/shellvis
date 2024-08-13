@@ -196,16 +196,21 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           // onChangeCommitted={() => { setSliderIsDragging(false); }}
         />
       }
-      <button
+      <Button
         onClick={async () => {
           await fetch(
             `http://localhost:8080/restart/${sessionAutomergeUrl}`,
             { method: 'POST' }
           );
         }}
+        variant='destructive'
       >
-        restart
-      </button>
+        ▶️ re-run
+      </Button>
+    </div>
+
+    <div className='fixed bottom-2 right-14 text-8xl opacity-20 -z-50'>
+      shellvis
     </div>
 
     <div className='fixed bottom-2 right-2
