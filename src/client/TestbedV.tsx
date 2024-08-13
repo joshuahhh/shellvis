@@ -6,15 +6,15 @@ import { SessionV } from './SessionV.js';
 import { WithAutomergeV } from './WithAutomergeV.js';
 
 const examples: Record<string, ScriptWatcherParams & {desc?: string, study?: boolean}> = {
-  'study-backup': {
-    path: './examples/study-backup/script.sh',
-    cwd: './examples/study-backup',
+  'demo-pics': {
+    path: './examples/study-pics/script.sh',
+    cwd: './examples/study-pics',
     env: 'process.env',
     study: true,
   },
-  'study-pics': {
-    path: './examples/study-pics/script.sh',
-    cwd: './examples/study-pics',
+  'study-titles': {
+    path: './examples/study-titles/script.sh',
+    cwd: './examples/study-titles',
     env: 'process.env',
     study: true,
   },
@@ -23,6 +23,30 @@ const examples: Record<string, ScriptWatcherParams & {desc?: string, study?: boo
     cwd: './examples/study-users',
     env: 'process.env',
     study: true,
+  },
+  'study-log': {
+    path: './examples/study-log/script.sh',
+    cwd: './examples/study-log',
+    env: 'process.env',
+    study: true,
+  },
+  'study-lines': {
+    path: './examples/study-lines/script.sh',
+    cwd: './examples/study-lines',
+    env: 'process.env',
+    study: true,
+  },
+  'study-words': {
+    path: './examples/study-words/script.sh',
+    cwd: './examples/study-words',
+    env: 'process.env',
+    study: false,
+  },
+  'study-backup': {
+    path: './examples/study-backup/script.sh',
+    cwd: './examples/study-backup',
+    env: 'process.env',
+    study: false,
   },
   'minimal': {
     path: './examples/minimal.sh',

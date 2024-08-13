@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# TASK
-# ----
-# Back up all the files from the source directory to the backup directory.
+# Back up all the files from the source directory to the
+# backup directory.
 
 source_dir="music"
 backup_dir="backup/music"
