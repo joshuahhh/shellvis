@@ -1,6 +1,9 @@
 #!/bin/bash
 
-# goal: move each jpg file to a directory named by the year it was taken
+# TASK
+# ----
+# Move each jpg file in this directory to a sub-directory named by the year it
+# was taken.
 
 for f in *.jpg; do
   year=$(exiftool -DateTimeOriginal -T $f | cut -c1-4)
