@@ -8,7 +8,7 @@
 # corresponding user accounts.
 
 cat users-to-delete.txt | while read LINE; do
-  rm -rf $LINE
+  rm -rf users/$LINE
 done
 
-ls
+ls users
