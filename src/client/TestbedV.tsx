@@ -6,6 +6,12 @@ import { SessionV } from './SessionV.js';
 import { WithAutomergeV } from './WithAutomergeV.js';
 
 const examples: Record<string, ScriptWatcherParams & {desc?: string, study?: boolean}> = {
+  'study-backup': {
+    path: './examples/study-backup/script.sh',
+    cwd: './examples/study-backup',
+    env: 'process.env',
+    study: true,
+  },
   'study-pics': {
     path: './examples/study-pics/script.sh',
     cwd: './examples/study-pics',
