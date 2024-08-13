@@ -12,12 +12,6 @@ const examples: Record<string, ScriptWatcherParams & {desc?: string, study?: boo
     env: 'process.env',
     study: true,
   },
-  'study-count': {
-    path: './examples/study-count/script.sh',
-    cwd: './examples/study-count',
-    env: 'process.env',
-    study: true,
-  },
   'study-users': {
     path: './examples/study-users/script.sh',
     cwd: './examples/study-users',
