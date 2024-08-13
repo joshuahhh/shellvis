@@ -6,9 +6,9 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@automerge/automerge-repo": "^1.2.1",
-    "@automerge/automerge-repo-network-websocket": "^1.2.1",
-    "@automerge/automerge-repo-react-hooks": "^1.2.1",
+    "@automerge/automerge-repo": "^2.0.0-alpha.4",
+    "@automerge/automerge-repo-network-websocket": "^2.0.0-alpha.4",
+    "@automerge/automerge-repo-react-hooks": "^2.0.0-alpha.4",
     "@emotion/react": "11.11.3",
     "@emotion/styled": "11.11.0",
     "@engraft/shared": "^0.0.7",

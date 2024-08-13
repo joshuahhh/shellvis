@@ -30,7 +30,7 @@ export class AutomergeServer {
     });
 
     if (false) {
-      this.repo.addListener('document', ({handle, isNew}) => {
+      this.repo.addListener('document', ({handle}) => {
         handle.on('change', (payload) => {
           console.log('doc changed', payload.doc);
           console.log('patch info', payload.patchInfo);
