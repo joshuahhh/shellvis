@@ -70,3 +70,20 @@ export type Trace = {
   transformedSrc: string | null,
   parseError: string | null,
 };
+
+export function newTrace(
+  opts: Pick<Trace, 'scriptSrc'> & Partial<Trace>
+): Trace {
+  return {
+    path: null,
+    messageLog: [],
+    execInfos: {},
+    forInfos: {},
+    whileInfos: {},
+    exitCode: null,
+    startTime: null,
+    transformedSrc: null,
+    parseError: null,
+    ...opts,
+  };
+};

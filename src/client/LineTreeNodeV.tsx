@@ -72,6 +72,7 @@ const LineNum = memo(function LineNum (props: {children?: number}) {
       min-w-7
       font-mono
       select-none
+      min-h-6
     `, children !== undefined && 'cursor-pointer')}
     onClick={onClick}
   >
@@ -168,7 +169,8 @@ const LineV = memo(function LineV (props: LineVProps) {
       end: posInfo.end.line > posInfo.pos.line ? line.length : posInfo.end.col - 1,
       decorator: (contents) =>
         detailsMode === 'grid'
-        ? <div className='inline-block border-b border-b-gray-500 mb-1 border-dashed'>
+        ? <div className='inline-block border-b border-b-gray-500 border-dashed'>
+            {/* mb-1 */}
             {contents}
           </div>
         : <CallInPlaceV
@@ -325,7 +327,7 @@ const ForLoopBodyV = memo(function ForLoopBodyV (props: {
   } else if (detailsMode === 'grid') {
     const depth = context.match(/\//g)?.length || 0;
 
-    if (iterations.length === 0) {
+    if (forInfo && iterations.length === 0) {
       return <>
         <LineCalls style={{paddingLeft: depth * 20}} className='col-start-3'>
           <ForLoopIterationHeader>
@@ -344,19 +346,21 @@ const ForLoopBodyV = memo(function ForLoopBodyV (props: {
     }
     return <>
       <LineCalls style={{paddingLeft: depth * 20}} className='col-start-3'>
-        <LoopHeader
-          iteration={iteration}
-          iterationIdx={iterationIdx}
-          setIterationIdx={setIterationIdx}
-          varName={varName}
-          numIterations={iterations.length}
-        />
+        { forInfo &&
+          <LoopHeader
+            iteration={iteration}
+            iterationIdx={iterationIdx}
+            setIterationIdx={setIterationIdx}
+            varName={varName}
+            numIterations={iterations.length}
+          />
+        }
       </LineCalls>
       {node.children.map((child, i) =>
         <Fragment key={i}>
           <LineTreeNodeV
             script={script} trace={trace} node={child}
-            context={`${context}/${forNodeId}-${iteration.counter}`}
+            context={`${context}/${forNodeId}-${iteration?.counter}`}
           />
         </Fragment>
       )}
@@ -467,7 +471,9 @@ const WhileLoopCondAndBodyV = memo(function WhileLoopCondAndBodyV (props: {
   const depth = context.match(/\//g)?.length || 0;
 
   let header =
-    numIterations === 0
+    !whileInfo
+    ? null
+    : numIterations === 0
     ? <LineCalls style={{ paddingLeft: depth * 20 }} className='col-start-3'>
         <ForLoopIterationHeader>
           <div>{forIndent}</div>
@@ -484,7 +490,7 @@ const WhileLoopCondAndBodyV = memo(function WhileLoopCondAndBodyV (props: {
         />
       </LineCalls>;
 
-  if (numIterations === 0) {
+  if (whileInfo && numIterations === 0) {
     return node.children.map((child, i) =>
       <DeadLineTreeNodeV key={i} script={script} node={child} />
     );

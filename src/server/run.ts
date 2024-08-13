@@ -13,7 +13,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as tmp from 'tmp';
 import { TypedEventTarget } from '../shared/TypedEventTarget.js';
-import { PipeProgress, Trace, mkExecId } from '../shared/execution.js';
+import { PipeProgress, Trace, mkExecId, newTrace } from '../shared/execution.js';
 import { Script, getNodeId, hasNodeType, myWalk, parseFirstOfType, wrapStmt } from '../shared/mvdan-sh-helpers.js';
 import { Message } from '../shared/tracing.js';
 import { RunParams } from '../shared/types.js';
@@ -73,18 +73,12 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   ) {
     super();
 
-    this.traceDoc = this.repo.create({
-      path: this.params.path,
-      scriptSrc: this.params.scriptSrc,
-      messageLog: [],
-      execInfos: {},
-      forInfos: {},
-      whileInfos: {},
-      exitCode: null,
-      startTime: null,
-      transformedSrc: null,
-      parseError: null,
-    });
+    this.traceDoc = this.repo.create(
+      newTrace({
+        path: this.params.path,
+        scriptSrc: this.params.scriptSrc,
+      })
+    );
   }
 
   async start() {
