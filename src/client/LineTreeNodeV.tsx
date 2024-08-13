@@ -195,9 +195,11 @@ const LineV = memo(function LineV (props: LineVProps) {
   // count /s in context
   const depth = context.match(/\//g)?.length || 0;
 
+  const lineContentsClassName = clsy(line[0] === '#' && 'overflow-visible');
+
   return <Line $inPlace={detailsMode === 'in-place'}>
     <LineNum>{i + 1}</LineNum>
-    <LineContents data-line={i}>{nodes}</LineContents>
+    <LineContents data-line={i} className={lineContentsClassName}>{nodes}</LineContents>
     { doThisOneThingForMeAndStickThisIntoTheFirstRHS &&
       <div className='col-start-3'>
         { doThisOneThingForMeAndStickThisIntoTheFirstRHS }
