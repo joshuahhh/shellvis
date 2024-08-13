@@ -1,11 +1,10 @@
-import { AutomergeUrl } from '@automerge/automerge-repo';
-import chokidar from 'chokidar';
-import * as fs from 'node:fs';
-import { AutomergeServer } from './automerge.js';
-import { Run } from './run.js';
-import path from 'node:path';
-import { RunParams, ScriptWatcherParams } from '../shared/types.js';
-
+import { AutomergeUrl } from "@automerge/automerge-repo";
+import chokidar from "chokidar";
+import * as fs from "node:fs";
+import path from "node:path";
+import { RunParams, ScriptWatcherParams } from "../shared/types.js";
+import { AutomergeServer } from "./automerge.js";
+import { Run } from "./run.js";
 
 // ScriptWatcher is a process that watches a script file and re-runs it when it changes
 
@@ -15,11 +14,11 @@ export class ScriptWatcher {
   constructor(
     readonly params: ScriptWatcherParams,
     readonly automergeServer: AutomergeServer,
-    readonly onNewTrace?: (traceUrl: AutomergeUrl) => void
+    readonly onNewTrace?: (traceUrl: AutomergeUrl) => void,
   ) {
     // TODO: this is so that we ultimately put an absolute path into the trace
     this.params.path = path.resolve(this.params.path);
-    chokidar.watch(this.params.path).on('all', () => {
+    chokidar.watch(this.params.path).on("all", () => {
       this._onFile();
     });
   }
@@ -29,7 +28,7 @@ export class ScriptWatcher {
       await this.currentRun.stop();
     }
 
-    const scriptStr = fs.readFileSync(this.params.path, { encoding: 'utf-8' });
+    const scriptStr = fs.readFileSync(this.params.path, { encoding: "utf-8" });
     const runParams: RunParams = {
       ...this.params,
       scriptSrc: scriptStr,

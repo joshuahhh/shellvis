@@ -1,9 +1,9 @@
-import { TypedEventTarget } from '../shared/TypedEventTarget.js';
+import { TypedEventTarget } from "../shared/TypedEventTarget.js";
 
 // this is for retrying ws connections
 
 type EventMap = {
-  message: MessageEvent<string>,
+  message: MessageEvent<string>;
 };
 
 export class WebSocketListener extends (EventTarget as TypedEventTarget<EventMap>) {
@@ -16,19 +16,22 @@ export class WebSocketListener extends (EventTarget as TypedEventTarget<EventMap
   }
 
   connect() {
-    console.log('Connecting...');
+    console.log("Connecting...");
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
-      console.log('Socket connected');
+      console.log("Socket connected");
     };
 
     this.ws.onmessage = (e) => {
-      this.dispatchEvent(new MessageEvent('message', { data: e.data }));
+      this.dispatchEvent(new MessageEvent("message", { data: e.data }));
     };
 
     this.ws.onclose = (e) => {
-      console.log('Socket is closed. Reconnect will be attempted in 1 second.', e.reason);
+      console.log(
+        "Socket is closed. Reconnect will be attempted in 1 second.",
+        e.reason,
+      );
       this.timeout = setTimeout(() => {
         this.connect();
       }, 1000);

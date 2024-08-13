@@ -1,4 +1,4 @@
-import { WebSocketListener } from './WebSocketListener.js';
+import { WebSocketListener } from "./WebSocketListener.js";
 
 // TODO: I guess the better reusable unit would be
 
@@ -16,7 +16,7 @@ workerGlobal.onconnect = function (event) {
   const wsListeners: WebSocketListener[] = [];
   for (let i = 5900; i < 5905; i++) {
     const listener = new WebSocketListener(`ws://localhost:${i}`);
-    listener.addEventListener('message', onWSMessage);
+    listener.addEventListener("message", onWSMessage);
     wsListeners.push(listener);
   }
 

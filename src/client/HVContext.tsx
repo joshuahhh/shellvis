@@ -1,29 +1,29 @@
-import { UpdateProxy } from '@engraft/update-proxy-react';
-import { createContext } from 'react';
+import { UpdateProxy } from "@engraft/update-proxy-react";
+import { createContext } from "react";
 
 type HVContext1 = {
-  detailsMode: 'grid' | 'in-place',  // todo:  | 'one-by-one' | 'none'
-  showTimeSlider: boolean,
-  showMessages: boolean,
-  showTrace: boolean,
-  showAST: boolean,
-  abbreviateInfo: 'never' | 'always' | 'outside-selection',
+  detailsMode: "grid" | "in-place"; // todo:  | 'one-by-one' | 'none'
+  showTimeSlider: boolean;
+  showMessages: boolean;
+  showTrace: boolean;
+  showAST: boolean;
+  abbreviateInfo: "never" | "always" | "outside-selection";
   // and now we begin to abuse this for more than just settings...
-  selections: {start: {line: number}, end: {line: number}}[],
+  selections: { start: { line: number }; end: { line: number } }[];
   // ^^^ relevant subset of vscode.Selection
 };
 
 export type HVContext = HVContext1 & {
-  hvContextUP?: UpdateProxy<HVContext1>,
+  hvContextUP?: UpdateProxy<HVContext1>;
 };
 
 export const defaultHVContext: HVContext = {
-  detailsMode: 'grid',
+  detailsMode: "grid",
   showTimeSlider: false,
   showMessages: false,
   showTrace: false,
   showAST: false,
-  abbreviateInfo: 'outside-selection',
+  abbreviateInfo: "outside-selection",
   selections: [],
 };
 

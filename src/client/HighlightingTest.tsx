@@ -1,32 +1,35 @@
-import { memo, useEffect, useState } from 'react';
-import { TokenWithSettings } from '../shared/highlight.js';
-import { WebHighlighter } from './WebHighlighter.js';
-import scriptUrl from '../../examples/test.sh?url';
-
+import { memo, useEffect, useState } from "react";
+import scriptUrl from "../../examples/test.sh?url";
+import { TokenWithSettings } from "../shared/highlight.js";
+import { WebHighlighter } from "./WebHighlighter.js";
 
 // just a syntax highlighting test
 
 const highlighter = new WebHighlighter();
 
 export const HighlightingTest = memo(() => {
-  const [ lines, setLines ] = useState<string[] | null>(null);
+  const [lines, setLines] = useState<string[] | null>(null);
 
   useEffect(() => {
     (async () => {
       const text = await (await fetch(scriptUrl)).text();
-      const lines = text.split('\n');
+      const lines = text.split("\n");
       setLines(lines);
     })();
   }, []);
 
-  return <div className='px-16 mt-4'>
-    <h1 className='text-4xl mb-6 text-gray-300'>Highlighting Test</h1>
-    <Highlighted lines={lines || []}/>
-  </div>;
+  return (
+    <div className="px-16 mt-4">
+      <h1 className="text-4xl mb-6 text-gray-300">Highlighting Test</h1>
+      <Highlighted lines={lines || []} />
+    </div>
+  );
 });
 
 export const Highlighted = memo(({ lines }: { lines: string[] }) => {
-  const [ tokensByLine, setTokensByLine ] = useState<TokenWithSettings[][] | null>(null);
+  const [tokensByLine, setTokensByLine] = useState<
+    TokenWithSettings[][] | null
+  >(null);
 
   useEffect(() => {
     (async () => {
@@ -36,19 +39,39 @@ export const Highlighted = memo(({ lines }: { lines: string[] }) => {
     })();
   }, [lines]);
 
-  return <pre>
-    {tokensByLine === null
-      ? <p>Loading...</p>
-      : tokensByLine.map((tokens, i) => {
-        return <div key={i} style={{ whiteSpace: 'pre' }}>
-          <span style={{ display: 'inline-block', color: 'gray', width: 30, textAlign: 'right', marginRight: 20 }}>
-            {i + 1}
-          </span>
-          {tokens.map((token, j) => {
-            const style = token.settings.foreground ? { color: token.settings.foreground } : {};
-            return <span key={j} style={style}>{lines[i].substring(token.startIndex, token.endIndex)}</span>;
-          })}
-        </div>;
-      })}
-  </pre>;
+  return (
+    <pre>
+      {tokensByLine === null ? (
+        <p>Loading...</p>
+      ) : (
+        tokensByLine.map((tokens, i) => {
+          return (
+            <div key={i} style={{ whiteSpace: "pre" }}>
+              <span
+                style={{
+                  display: "inline-block",
+                  color: "gray",
+                  width: 30,
+                  textAlign: "right",
+                  marginRight: 20,
+                }}
+              >
+                {i + 1}
+              </span>
+              {tokens.map((token, j) => {
+                const style = token.settings.foreground
+                  ? { color: token.settings.foreground }
+                  : {};
+                return (
+                  <span key={j} style={style}>
+                    {lines[i].substring(token.startIndex, token.endIndex)}
+                  </span>
+                );
+              })}
+            </div>
+          );
+        })
+      )}
+    </pre>
+  );
 });

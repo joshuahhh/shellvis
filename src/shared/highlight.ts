@@ -1,7 +1,6 @@
-import vsctm1, { IToken, IGrammar } from 'vscode-textmate';
-import * as vsctm2 from 'vscode-textmate';
-import oniguruma1 from 'vscode-oniguruma';
-import * as oniguruma2 from 'vscode-oniguruma';
+import oniguruma1, * as oniguruma2 from "vscode-oniguruma";
+import * as vsctm2 from "vscode-textmate";
+import vsctm1, { IGrammar, IToken } from "vscode-textmate";
 
 // how can anyone survive programming javascript
 const vsctm = vsctm1 || vsctm2;
@@ -14,20 +13,19 @@ const oniguruma = oniguruma1 || oniguruma2;
 // -----------
 
 export type ColorRule = {
-  name?: string,
-  scope: string[] | string,
+  name?: string;
+  scope: string[] | string;
   settings: {
-    foreground?: string,
-    background?: string,
-    fontStyle?: string,
-  },
+    foreground?: string;
+    background?: string;
+    fontStyle?: string;
+  };
 };
-export type ColorRuleSettings = ColorRule['settings'];
+export type ColorRuleSettings = ColorRule["settings"];
 export type TokenWithSettings = IToken & { settings: ColorRuleSettings };
 
-
 function scopeIsSubsetOf(scope: string, other: string) {
-  return scope === other || scope.startsWith(other + '.');
+  return scope === other || scope.startsWith(other + ".");
 }
 
 function getScopes(colorRule: ColorRule) {
@@ -35,7 +33,7 @@ function getScopes(colorRule: ColorRule) {
 }
 
 function scopeMatchesColorRule(scope: string, colorRule: ColorRule) {
-  return getScopes(colorRule).some(other => scopeIsSubsetOf(scope, other));
+  return getScopes(colorRule).some((other) => scopeIsSubsetOf(scope, other));
 }
 
 function resolveScope(scope: string, colorRules: ColorRule[]) {
@@ -58,20 +56,26 @@ function resolveScopes(scopes: string[], colorRules: ColorRule[]) {
   return null;
 }
 
-
 // -------------
 // grammar stuff
 // -------------
 
-export async function getOnigLib(wasmbin: Response | ArrayBuffer | ArrayBufferView) {
+export async function getOnigLib(
+  wasmbin: Response | ArrayBuffer | ArrayBufferView,
+) {
   await oniguruma.loadWASM(wasmbin);
   return {
-    createOnigScanner: (sources: string[]) => new oniguruma.OnigScanner(sources),
+    createOnigScanner: (sources: string[]) =>
+      new oniguruma.OnigScanner(sources),
     createOnigString: (str: string) => new oniguruma.OnigString(str),
   };
 }
 
-export function tokenizeLines(lines: string[], grammar: IGrammar, rules?: ColorRule[]): TokenWithSettings[][] {
+export function tokenizeLines(
+  lines: string[],
+  grammar: IGrammar,
+  rules?: ColorRule[],
+): TokenWithSettings[][] {
   let ruleStack = vsctm.INITIAL;
   let results: TokenWithSettings[][] = [];
   for (const line of lines) {

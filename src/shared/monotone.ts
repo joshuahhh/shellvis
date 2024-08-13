@@ -1,14 +1,17 @@
-import { last } from './util.js';
+import { last } from "./util.js";
 
-export function monotonicRegression(ys: number[], weights?: number[]): number[] {
+export function monotonicRegression(
+  ys: number[],
+  weights?: number[],
+): number[] {
   if (weights !== undefined && weights.length !== ys.length) {
-    throw new Error('weights (if provided) must have the same length as ys');
+    throw new Error("weights (if provided) must have the same length as ys");
   }
 
   type Block = {
-    right: number,
-    y: number,
-    weight: number,
+    right: number;
+    y: number;
+    weight: number;
   };
   const blocks: Block[] = [];
 
@@ -23,11 +26,12 @@ export function monotonicRegression(ys: number[], weights?: number[]): number[] 
       if (!lastBlock || lastBlock.y <= newBlock.y) {
         break;
       }
-      blocks.pop();  // remove lastBlock
+      blocks.pop(); // remove lastBlock
       newBlock = {
         right: newBlock.right,
-        y: (lastBlock.weight * lastBlock.y + newBlock.weight * newBlock.y)
-           / (lastBlock.weight + newBlock.weight),
+        y:
+          (lastBlock.weight * lastBlock.y + newBlock.weight * newBlock.y) /
+          (lastBlock.weight + newBlock.weight),
         weight: newBlock.weight + lastBlock.weight,
       };
     }
@@ -45,17 +49,14 @@ export function monotonicRegression(ys: number[], weights?: number[]): number[] 
   return result;
 }
 
-
 export type Interval = {
-  id: string,
-  width: number,
-  leftTarget: number,
-  weight?: number,
+  id: string;
+  width: number;
+  leftTarget: number;
+  weight?: number;
 };
 
-export function layOutIntervals(
-  intervals: Interval[]
-): Record<string, number> {
+export function layOutIntervals(intervals: Interval[]): Record<string, number> {
   // sort by center
   // intervals.sort((a, b) => (a.leftTarget + a.width / 2) - (b.leftTarget + b.width / 2));
 
@@ -71,7 +72,7 @@ export function layOutIntervals(
   }
 
   const ys = intervals.map((interval, i) => interval.leftTarget - offsets[i]);
-  const weights = intervals.map(interval => interval.weight || 1);
+  const weights = intervals.map((interval) => interval.weight || 1);
   const ysMonotone = monotonicRegression(ys, weights);
 
   const result: Record<string, number> = {};
@@ -83,7 +84,7 @@ export function layOutIntervals(
 
 // NOTE: this function ignores weights
 export function layOutIntervalsOneSide(
-  intervals: Interval[]
+  intervals: Interval[],
 ): Record<string, number> {
   // sort by center
   // intervals.sort((a, b) => (a.leftTarget + a.width / 2) - (b.leftTarget + b.width / 2));

@@ -1,9 +1,9 @@
-import { rangeIncl } from '../shared/util.js';
+import { rangeIncl } from "../shared/util.js";
 
 export type Decoration = {
-  start: number,
-  end: number,
-  decorator: (contents: React.ReactNode) => React.ReactNode,
+  start: number;
+  end: number;
+  decorator: (contents: React.ReactNode) => React.ReactNode;
 };
 
 export function addDecorationsToLineStarter(line: string) {
@@ -14,21 +14,26 @@ export function addDecorationsToLineStarter(line: string) {
 }
 
 // this mutates nodes/starts/ends
-export function addDecorationsToLineHelper(nodes: React.ReactNode[], starts: number[], ends: number[], decorations: Decoration[]) {
+export function addDecorationsToLineHelper(
+  nodes: React.ReactNode[],
+  starts: number[],
+  ends: number[],
+  decorations: Decoration[],
+) {
   // apply smaller decorations first
-  decorations.sort((a, b) => (a.end - a.start) - (b.end - a.start));
+  decorations.sort((a, b) => a.end - a.start - (b.end - a.start));
 
   for (const decoration of decorations) {
     // find a node with start = decoration.start
     const i = starts.indexOf(decoration.start);
     if (i === -1) {
-      throw new Error('decoration starts in the middle of a node');
+      throw new Error("decoration starts in the middle of a node");
     }
 
     // find a node with end = decoration.end
     const j = ends.indexOf(decoration.end);
     if (j === -1) {
-      throw new Error('decoration ends in the middle of a node');
+      throw new Error("decoration ends in the middle of a node");
     }
 
     // replace range of nodes with decorated version
@@ -40,7 +45,10 @@ export function addDecorationsToLineHelper(nodes: React.ReactNode[], starts: num
   }
 }
 
-export function addDecorationsToLine(line: string, decorations: Decoration[]): React.ReactNode {
+export function addDecorationsToLine(
+  line: string,
+  decorations: Decoration[],
+): React.ReactNode {
   const [nodes, starts, ends] = addDecorationsToLineStarter(line);
   addDecorationsToLineHelper(nodes, starts, ends, decorations);
   return nodes;

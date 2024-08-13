@@ -1,70 +1,87 @@
-import sh from 'mvdan-sh';
-import { type Node } from 'mvdan-sh';
-import { isObject, last, rangeIncl } from './util.js';
-import { weakMapCache } from '@engraft/shared/lib/cache.js';
-import { WebHighlighter } from '../client/WebHighlighter.js';
-import { TokenWithSettings } from './highlight.js';
+import { weakMapCache } from "@engraft/shared/lib/cache.js";
+import sh, { type Node } from "mvdan-sh";
+import { WebHighlighter } from "../client/WebHighlighter.js";
+import { TokenWithSettings } from "./highlight.js";
+import { isObject, last, rangeIncl } from "./util.js";
 
 export type ParseError = {
-  Error(): string,
+  Error(): string;
 };
 
 export function isNode(maybeNode: any): maybeNode is Node {
-  return maybeNode !== null && typeof maybeNode === 'object' && '__internal_object__' in maybeNode && 'Pos' in maybeNode && 'End' in maybeNode;
+  return (
+    maybeNode !== null &&
+    typeof maybeNode === "object" &&
+    "__internal_object__" in maybeNode &&
+    "Pos" in maybeNode &&
+    "End" in maybeNode
+  );
 }
 
 function posStr(pos: sh.Pos): string {
-  return pos.Line() + '_' + pos.Col();
+  return pos.Line() + "_" + pos.Col();
 }
 
 // TODO: more slow Go stuff; idk
 export const getNodeId = weakMapCache(_getNodeId);
 function _getNodeId(node: Node): string {
-  return sh.syntax.NodeType(node) + '_' + posStr(node.Pos()) + '_' + posStr(node.End());
+  return (
+    sh.syntax.NodeType(node) +
+    "_" +
+    posStr(node.Pos()) +
+    "_" +
+    posStr(node.End())
+  );
 }
 
-const excludedSuffixes = ['Pos', 'End'];
+const excludedSuffixes = ["Pos", "End"];
 // const excludedSuffixes: string[] = [];
 
-const excludedKeys: {[key: string]: true} = {
-  '__internal_object__': true,
-  '$type': true,
+const excludedKeys: { [key: string]: true } = {
+  __internal_object__: true,
+  $type: true,
   // End: true,
   // Lit: true,
   // ValuePos: true,
   // ValueEnd: true,
 };
 
-const excludedTypes: {[key: string]: true} = {
-  'mvdan.cc/sh/v3/syntax.*Pos': true,
+const excludedTypes: { [key: string]: true } = {
+  "mvdan.cc/sh/v3/syntax.*Pos": true,
 };
 
 export type ExpandObjectOptions = {
-  calls?: boolean,
-  excludedKeys?: string[],
+  calls?: boolean;
+  excludedKeys?: string[];
 };
 
-const DROP = Symbol('DROP');
+const DROP = Symbol("DROP");
 
 export function expandObject(obj: any, opts: ExpandObjectOptions = {}): any {
-  if (typeof obj === 'function') {
-    if (!opts.calls) { return DROP; }
+  if (typeof obj === "function") {
+    if (!opts.calls) {
+      return DROP;
+    }
     try {
       return { __return_value__: expandObject(obj(), opts) };
     } catch (e) {
       return { __cannot_call__: true };
     }
-  } else if (obj !== null && typeof obj === 'object' && '__internal_object__' in obj) {
+  } else if (
+    obj !== null &&
+    typeof obj === "object" &&
+    "__internal_object__" in obj
+  ) {
     const propNames = Object.getOwnPropertyNames(obj);
     let toReturn: any = {};
-    if ('$type' in obj) {
-      toReturn.Type = obj.$type.match('mvdan.cc/sh/v3/syntax\\.\\*(.*)')[1];
+    if ("$type" in obj) {
+      toReturn.Type = obj.$type.match("mvdan.cc/sh/v3/syntax\\.\\*(.*)")[1];
     }
     for (const propName of propNames) {
       if (
-        excludedSuffixes.every((suffix) => !propName.endsWith(suffix))
-        && !excludedKeys[propName]
-        && !(isObject(obj[propName]) && excludedTypes[obj[propName].$type])
+        excludedSuffixes.every((suffix) => !propName.endsWith(suffix)) &&
+        !excludedKeys[propName] &&
+        !(isObject(obj[propName]) && excludedTypes[obj[propName].$type])
       ) {
         const expanded = expandObject(obj[propName], opts);
         if (expanded !== DROP) {
@@ -86,16 +103,16 @@ export function expandObject(obj: any, opts: ExpandObjectOptions = {}): any {
 }
 
 type Walker = {
-  enter?(node: sh.Node, ancestors: sh.Node[]): EnterResponse | void | (() => void),
-  exit?(node: sh.Node, ancestors: sh.Node[]): ExitResponse | void,
+  enter?(
+    node: sh.Node,
+    ancestors: sh.Node[],
+  ): EnterResponse | void | (() => void);
+  exit?(node: sh.Node, ancestors: sh.Node[]): ExitResponse | void;
 };
-type EnterResponse = 'contine' | 'skip' | 'abort';
-type ExitResponse = 'contine' | 'abort';
+type EnterResponse = "contine" | "skip" | "abort";
+type ExitResponse = "contine" | "abort";
 
-export function myWalk (
-  node: sh.Node,
-  walker: Walker
-): void {
+export function myWalk(node: sh.Node, walker: Walker): void {
   let ancestors: sh.Node[] = [];
   let aborted = false;
   let finalizers: Map<sh.Node, () => void> = new Map();
@@ -107,15 +124,21 @@ export function myWalk (
 
     if (node !== null) {
       // entering
-      const response = walker.enter ? walker.enter(node, ancestors) : 'continue';
-      if (response === 'abort') {
+      const response = walker.enter
+        ? walker.enter(node, ancestors)
+        : "continue";
+      if (response === "abort") {
         aborted = true;
         return false;
-      } else if (response === 'skip') {
+      } else if (response === "skip") {
         return false;
-      } else if (response === 'continue' || response === undefined || typeof response === 'function') {
+      } else if (
+        response === "continue" ||
+        response === undefined ||
+        typeof response === "function"
+      ) {
         ancestors.push(node);
-        if (typeof response === 'function') {
+        if (typeof response === "function") {
           finalizers.set(node, response);
         }
         return true;
@@ -130,11 +153,13 @@ export function myWalk (
         finalizer();
         finalizers.delete(exitedNode);
       }
-      const response = walker.exit ? walker.exit(exitedNode, ancestors) : 'continue';
-      if (response === 'abort') {
+      const response = walker.exit
+        ? walker.exit(exitedNode, ancestors)
+        : "continue";
+      if (response === "abort") {
         aborted = true;
       }
-      return true;  // meaningless but required by API
+      return true; // meaningless but required by API
     }
   });
 }
@@ -142,10 +167,14 @@ export function myWalk (
 // we can't even clone parsed nodes, so no use trying to cache the parsed template
 // make sure that templateStr is a bare command, no top-level redirects or nothing
 // (cuz we need to take on stmt's redirects!)
-export function wrapStmt(parser: sh.Parser, stmt: sh.Stmt, templateStr: string): void {
+export function wrapStmt(
+  parser: sh.Parser,
+  stmt: sh.Stmt,
+  templateStr: string,
+): void {
   let templateNode: sh.File;
   try {
-    templateNode = parser.Parse(templateStr, 'template');
+    templateNode = parser.Parse(templateStr, "template");
   } catch (e) {
     console.error(e);
     throw new Error((e as ParseError).Error());
@@ -154,16 +183,19 @@ export function wrapStmt(parser: sh.Parser, stmt: sh.Stmt, templateStr: string):
   // now we walk, looking for the smallest statement containing ___
   myWalk(templateNode, {
     enter(node, ancestors) {
-      if (sh.syntax.NodeType(node) === 'Lit' && (node as sh.Lit).Value === '___') {
+      if (
+        sh.syntax.NodeType(node) === "Lit" &&
+        (node as sh.Lit).Value === "___"
+      ) {
         for (let i = ancestors.length - 1; i >= 0; i--) {
           const node = ancestors[i];
-          if (sh.syntax.NodeType(node) === 'Stmt') {
+          if (sh.syntax.NodeType(node) === "Stmt") {
             const foundStmt = node as sh.Stmt;
             foundStmt.Cmd = stmt.Cmd;
-            return 'abort';
+            return "abort";
           }
         }
-        throw new Error('found ___ outside of Stmt');
+        throw new Error("found ___ outside of Stmt");
       }
     },
   });
@@ -172,48 +204,48 @@ export function wrapStmt(parser: sh.Parser, stmt: sh.Stmt, templateStr: string):
 }
 
 type NodeTypes = {
-  File: sh.File,
-  Comment: sh.Comment,
-  Stmt: sh.Stmt,
-  Assign: sh.Assign,
-  Redirect: sh.Redirect,
-  CallExpr: sh.CallExpr,
-  Subshell: sh.Subshell,
-  Block: sh.Block,
-  IfClause: sh.IfClause,
-  WhileClause: sh.WhileClause,
-  ForClause: sh.ForClause,
-  WordIter: sh.WordIter,
-  CStyleLoop: sh.CStyleLoop,
-  BinaryCmd: sh.BinaryCmd,
-  FuncDecl: sh.FuncDecl,
-  Word: sh.Word,
-  Lit: sh.Lit,
-  SglQuoted: sh.SglQuoted,
-  DblQuoted: sh.DblQuoted,
-  CmdSubst: sh.CmdSubst,
-  ParamExp: sh.ParamExp,
-  ArithmExp: sh.ArithmExp,
-  ArithmCmd: sh.ArithmCmd,
-  BinaryArithm: sh.BinaryArithm,
-  UnaryArithm: sh.UnaryArithm,
-  ParenArithm: sh.ParenArithm,
-  CaseClause: sh.CaseClause,
-  CaseItem: sh.CaseItem,
-  TestClause: sh.TestClause,
-  BinaryTest: sh.BinaryTest,
-  UnaryTest: sh.UnaryTest,
-  ParenTest: sh.ParenTest,
-  DeclClause: sh.DeclClause,
-  ArrayExpr: sh.ArrayExpr,
-  ArrayElem: sh.ArrayElem,
-  ExtGlob: sh.ExtGlob,
-  ProcSubst: sh.ProcSubst,
-  TimeClause: sh.TimeClause,
-  CoprocClause: sh.CoprocClause,
-  LetClause: sh.LetClause,
-  BraceExp: sh.BraceExp,
-  TestDecl: sh.TestDecl,
+  File: sh.File;
+  Comment: sh.Comment;
+  Stmt: sh.Stmt;
+  Assign: sh.Assign;
+  Redirect: sh.Redirect;
+  CallExpr: sh.CallExpr;
+  Subshell: sh.Subshell;
+  Block: sh.Block;
+  IfClause: sh.IfClause;
+  WhileClause: sh.WhileClause;
+  ForClause: sh.ForClause;
+  WordIter: sh.WordIter;
+  CStyleLoop: sh.CStyleLoop;
+  BinaryCmd: sh.BinaryCmd;
+  FuncDecl: sh.FuncDecl;
+  Word: sh.Word;
+  Lit: sh.Lit;
+  SglQuoted: sh.SglQuoted;
+  DblQuoted: sh.DblQuoted;
+  CmdSubst: sh.CmdSubst;
+  ParamExp: sh.ParamExp;
+  ArithmExp: sh.ArithmExp;
+  ArithmCmd: sh.ArithmCmd;
+  BinaryArithm: sh.BinaryArithm;
+  UnaryArithm: sh.UnaryArithm;
+  ParenArithm: sh.ParenArithm;
+  CaseClause: sh.CaseClause;
+  CaseItem: sh.CaseItem;
+  TestClause: sh.TestClause;
+  BinaryTest: sh.BinaryTest;
+  UnaryTest: sh.UnaryTest;
+  ParenTest: sh.ParenTest;
+  DeclClause: sh.DeclClause;
+  ArrayExpr: sh.ArrayExpr;
+  ArrayElem: sh.ArrayElem;
+  ExtGlob: sh.ExtGlob;
+  ProcSubst: sh.ProcSubst;
+  TimeClause: sh.TimeClause;
+  CoprocClause: sh.CoprocClause;
+  LetClause: sh.LetClause;
+  BraceExp: sh.BraceExp;
+  TestDecl: sh.TestDecl;
 };
 
 type AssertTrue<A extends true> = A;
@@ -226,18 +258,25 @@ type NodeTypesAreNotJustNodes = AssertTrue<
   sh.Node extends NodeTypes[keyof NodeTypes] ? false : true
 >;
 
-export function hasNodeType<T extends keyof NodeTypes>(node: sh.Node, nodeType: T): node is NodeTypes[T] {
+export function hasNodeType<T extends keyof NodeTypes>(
+  node: sh.Node,
+  nodeType: T,
+): node is NodeTypes[T] {
   return sh.syntax.NodeType(node) === nodeType;
 }
 
-export function parseFirstOfType<T extends keyof NodeTypes>(parser: sh.Parser, src: string, nodeType: T): NodeTypes[T] | null {
+export function parseFirstOfType<T extends keyof NodeTypes>(
+  parser: sh.Parser,
+  src: string,
+  nodeType: T,
+): NodeTypes[T] | null {
   const file = parser.Parse(src);
   let foundNode: NodeTypes[T] | null = null;
   myWalk(file, {
     enter(node) {
       if (hasNodeType(node, nodeType)) {
         foundNode = node;
-        return 'abort';
+        return "abort";
       }
     },
   });
@@ -245,7 +284,9 @@ export function parseFirstOfType<T extends keyof NodeTypes>(parser: sh.Parser, s
 }
 
 const trackedNodeTypes = [
-  'ForClause', 'CallExpr', 'Stmt',
+  "ForClause",
+  "CallExpr",
+  "Stmt",
 ] satisfies (keyof NodeTypes)[];
 
 // info about immutable src
@@ -253,14 +294,18 @@ export class Script {
   ast: sh.File;
   lines: string[];
   lineTree: LineTreeNode[];
-  nodesByTypeById: {[Key in (typeof trackedNodeTypes)[number]]: {[id: string]: NodeTypes[Key]}};
-  nodesById: {[id: string]: sh.Node} = {};
+  nodesByTypeById: {
+    [Key in (typeof trackedNodeTypes)[number]]: {
+      [id: string]: NodeTypes[Key];
+    };
+  };
+  nodesById: { [id: string]: sh.Node } = {};
   tokensByLine: TokenWithSettings[][] | null = null;
 
-  constructor (
+  constructor(
     readonly src: string,
     private parser: sh.Parser,
-    private highlighter?: WebHighlighter
+    private highlighter?: WebHighlighter,
   ) {
     try {
       this.ast = this.freshAst();
@@ -268,7 +313,7 @@ export class Script {
       throw new Error((e as ParseError).Error());
     }
 
-    this.lines = this.src.split('\n');
+    this.lines = this.src.split("\n");
 
     this.lineTree = lineTreeNodesFromAst(this.ast, this.lines);
 
@@ -276,7 +321,9 @@ export class Script {
       this.tokensByLine = this.highlighter.tokenizeLines(this.lines);
     }
 
-    this.nodesByTypeById = Object.fromEntries(trackedNodeTypes.map((nodeType) => [nodeType, {}] as const)) as any;
+    this.nodesByTypeById = Object.fromEntries(
+      trackedNodeTypes.map((nodeType) => [nodeType, {}] as const),
+    ) as any;
 
     myWalk(this.ast, {
       enter: (node) => {
@@ -319,17 +366,24 @@ export const nodePosInfo = weakMapCache((node: sh.Node) => {
   };
 });
 
-
 // LineTreeNode is the kinda dumb way we handle loops right now.
 // It's a static representation of a tree of lines, grouped by loop bodies.
 
 export type LineTreeNode =
   // note: lineNumEnd is exclusive, not inclusive
   // also note: these are 1-indexed line numbers
-  { lineNumStart: number, lineNumEnd: number } & (
-    | { type: 'line', line: string }
-    | { type: 'for-loop-body', forClause: sh.ForClause, children: LineTreeNode[] }
-    | { type: 'while-loop-cond-and-body', whileClause: sh.WhileClause, children: LineTreeNode[] }
+  { lineNumStart: number; lineNumEnd: number } & (
+    | { type: "line"; line: string }
+    | {
+        type: "for-loop-body";
+        forClause: sh.ForClause;
+        children: LineTreeNode[];
+      }
+    | {
+        type: "while-loop-cond-and-body";
+        whileClause: sh.WhileClause;
+        children: LineTreeNode[];
+      }
   );
 
 function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
@@ -337,9 +391,9 @@ function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
   let stack: LineTreeNode[][] = [result];
   myWalk(ast, {
     enter: (node) => {
-      if (hasNodeType(node, 'ForClause')) {
+      if (hasNodeType(node, "ForClause")) {
         const lineTreeNode = {
-          type: 'for-loop-body',
+          type: "for-loop-body",
           forClause: node,
           children: [],
           lineNumStart: node.DoPos.Line() + 1,
@@ -350,9 +404,9 @@ function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
         return () => {
           stack.pop();
         };
-      } else if (hasNodeType(node, 'WhileClause')) {
+      } else if (hasNodeType(node, "WhileClause")) {
         const lineTreeNode = {
-          type: 'while-loop-cond-and-body',
+          type: "while-loop-cond-and-body",
           whileClause: node,
           children: [],
           lineNumStart: node.Pos().Line(),
@@ -370,13 +424,18 @@ function lineTreeNodesFromAst(ast: sh.File, lines: string[]): LineTreeNode[] {
   return result;
 }
 
-function addLinesToNodes(nodes: LineTreeNode[], lineNumStart: number, lineNumEnd: number, lines: string[]) {
+function addLinesToNodes(
+  nodes: LineTreeNode[],
+  lineNumStart: number,
+  lineNumEnd: number,
+  lines: string[],
+) {
   let newNodes: LineTreeNode[] = [];
   let lineNum = lineNumStart;
   function addLinesUpTo(lineNumEnd: number) {
     rangeIncl(lineNum, lineNumEnd - 1).forEach((i) => {
       newNodes.push({
-        type: 'line',
+        type: "line",
         line: lines[i - 1],
         lineNumStart: i,
         lineNumEnd: i + 1,
@@ -386,13 +445,20 @@ function addLinesToNodes(nodes: LineTreeNode[], lineNumStart: number, lineNumEnd
   }
   for (const child of nodes) {
     addLinesUpTo(child.lineNumStart);
-    if (child.type === 'for-loop-body' ||
-        child.type === 'while-loop-cond-and-body') {
-      addLinesToNodes(child.children, child.lineNumStart, child.lineNumEnd, lines);
+    if (
+      child.type === "for-loop-body" ||
+      child.type === "while-loop-cond-and-body"
+    ) {
+      addLinesToNodes(
+        child.children,
+        child.lineNumStart,
+        child.lineNumEnd,
+        lines,
+      );
     }
     newNodes.push(child);
     lineNum = child.lineNumEnd;
   }
   addLinesUpTo(lineNumEnd);
   nodes.splice(0, nodes.length, ...newNodes);
-};
+}

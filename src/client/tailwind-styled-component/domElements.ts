@@ -134,7 +134,7 @@ const elementsArray: (keyof JSX.IntrinsicElements)[] = [
   "stop",
   "svg",
   "text",
-  "tspan"
-]
+  "tspan",
+];
 
-export default elementsArray
+export default elementsArray;

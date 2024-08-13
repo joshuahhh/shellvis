@@ -1,4 +1,4 @@
-import json5 from 'json5';
+import json5 from "json5";
 
 const stringOrChar = /("(?:[^\\"]|\\.)*")|[:,]/g;
 
@@ -9,20 +9,20 @@ export default function stringify(passedObj, options = {}) {
   const indent = JSON.stringify(
     [1],
     undefined,
-    options.indent === undefined ? 2 : options.indent
+    options.indent === undefined ? 2 : options.indent,
   ).slice(2, -3);
 
   const maxLength =
-    indent === ''
+    indent === ""
       ? Infinity
       : options.maxLength === undefined
-      ? 80
-      : options.maxLength;
+        ? 80
+        : options.maxLength;
 
   let { replacer } = options;
 
   return (function _stringify(obj, currentIndent, reserved) {
-    if (obj && typeof obj.toJSON === 'function') {
+    if (obj && typeof obj.toJSON === "function") {
       obj = obj.toJSON();
     }
 
@@ -39,7 +39,7 @@ export default function stringify(passedObj, options = {}) {
         stringOrChar,
         (match, stringLiteral) => {
           return stringLiteral || `${match} `;
-        }
+        },
       );
       if (prettified.length <= length) {
         return prettified;
@@ -51,7 +51,7 @@ export default function stringify(passedObj, options = {}) {
       replacer = undefined;
     }
 
-    if (typeof obj === 'object' && obj !== null) {
+    if (typeof obj === "object" && obj !== null) {
       const nextIndent = currentIndent + indent;
       const items = [];
       let index = 0;
@@ -59,18 +59,18 @@ export default function stringify(passedObj, options = {}) {
       let end;
 
       if (Array.isArray(obj)) {
-        start = '[';
-        end = ']';
+        start = "[";
+        end = "]";
         const { length } = obj;
         for (; index < length; index++) {
           items.push(
             _stringify(obj[index], nextIndent, index === length - 1 ? 0 : 1) ||
-              'null'
+              "null",
           );
         }
       } else {
-        start = '{';
-        end = '}';
+        start = "{";
+        end = "}";
         const keys = Object.keys(obj);
         const { length } = keys;
         for (; index < length; index++) {
@@ -79,7 +79,7 @@ export default function stringify(passedObj, options = {}) {
           const value = _stringify(
             obj[key],
             nextIndent,
-            keyPart.length + (index === length - 1 ? 0 : 1)
+            keyPart.length + (index === length - 1 ? 0 : 1),
           );
           if (value !== undefined) {
             items.push(keyPart + value);
@@ -89,21 +89,21 @@ export default function stringify(passedObj, options = {}) {
 
       if (items.length > 0) {
         return [start, indent + items.join(`,\n${nextIndent}`), end].join(
-          `\n${currentIndent}`
+          `\n${currentIndent}`,
         );
       }
     }
 
     return string;
-  })(passedObj, '', 0);
+  })(passedObj, "", 0);
 }
 
 function keyStr(key) {
-  const testObj = {[key]: 1};
+  const testObj = { [key]: 1 };
   const testStr = json5.stringify(testObj);
   const match = testStr.match(/^{(.*):1}$/);
   if (!match) {
-    throw new Error('Unexpected key');
+    throw new Error("Unexpected key");
   }
   return match[1];
 }

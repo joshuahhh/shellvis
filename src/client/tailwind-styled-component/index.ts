@@ -1,3 +1,3 @@
-import tw from "./tailwind.js"
+import tw from "./tailwind.js";
 
-export { tw as default }
+export { tw as default };

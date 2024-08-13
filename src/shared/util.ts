@@ -1,4 +1,4 @@
-import { weakMapCache } from '@engraft/shared/lib/cache.js';
+import { weakMapCache } from "@engraft/shared/lib/cache.js";
 
 export function last<T>(arr: T[]): T | undefined;
 export function last(arr: string): string | undefined;
@@ -7,37 +7,43 @@ export function last<T>(arr: T[] | string): T | string | undefined {
 }
 
 export const rangeIncl = (start: number, stop: number, step = 1) =>
-  Array.from({ length: (stop - start) / step + 1}, (_, i) => start + (i * step));
+  Array.from({ length: (stop - start) / step + 1 }, (_, i) => start + i * step);
 
 export function isObject(obj: any): boolean {
-  return obj !== null && typeof obj === 'object';
+  return obj !== null && typeof obj === "object";
 }
 
 export function FATAL(...args: any[]): never {
-  console.error('FATAL', ...args);
+  console.error("FATAL", ...args);
   process.exit(1);
 }
 
 export function weakMapCache2<Arg1 extends object, Arg2 extends object, Return>(
-  f: (arg1: Arg1, arg2: Arg2) => Return
+  f: (arg1: Arg1, arg2: Arg2) => Return,
 ): (arg1: Arg1, arg2: Arg2) => Return {
-  const cachedF = weakMapCache((arg1: Arg1) => weakMapCache((arg2: Arg2) => f(arg1, arg2)));
+  const cachedF = weakMapCache((arg1: Arg1) =>
+    weakMapCache((arg2: Arg2) => f(arg1, arg2)),
+  );
   return (arg1: Arg1, arg2: Arg2) => cachedF(arg1)(arg2);
 }
 
 // from https://2ality.com/2019/11/nodejs-streams-async-iteration.html
-export async function* chunksToLines(chunkIterable: AsyncIterable<string>): AsyncGenerator<string, void, undefined> {
-  let previous = '';
+export async function* chunksToLines(
+  chunkIterable: AsyncIterable<string>,
+): AsyncGenerator<string, void, undefined> {
+  let previous = "";
   for await (const chunk of chunkIterable) {
     let startSearch = previous.length;
     previous += chunk;
     while (true) {
-      const eolIndex = previous.indexOf('\n', startSearch);
-      if (eolIndex < 0) { break; }
+      const eolIndex = previous.indexOf("\n", startSearch);
+      if (eolIndex < 0) {
+        break;
+      }
       // line includes the EOL
-      const line = previous.slice(0, eolIndex+1);
+      const line = previous.slice(0, eolIndex + 1);
       yield line;
-      previous = previous.slice(eolIndex+1);
+      previous = previous.slice(eolIndex + 1);
       startSearch = 0;
     }
   }
@@ -46,21 +52,26 @@ export async function* chunksToLines(chunkIterable: AsyncIterable<string>): Asyn
   }
 }
 
-export async function nextAsserted(ait: AsyncIterator<string, void>, msg?: string): Promise<string> {
+export async function nextAsserted(
+  ait: AsyncIterator<string, void>,
+  msg?: string,
+): Promise<string> {
   const result = await ait.next();
   if (!result.done) {
     return result.value;
   } else {
-    throw new Error(msg ?? 'nextAsserted hit end of stream');
+    throw new Error(msg ?? "nextAsserted hit end of stream");
   }
 }
 
-export async function joinIterable(ait: AsyncIterable<string>): Promise<string> {
+export async function joinIterable(
+  ait: AsyncIterable<string>,
+): Promise<string> {
   const result: string[] = [];
   for await (const chunk of ait) {
     result.push(chunk);
   }
-  return result.join('');
+  return result.join("");
 }
 
 export type Entries<T> = {
@@ -71,10 +82,15 @@ export function objectEntries<T extends object>(obj: T): Entries<T> {
   return Object.entries(obj) as Entries<T>;
 }
 
-export type FromEntries<T> = T extends ReadonlyArray<readonly [infer K extends string | number | symbol, infer _V]>
-  ? { [key in K]: Extract<T[number], readonly [key, any]>[1] }
-  : never;
+export type FromEntries<T> =
+  T extends ReadonlyArray<
+    readonly [infer K extends string | number | symbol, infer _V]
+  >
+    ? { [key in K]: Extract<T[number], readonly [key, any]>[1] }
+    : never;
 
-export function objectFromEntries<T extends ReadonlyArray<readonly [PropertyKey, any]>>(entries: T): FromEntries<T> {
+export function objectFromEntries<
+  T extends ReadonlyArray<readonly [PropertyKey, any]>,
+>(entries: T): FromEntries<T> {
   return Object.fromEntries(entries) as FromEntries<T>;
 }

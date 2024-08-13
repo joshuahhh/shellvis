@@ -1,12 +1,11 @@
-import express from 'express';
-import getPort from 'get-port';
-import * as net from 'node:net';
-import { mkExecId } from '../shared/execution.js';
-import { Message } from '../shared/tracing.js';
-import { FATAL, chunksToLines } from '../shared/util.js';
-import { Sh2Fr, UploadName, uploadNames } from './Sh2Fr.js';
-import { normalizeIndent } from '../shared/normalizeIndent.js';
-
+import express from "express";
+import getPort from "get-port";
+import * as net from "node:net";
+import { mkExecId } from "../shared/execution.js";
+import { normalizeIndent } from "../shared/normalizeIndent.js";
+import { Message } from "../shared/tracing.js";
+import { FATAL, chunksToLines } from "../shared/util.js";
+import { Sh2Fr, UploadName, uploadNames } from "./Sh2Fr.js";
 
 export class Sh2FrViaHttp implements Sh2Fr {
   server: net.Server | null = null;
@@ -18,12 +17,14 @@ export class Sh2FrViaHttp implements Sh2Fr {
     `;
   }
 
-  beforeCommand(message: Message & { type: 'call-enter' }) {
+  beforeCommand(message: Message & { type: "call-enter" }) {
     const uploadIdVars = uploadNames.map(uploadIdVarFromName);
     return normalizeIndent`
-      local ${uploadIdVars.join(' ')} >/dev/null;
-      ${frMsgStr(message, uploadIdVars.join(' '))};
-      # echo "sh: got upload ids ${uploadIdVars.map(s => `$${s}`).join(' ')}" >&$fr_top_stderr;
+      local ${uploadIdVars.join(" ")} >/dev/null;
+      ${frMsgStr(message, uploadIdVars.join(" "))};
+      # echo "sh: got upload ids ${uploadIdVars
+        .map((s) => `$${s}`)
+        .join(" ")}" >&$fr_top_stderr;
     `;
   }
 
@@ -31,28 +32,36 @@ export class Sh2FrViaHttp implements Sh2Fr {
     return `${command} | fr_upload $${uploadIdVarFromName(uploadName)}`;
   }
 
-  interceptAndUploadStds(command: string, stdoutUploadName: UploadName, stderrUploadName: UploadName) {
+  interceptAndUploadStds(
+    command: string,
+    stdoutUploadName: UploadName,
+    stderrUploadName: UploadName,
+  ) {
     // TODO: avoid command substitution with pipe jiu-jitsu? (while still
     // getting the right command return value?)
-    return `${command} 1>&1 1> >(fr_upload $${uploadIdVarFromName(stdoutUploadName)}) 2>&2 2> >(fr_upload $${uploadIdVarFromName(stderrUploadName)})`;
+    return `${command} 1>&1 1> >(fr_upload $${uploadIdVarFromName(
+      stdoutUploadName,
+    )}) 2>&2 2> >(fr_upload $${uploadIdVarFromName(stderrUploadName)})`;
   }
 
   async start(props: Sh2Fr.StartProps) {
     const { onMessage, onUpload } = props;
 
     let nextUploadId = 0;
-    let uploadInfos: {[uploadId: string]: { execId: string, uploadName: UploadName }} = {};
+    let uploadInfos: {
+      [uploadId: string]: { execId: string; uploadName: UploadName };
+    } = {};
 
     const sh2frExpress = express();
 
-    sh2frExpress.use('/', express.raw({ type: '*/*' }));
+    sh2frExpress.use("/", express.raw({ type: "*/*" }));
 
-    sh2frExpress.post('/', async (req, res) => {
+    sh2frExpress.post("/", async (req, res) => {
       const dataString = req.body.toString();
       try {
         const dataParsed: Message = JSON.parse(dataString);
         await onMessage(dataParsed);
-        if (dataParsed.type === 'call-enter') {
+        if (dataParsed.type === "call-enter") {
           const execId = mkExecId(dataParsed);
           let uploadIds: string[] = [];
           for (const uploadName of uploadNames) {
@@ -61,35 +70,35 @@ export class Sh2FrViaHttp implements Sh2Fr {
             uploadInfos[uploadId] = { execId, uploadName };
             uploadIds.push(uploadId.toString());
           }
-          res.send(uploadIds.join(' ') + '\n');
+          res.send(uploadIds.join(" ") + "\n");
         } else {
-          res.send('\n');
+          res.send("\n");
         }
       } catch (err) {
-        FATAL('node error parsing data', err, dataString);
+        FATAL("node error parsing data", err, dataString);
       }
     });
 
-    sh2frExpress.post('/upload/', (req, res) => {
-      res.status(404).send('missing uploadId\n');
+    sh2frExpress.post("/upload/", (req, res) => {
+      res.status(404).send("missing uploadId\n");
     });
 
-    sh2frExpress.post('/upload/:uploadId', async (req, res) => {
+    sh2frExpress.post("/upload/:uploadId", async (req, res) => {
       const uploadId = req.params.uploadId;
       const uploadInfo = uploadInfos[uploadId];
       delete uploadInfos[uploadId];
       if (!uploadInfo) {
-        FATAL('unexpected uploadId', uploadId);
+        FATAL("unexpected uploadId", uploadId);
       }
       const lines = chunksToLines(req);
       await onUpload(uploadInfo.execId, uploadInfo.uploadName, lines);
       res.end();
     });
 
-    sh2frExpress.get('*', (req, res) => {
+    sh2frExpress.get("*", (req, res) => {
       // log and 404
-      console.log('fr: 404', req.url);
-      res.status(404).send('404 not found');
+      console.log("fr: 404", req.url);
+      res.status(404).send("404 not found");
     });
 
     this.port = await getPort();
@@ -104,16 +113,18 @@ export class Sh2FrViaHttp implements Sh2Fr {
   }
 
   async stop() {
-    this.server && this.server.listening && await new Promise((resolve) => {
-      this.server!.close((err) => {
-        if (err) {
-          console.error('error closing sh2frServer', err);
-        } else {
-          console.log('sh2frServer closed');
-        }
-        resolve(undefined);
-      });
-    });
+    this.server &&
+      this.server.listening &&
+      (await new Promise((resolve) => {
+        this.server!.close((err) => {
+          if (err) {
+            console.error("error closing sh2frServer", err);
+          } else {
+            console.log("sh2frServer closed");
+          }
+          resolve(undefined);
+        });
+      }));
   }
 }
 
@@ -137,5 +148,7 @@ function uploadIdVarFromName(name: UploadName) {
 
 function frMsgStr(message: Message, returnVars: string | null = null) {
   const messageStr = JSON.stringify(message).replaceAll('"', '\\"');
-  return `fr_msg "${messageStr}"${returnVars === null ? ' >/dev/null' :` | read -r ${returnVars}`}`;
+  return `fr_msg "${messageStr}"${
+    returnVars === null ? " >/dev/null" : ` | read -r ${returnVars}`
+  }`;
 }

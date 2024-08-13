@@ -1,5 +1,4 @@
-import { memo, useEffect } from 'react';
-
+import { memo, useEffect } from "react";
 
 // TODO: Limitation here is that classes on <body> can only come from this component.
 //   (or at least they can't overlap)
@@ -16,14 +15,12 @@ function syncClassCounts() {
   }
 }
 
-export const Body = memo((props: {
-  className?: string,
-}) => {
+export const Body = memo((props: { className?: string }) => {
   const { className } = props;
 
   useEffect(() => {
     if (className) {
-      const classNames = className.split(' ').filter(Boolean);
+      const classNames = className.split(" ").filter(Boolean);
       for (const className of classNames) {
         classCounts[className] = (classCounts[className] || 0) + 1;
       }

@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import wasmModule from 'vite-plugin-wasm';
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
+import wasmModule from "vite-plugin-wasm";
 
 // TODO: types are strange
 const wasm = wasmModule as any as typeof wasmModule.default;
@@ -8,10 +8,10 @@ const wasm = wasmModule as any as typeof wasmModule.default;
 export default defineConfig({
   plugins: [wasm(), react()],
   build: {
-    target: 'esnext',
+    target: "esnext",
   },
   worker: {
-    format: 'es',
+    format: "es",
     plugins: () => [wasm()],
   },
 
@@ -21,15 +21,15 @@ export default defineConfig({
     // wrapper has a module level variable to track JS side heap
     // allocations, and initializing this twice causes horrible breakage
     exclude: [
-      '@automerge/automerge-wasm',
-      '@automerge/automerge-wasm/bundler/bindgen_bg.wasm',
-      '@syntect/wasm',
+      "@automerge/automerge-wasm",
+      "@automerge/automerge-wasm/bundler/bindgen_bg.wasm",
+      "@syntect/wasm",
     ],
   },
 
   define: {
-    'process.browser': true,
-    'process.env': process.env,
+    "process.browser": true,
+    "process.env": process.env,
   },
 
   server: {
