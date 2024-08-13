@@ -333,34 +333,26 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       });
       // console.log("fr: stmt-exit", execId);
     } else if (message.type === 'for-body-enter') {
-      const execId = mkExecId(message);
-      const trace = await this.traceDoc.doc();
-      if (!trace) { throw new Error('trace not found'); }
-      if (!trace.forInfos[execId]) {
-        this.traceDoc.change((trace) => {
+      this.traceDoc.change((trace) => {
+        const execId = mkExecId(message);
+        if (!trace.forInfos[execId]) {
           trace.forInfos[execId] = {
             iterations: [],
           };
-        });
-      }
-      this.traceDoc.change((trace) => {
+        }
         trace.forInfos[execId].iterations.push({
           counter: +message.counter,
           loopVarValue: message.loopVarValue,
         });
       });
     } else if (message.type === 'while-cond-enter') {
-      const execId = mkExecId(message);
-      const trace = await this.traceDoc.doc();
-      if (!trace) { throw new Error('trace not found'); }
-      if (!trace.whileInfos[execId]) {
-        this.traceDoc.change((trace) => {
+      this.traceDoc.change((trace) => {
+        const execId = mkExecId(message);
+        if (!trace.whileInfos[execId]) {
           trace.whileInfos[execId] = {
             numIterations: 0,
           };
-        });
-      }
-      this.traceDoc.change((trace) => {
+        }
         trace.whileInfos[execId].numIterations++;
       });
     }
