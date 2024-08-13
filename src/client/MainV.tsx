@@ -29,23 +29,29 @@ export const MainV = memo(() => {
 });
 
 const HomeV = memo(() => {
-  return <div className='px-16 mt-4 prose dark:prose-invert prose-a:text-blue-400 hover:prose-a:text-blue-500'>
-    <ul>
-      <li>
-        <Link to='/cli'>cli</Link>
-      </li>
-      <li>
-        testbed
-        <TestbedLinksV/>
-      </li>
-      <li>
-        tests
-        <ul>
-          <li><Link to='/highlighting-test'>highlighting test</Link></li>
-          <li><Link to='/ast-test'>ast test</Link></li>
-          <li><Link to='/grid-test'>grid test</Link></li>
-        </ul>
-      </li>
-    </ul>
+  return <div className='px-16 mt-16 prose dark:prose-invert prose-a:text-blue-400 hover:prose-a:text-blue-500'>
+    <h1>shellvis</h1>
+    <h2>study</h2>
+    <TestbedLinksV studyOnly/>
+    <details className='absolute bottom-8 open:static'>
+      <summary>other</summary>
+      <ul>
+        <li>
+          <Link to='/cli'>cli</Link>
+        </li>
+        <li>
+          testbed
+          <TestbedLinksV/>
+        </li>
+        <li>
+          tests
+          <ul>
+            <li><Link to='/highlighting-test'>highlighting test</Link></li>
+            <li><Link to='/ast-test'>ast test</Link></li>
+            <li><Link to='/grid-test'>grid test</Link></li>
+          </ul>
+        </li>
+      </ul>
+    </details>
   </div>;
 });

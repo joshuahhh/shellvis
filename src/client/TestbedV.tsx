@@ -5,24 +5,24 @@ import { ScriptWatcherParams } from '../shared/types.js';
 import { SessionV } from './SessionV.js';
 import { WithAutomergeV } from './WithAutomergeV.js';
 
-const examples: Record<string, ScriptWatcherParams & {desc?: string}> = {
+const examples: Record<string, ScriptWatcherParams & {desc?: string, study?: boolean}> = {
   'study-pics': {
     path: './examples/study-pics/script.sh',
     cwd: './examples/study-pics',
     env: 'process.env',
-    desc: 'study: pics',
+    study: true,
   },
   'study-count': {
     path: './examples/study-count/script.sh',
     cwd: './examples/study-count',
     env: 'process.env',
-    desc: 'study: count',
+    study: true,
   },
   'study-users': {
     path: './examples/study-users/script.sh',
     cwd: './examples/study-users',
     env: 'process.env',
-    desc: 'study: users',
+    study: true,
   },
   'minimal': {
     path: './examples/minimal.sh',
@@ -131,12 +131,18 @@ const examples: Record<string, ScriptWatcherParams & {desc?: string}> = {
   },
 };
 
-export const TestbedLinksV = memo(() => {
+export const TestbedLinksV = memo((props: {
+  studyOnly?: boolean,
+}) => {
+  const { studyOnly } = props;
   return <ul>
-    {Object.entries(examples).map(([name, {desc}]) => <li key={name}>
-      <Link to={`/testbed/${name}`}>{name}</Link>
-      {desc && <span className='opacity-50'> - {desc}</span>}
-    </li>)}
+    {Object.entries(examples).map(([name, {desc}]) =>
+      (studyOnly ? examples[name].study : true) &&
+      <li key={name}>
+        <Link to={`/testbed/${name}`}>{name}</Link>
+        {desc && <span className='opacity-50'> - {desc}</span>}
+      </li>
+    )}
   </ul>;
 });
 
