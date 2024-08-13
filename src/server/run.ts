@@ -75,8 +75,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
 
     this.traceDoc = this.repo.create(
       newTrace({
-        path: this.params.path,
-        scriptSrc: this.params.scriptSrc,
+        runParams: this.params,
       })
     );
   }

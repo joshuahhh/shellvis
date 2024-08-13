@@ -65,7 +65,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
     const vsCodeListener = new VSCodeListener();
     const onMessage = (e: MessageEvent<string>) => {
       const vsEvent: TextEditorSelectionChangeEvent = JSON.parse(e.data);
-      if (vsEvent.textEditor.document.fileName !== trace.path) { return; }
+      if (vsEvent.textEditor.document.fileName !== trace.runParams.path) { return; }
       hvContextUP.selections.$set(vsEvent.selections as Selection[]);
     };
     vsCodeListener.addEventListener('message', onMessage);
@@ -74,16 +74,16 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
       vsCodeListener.removeEventListener('message', onMessage);
       // vsCodeListener.close();
     };
-  }, [hvContextUP.selections, trace.path]);
+  }, [hvContextUP.selections, trace.runParams.path]);
 
   const script = useMemo(() => {
     try {
-      return new Script(trace.scriptSrc, parser, highlighter);
+      return new Script(trace.runParams.scriptSrc, parser, highlighter);
     } catch (e) {
       // TODO: this won't actually be used, cuz trace has a parse error too
       return new Script(`# parse error: ${(e as any).message}`, parser, highlighter);
     }
-  }, [trace.scriptSrc]);
+  }, [trace.runParams.scriptSrc]);
 
   if (trace.parseError) {
     return <div>
@@ -231,6 +231,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
           }}
           transition={{ duration: 0.25 }}
         >
+          <a href='/'>Return home</a>
           <Label className='flex items-center gap-2'>
             Details mode:
             <Select
@@ -309,7 +310,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      command: `code ${trace.path}`,
+                      command: `code ${trace.runParams.cwd} ${trace.runParams.path}`,
                       cwd: '.',
                     } satisfies ExecuteRequest),
                   }
@@ -328,7 +329,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      command: `open -R ${trace.path}`,
+                      command: `open -R ${trace.runParams.path}`,
                       cwd: '.',
                     } satisfies ExecuteRequest),
                   }

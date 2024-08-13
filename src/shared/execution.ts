@@ -1,5 +1,6 @@
 import { RawString } from '@automerge/automerge/next';
 import { Message } from './tracing.js';
+import { RunParams } from './types.js';
 
 export function mkExecId({ context, nodeId }: { context: string, nodeId: string }): string {
   return `${context}/${nodeId}`;
@@ -59,8 +60,7 @@ export type WhileInfo = {
 };
 
 export type Trace = {
-  path: string | null,
-  scriptSrc: string,
+  runParams: RunParams,
   execInfos: Record<string, ExecInfo>,
   forInfos: Record<string, ForInfo>,
   whileInfos: Record<string, WhileInfo>,
@@ -72,10 +72,9 @@ export type Trace = {
 };
 
 export function newTrace(
-  opts: Pick<Trace, 'scriptSrc'> & Partial<Trace>
+  opts: Pick<Trace, 'runParams'> & Partial<Trace>
 ): Trace {
   return {
-    path: null,
     messageLog: [],
     execInfos: {},
     forInfos: {},
