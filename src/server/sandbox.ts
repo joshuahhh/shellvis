@@ -5,6 +5,7 @@ import * as util from 'node:util';
 import * as os from 'node:os';
 import { DeltaLogEntry } from '../shared/execution.js';
 import { RawString } from '@automerge/automerge-repo';
+import { isBinaryFile } from 'isbinaryfile';
 
 const exec = util.promisify(child_process.exec);
 
@@ -184,10 +185,11 @@ export async function afterRun(sandbox: Sandbox): Promise<DeltaLogEntry[]> {
       deltaLog.push({ event: 'newFile', path: file });
     } else if (fileStat.isFile()) {
       const newPath = path.join(upperDir, file);
+      const oldAndNewAreText = !(await isBinaryFile(oldPath)) && !(await isBinaryFile(newPath));
       deltaLog.push({
         event: 'modifiedFile', path: file,
-        oldContents: new RawString(await fsP.readFile(oldPath, 'utf8')),
-        newContents: new RawString(await fsP.readFile(newPath, 'utf8'))
+        oldContents: oldAndNewAreText ? new RawString(await fsP.readFile(oldPath, 'utf8')) : null,
+        newContents: oldAndNewAreText ? new RawString(await fsP.readFile(newPath, 'utf8')) : null,
       });
     } else if (fileStat.isDirectory()) {
       deltaLog.push({ event: 'dirReplacedWithFile', path: file });

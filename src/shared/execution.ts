@@ -10,7 +10,7 @@ export type DeltaLogEntry =
   | { event: 'deletedFile', path: string }
   | { event: 'newDir', path: string }
   // TODO: Storing old & new file contents doesn't scale well, but it works for now
-  | { event: 'modifiedFile', path: string, oldContents: RawString, newContents: RawString }
+  | { event: 'modifiedFile', path: string, oldContents: RawString | null, newContents: RawString | null }
   | { event: 'dirReplacedWithFile', path: string }
   | { event: 'newFile', path: string };
 

@@ -316,7 +316,7 @@ function renderDeltaLog(log: DeltaLogEntry[], baseDir: string, abbreviate: boole
             <C>{somePath}</C>
             <InfoEntryDetails><H>({eventNames[event]})</H></InfoEntryDetails>
           </InfoEntryContents>
-        { !abbreviate && entry.event === 'modifiedFile' &&
+        { !abbreviate && entry.event === 'modifiedFile' && entry.oldContents && entry.newContents &&
             <ReactDiffViewer
               oldValue={ entry.oldContents.toString() }
               newValue={ entry.newContents.toString() }
