@@ -75,6 +75,17 @@ describe('sandbox', () => {
     });
   });
 
+  it('works deleting directories', async () => {
+    const { sandbox, rootDir } = await setUpSandbox();
+    await fsP.mkdir(path.join(rootDir, 'original-dir'));
+    await fsP.writeFile(path.join(rootDir, 'original-dir', 'original-file'), 'hello');
+
+    const deltaLog = await runInSandbox(sandbox, async () => {
+      await fsP.rm(path.join(sandbox.deltaUnionDir, 'original-dir'), { recursive: true, force: true });
+    });
+    expect(deltaLog).toEqual([{ event: 'deletedDir', path: 'original-dir' }]);
+  });
+
   it('works modifying files', async () => {
     const { sandbox, rootDir } = await setUpSandbox();
     await fsP.writeFile(path.join(rootDir, 'original-file'), 'hello');

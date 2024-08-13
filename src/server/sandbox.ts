@@ -1,13 +1,22 @@
-import * as path from 'node:path';
-import * as fsP from 'node:fs/promises';
-import * as child_process from 'node:child_process';
-import * as util from 'node:util';
-import * as os from 'node:os';
-import { DeltaLogEntry } from '../shared/execution.js';
 import { RawString } from '@automerge/automerge-repo';
 import { isBinaryFile } from 'isbinaryfile';
+import * as child_process from 'node:child_process';
+import { Stats } from 'node:fs';
+import * as fsP from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import * as util from 'node:util';
+import { DeltaLogEntry } from '../shared/execution.js';
 
 const exec = util.promisify(child_process.exec);
+
+export async function statOrNull(path: string): Promise<Stats | null> {
+  try {
+    return await fsP.stat(path);
+  } catch {
+    return null;
+  }
+}
 
 export async function isMountPoint(p: string): Promise<boolean> {
   // The root directory is always a mount point
@@ -16,10 +25,10 @@ export async function isMountPoint(p: string): Promise<boolean> {
   }
 
   // If the device ID is different from its parent, then it's a mount point
-  const stats = await fsP.stat(p).catch(() => null);
+  const stats = await statOrNull(p);
   if (!stats) { return false; }  // if it doesn't exist, it's not a mount point
-  const parentStats = await fsP.stat(path.dirname(p));
-  return stats.dev !== parentStats.dev;
+  const parentStats = await statOrNull(path.dirname(p));
+  return stats.dev !== parentStats?.dev;
 }
 
 export async function mkTmpDir(prefix?: string) {
@@ -121,7 +130,7 @@ export async function afterRun(sandbox: Sandbox): Promise<DeltaLogEntry[]> {
   let presentDirs: string[] = [];
   let presentFiles: string[] = [];
 
-  async function walkCreationsAndModifications(pathInUpper: string) {
+  const walkCreationsAndModifications = async (pathInUpper: string) => {
     if (pathInUpper === '.unionfs') {
       return;
     }
@@ -136,24 +145,36 @@ export async function afterRun(sandbox: Sandbox): Promise<DeltaLogEntry[]> {
       }
       // TODO: other types?
     }
-  }
+  };
   await walkCreationsAndModifications('');
 
   const DELETION_SUFFIX = '_HIDDEN~';
-  async function walkDeletions(pathInUpperMeta: string) {
+  const walkDeletions = async (pathInUpperMeta: string) => {
+    // We can't greedily walk into "my_dir" because there might be a
+    // "my_dir_HIDDEN~" which shadows it. So we store up info as we scan, then
+    // walk at the end.
+    const presentDirsHere = new Set<string>();
+    const deletedDirsHere = new Set<string>();
     for await (const dirent of await fsP.opendir(path.join(upperDir, '.unionfs', pathInUpperMeta))) {
       if (dirent.isFile() && dirent.name.endsWith(DELETION_SUFFIX)) {
         deletedFiles.push(path.join(pathInUpperMeta, dirent.name.slice(0, -DELETION_SUFFIX.length)));
       } else if (dirent.isDirectory()) {
         if (dirent.name.endsWith(DELETION_SUFFIX)) {
-          deletedDirs.push(path.join(pathInUpperMeta, dirent.name.slice(0, -DELETION_SUFFIX.length)));
+          const realName = dirent.name.slice(0, -DELETION_SUFFIX.length);
+          deletedDirs.push(path.join(pathInUpperMeta, realName));
+          deletedDirsHere.add(realName);
         } else {
-          await walkDeletions(path.join(pathInUpperMeta, dirent.name));
+          presentDirsHere.add(dirent.name);
         }
       }
     }
-  }
-  const upperMetaStat = await fsP.stat(path.join(upperDir, '.unionfs')).catch(() => null);
+    for (const dir of presentDirsHere.values()) {
+      if (!deletedDirsHere.has(dir)) {
+        await walkDeletions(path.join(pathInUpperMeta, dir));
+      }
+    }
+  };
+  const upperMetaStat = await statOrNull(path.join(upperDir, '.unionfs'));
   if (upperMetaStat?.isDirectory()) {
     await walkDeletions('');
   }
@@ -174,13 +195,13 @@ export async function afterRun(sandbox: Sandbox): Promise<DeltaLogEntry[]> {
     deltaLog.push({ event: 'deletedFile', path: file });
   }
   for (const dir of presentDirs) {
-    if (!(await fsP.stat(path.join(sandboxUnionDir, dir)).catch(() => null))?.isDirectory()) {
+    if (!(await statOrNull(path.join(sandboxUnionDir, dir)))?.isDirectory()) {
       deltaLog.push({ event: 'newDir', path: dir });
     }
   }
   for (const file of presentFiles) {
     const oldPath = path.join(sandboxUnionDir, file);
-    const fileStat = await fsP.stat(oldPath).catch(() => null);
+    const fileStat = await statOrNull(oldPath);
     if (!fileStat) {
       deltaLog.push({ event: 'newFile', path: file });
     } else if (fileStat.isFile()) {
