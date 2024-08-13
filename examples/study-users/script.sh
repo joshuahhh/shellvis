@@ -10,5 +10,5 @@
 # A code assistant generated the following code. Is it correct?
 
 cat users-to-delete.txt | while read LINE; do
-  rm -rf users/$LINE
+  rm -rf "users/$LINE"
 done
