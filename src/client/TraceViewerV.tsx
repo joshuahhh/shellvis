@@ -339,6 +339,27 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
               Open in Finder
             </Button>
           </div>
+          <div>
+          <Button
+              variant='outline'
+              size='sm'
+              onClick={async () => {
+                await fetch(
+                  'http://localhost:8080/execute',
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      command: `open ${trace.runParams.cwd} -a Terminal`,
+                      cwd: '.',
+                    } satisfies ExecuteRequest),
+                  }
+                );
+              }}
+            >
+              Open in Terminal
+            </Button>
+          </div>
           <div style={{fontSize: '50%', lineHeight: 1, color: '#777'}}>
             session {sessionAutomergeUrl}
           </div>
