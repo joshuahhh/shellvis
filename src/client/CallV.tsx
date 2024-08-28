@@ -61,7 +61,11 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
     return null;
   }
 
-  const providerOutputs = getInfoProviderOutputs(execInfo, abbreviate);
+  const providerOutputs = getInfoProviderOutputs(
+    execInfo,
+    abbreviate,
+    trace.scriptFilePath,
+  );
 
   return (
     <div
@@ -122,7 +126,11 @@ export const CallInPlaceV = memo((props: CallInPlaceVProps) => {
     return null;
   }
 
-  const providerOutputs = getInfoProviderOutputs(execInfo, abbreviate);
+  const providerOutputs = getInfoProviderOutputs(
+    execInfo,
+    abbreviate,
+    trace.scriptFilePath,
+  );
 
   return (
     execInfo && (
@@ -150,11 +158,15 @@ export const CallInPlaceV = memo((props: CallInPlaceVProps) => {
 function getInfoProviderOutputs(
   execInfo: ExecInfo,
   abbreviate: boolean,
+  scriptFilePath: string | null, // TODO: hacky plumbing
 ): ReactNode[] {
   return infoProviders
     .map(
       (provider, i) =>
-        [provider({ abbreviate: abbreviate, execInfo }), i] as const,
+        [
+          provider({ abbreviate: abbreviate, execInfo, scriptFilePath }),
+          i,
+        ] as const,
     )
     .filter(([result]) => result)
     .map(([providerOutput, i]) => (
@@ -200,18 +212,28 @@ type InfoProvider = (props: InfoProviderProps) => ReactNode;
 type InfoProviderProps = {
   abbreviate: boolean;
   execInfo: ExecInfo;
+  // TODO: hacky blumbing
+  scriptFilePath: string | null;
 };
 
 let infoProviders: InfoProvider[] = [];
 
 // stdout & stderr
 function infoProviderForStream(stream: "stdout" | "stderr"): InfoProvider {
-  return ({ abbreviate, execInfo }: InfoProviderProps) => {
+  return ({ abbreviate, execInfo, scriptFilePath }: InfoProviderProps) => {
+    // TODO: hacky cleanup of messy ("/var/folders/...") script path in output
+    const scriptFilePathRegExp = new RegExp(`${scriptFilePath}(:[0-9]*)?`, "g");
+    function cleanScriptFilePath(str: string): string {
+      return scriptFilePath
+        ? str.replaceAll(scriptFilePathRegExp, "script.sh")
+        : str;
+    }
+
     const data = execInfo[stream].data;
     if (data.length > 0 && !execInfo.suppressed) {
       let contents: ReactNode;
       if (abbreviate) {
-        const text = data.join("");
+        const text = cleanScriptFilePath(data.join(""));
         const lines = text.split("\n");
         const numLines = lines.length - (last(lines) === "" ? 1 : 0);
         if (numLines <= 2) {
@@ -225,7 +247,7 @@ function infoProviderForStream(stream: "stdout" | "stderr"): InfoProvider {
           );
         }
       } else {
-        contents = <pre>{data.map((s) => s.val)}</pre>;
+        contents = <pre>{data.map((s) => cleanScriptFilePath(s.val))}</pre>;
       }
       return (
         <InfoEntry>

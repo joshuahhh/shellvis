@@ -301,6 +301,9 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
     // run
 
     const tmpFile = tmp.fileSync();
+    this.traceDoc.change((trace) => {
+      trace.scriptFilePath = tmpFile.name;
+    });
     await fs.writeFile(tmpFile.name, this.transformedSrc, {
       encoding: "utf-8",
     });
