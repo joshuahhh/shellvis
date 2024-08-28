@@ -97,7 +97,7 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
         data-exec-id={execId}
       >
         {status === "done-success" && providerOutputs.length === 0 ? (
-          <div className="opacity-50">ok</div>
+          <div className="opacity-50">done</div>
         ) : (
           providerOutputs
         )}
@@ -597,7 +597,7 @@ infoProviders.push(({ execInfo }) => {
         <InfoEntryIcon title="exit code">
           <octicons.SignOutIcon {...octiconProps} />
         </InfoEntryIcon>
-        <InfoEntryDetails>exit {execExitInfo.exitCode}</InfoEntryDetails>
+        <InfoEntryDetails>exit code {execExitInfo.exitCode}</InfoEntryDetails>
       </InfoEntry>
     );
   }

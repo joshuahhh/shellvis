@@ -255,7 +255,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
               { method: "POST" },
             );
           }}
-          variant="destructive"
+          variant="outline"
         >
           ▶️ re-run
         </Button>
