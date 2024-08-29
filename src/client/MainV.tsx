@@ -37,7 +37,7 @@ export const MainV = memo(() => {
 const HomeV = memo(() => {
   return (
     <div className="px-16 mt-16 prose dark:prose-invert prose-a:text-blue-400 hover:prose-a:text-blue-500">
-      <h1>shellvis</h1>
+      <h1>ShellVis</h1>
       <h2>study</h2>
       <TestbedLinksV studyOnly />
       <details className="absolute bottom-8 open:static">

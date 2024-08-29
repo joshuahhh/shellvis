@@ -262,7 +262,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
       </div>
 
       <div className="fixed bottom-2 right-14 text-8xl opacity-20 -z-50">
-        shellvis
+        ShellVis
       </div>
 
       <div
