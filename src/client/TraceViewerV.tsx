@@ -261,9 +261,11 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
         </Button>
       </div>
 
-      <div className="fixed bottom-2 right-14 text-8xl opacity-20 -z-50">
-        ShellVis
-      </div>
+      {hvContext.showLogo && (
+        <div className="fixed bottom-2 right-14 text-8xl opacity-20 -z-50">
+          ShellVis
+        </div>
+      )}
 
       <div
         className="fixed bottom-2 right-2
@@ -366,6 +368,15 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
                   style={{ marginRight: 10 }}
                 />
                 Show trace
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={hvContext.showLogo}
+                  onChange={(e) => hvContextUP.showLogo.$set(e.target.checked)}
+                  style={{ marginRight: 10 }}
+                />
+                Show logo
               </label>
               <div className="flex gap-2">
                 <Button

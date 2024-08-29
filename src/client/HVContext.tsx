@@ -7,6 +7,7 @@ type HVContext1 = {
   showMessages: boolean;
   showTrace: boolean;
   showAST: boolean;
+  showLogo: boolean;
   abbreviateInfo: "never" | "always" | "outside-selection";
   // and now we begin to abuse this for more than just settings...
   selections: { start: { line: number }; end: { line: number } }[];
@@ -23,6 +24,7 @@ export const defaultHVContext: HVContext = {
   showMessages: false,
   showTrace: false,
   showAST: false,
+  showLogo: true,
   abbreviateInfo: "outside-selection",
   selections: [],
 };
