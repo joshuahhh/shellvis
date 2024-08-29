@@ -208,10 +208,20 @@ const LineV = memo(function LineV(props: LineVProps) {
   const [setElem, isHovered] = useHover();
 
   const callExprs = Object.values(script.nodesByTypeById.CallExpr);
-  const callExprsOnLine = callExprs.filter((callExpr) => {
-    // TODO: everything's limited to single lines
-    return nodePosInfo(callExpr).pos.line === i + 1;
-  });
+  const callExprsOnLine = callExprs
+    .filter((callExpr) => {
+      // TODO: everything's limited to single lines
+      return nodePosInfo(callExpr).end.line === i + 1;
+    })
+    .toSorted((a, b) => {
+      const aPos = nodePosInfo(a);
+      const bPos = nodePosInfo(b);
+      const colCompare = aPos.end.col - bPos.end.col;
+      if (colCompare !== 0) {
+        return colCompare;
+      }
+      return aPos.pos.offset - bPos.pos.offset;
+    });
 
   const abbreviate =
     abbreviateInfo === "always"
