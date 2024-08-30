@@ -1,7 +1,11 @@
 import { memo, useCallback, useState } from "react";
 import { twMerge } from "tailwind-merge";
+import { useBodyClass } from "./Body.js";
+import { darkBodyClass } from "./darkBodyClass.js";
 
 export const GridTest = memo(() => {
+  useBodyClass(darkBodyClass);
+
   const widths = [100, 200, 400];
 
   const [gTC, setGTC] = useState(

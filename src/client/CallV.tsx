@@ -55,17 +55,10 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
   const nodeId = getNodeId(callExpr);
   const execId = mkExecId({ context, nodeId });
   const execInfo = trace.execInfos[execId] as ExecInfo | undefined;
-  const status = execStatus(execInfo);
 
   if (!execInfo) {
     return null;
   }
-
-  const providerOutputs = getInfoProviderOutputs(
-    execInfo,
-    abbreviate,
-    trace.scriptFilePath,
-  );
 
   return (
     <div
@@ -80,28 +73,60 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
           {script.srcForNode(callExpr)}
         </div>
       )}
-      <div
-        data-dbg="CallOnGridV filled area"
-        className={clsy(
-          `inline-flex flex-col rounded
-          ${status === "done-failure" ? "bg-red-900" : "bg-gray-500"}
-          p-1
-          min-w-7 min-h-7
-          max-w-full
-          max-h-72 overflow-x-auto
-          ${!abbreviate && "border-b-[#1F1F1F] border-b-2"}
-          `,
-          status === "running" && "loading-animation",
-          // providerOutputs.length === 0 && 'bg-gray-600'
-        )}
-        data-exec-id={execId}
-      >
-        {status === "done-success" && providerOutputs.length === 0 ? (
-          <div className="opacity-50">done</div>
-        ) : (
-          providerOutputs
-        )}
-      </div>
+      <CallFilledAreaV
+        execId={execId}
+        execInfo={execInfo}
+        abbreviate={abbreviate}
+        scriptFilePath={trace.scriptFilePath}
+      />
+    </div>
+  );
+});
+
+type CallFilledAreaVProps = {
+  execId: string;
+  execInfo: ExecInfo;
+  abbreviate: boolean;
+  scriptFilePath: string | null;
+  suppressBottomBorder?: boolean;
+};
+
+export const CallFilledAreaV = memo((props: CallFilledAreaVProps) => {
+  const { execId, execInfo, abbreviate, scriptFilePath, suppressBottomBorder } =
+    props;
+
+  const status = execStatus(execInfo);
+
+  const providerOutputs = getInfoProviderOutputs(
+    execInfo,
+    abbreviate,
+    scriptFilePath,
+  );
+
+  return (
+    <div
+      data-dbg="CallOnGridV filled area"
+      className={clsy(
+        `inline-flex flex-col rounded
+        ${status === "done-failure" ? "bg-red-900" : "bg-gray-500"}
+        p-1
+        min-w-7 min-h-7
+        max-w-full
+        max-h-72 overflow-x-auto
+        ${!abbreviate && !suppressBottomBorder && "border-b-[#1F1F1F] border-b-2"}
+        `,
+        status === "running" && "loading-animation",
+        // providerOutputs.length === 0 && 'bg-gray-600'
+      )}
+      data-exec-id={execId}
+    >
+      {status === "done-success" && providerOutputs.length === 0 ? (
+        <div className="opacity-50">done</div>
+      ) : providerOutputs.length > 0 ? (
+        providerOutputs
+      ) : (
+        "\u00A0" // HACK: non-breaking space cuz weird things happen if it's actually empty
+      )}
     </div>
   );
 });
@@ -265,7 +290,7 @@ function infoProviderForStream(stream: "stdout" | "stderr"): InfoProvider {
               </div>
             </InfoEntryIcon>
           )}
-          <InfoEntryDetails>{contents}</InfoEntryDetails>
+          {contents}
         </InfoEntry>
       );
     }
@@ -393,17 +418,19 @@ function renderDeltaLog(
                 entry.event === "modifiedFile" &&
                 entry.oldContents &&
                 entry.newContents && (
-                  <ReactDiffViewer
-                    oldValue={entry.oldContents.toString()}
-                    newValue={entry.newContents.toString()}
-                    splitView={false}
-                    useDarkTheme={true}
-                    disableWordDiff={true}
-                    compareMethod={DiffMethod.LINES}
-                    styles={{
-                      gutter: { minWidth: 0, padding: "0 5px" },
-                    }}
-                  />
+                  <div className="p-1" style={{ zoom: 0.8 }}>
+                    <ReactDiffViewer
+                      oldValue={entry.oldContents.toString()}
+                      newValue={entry.newContents.toString()}
+                      splitView={false}
+                      useDarkTheme={true}
+                      disableWordDiff={true}
+                      compareMethod={DiffMethod.LINES}
+                      styles={{
+                        gutter: { minWidth: 0, padding: "0 5px" },
+                      }}
+                    />
+                  </div>
                 )}
             </div>
           </InfoEntry>
@@ -422,9 +449,9 @@ infoProviders.push(({ execInfo }) => {
         <InfoEntryIcon title="change dir">
           <octicons.FileSubmoduleIcon {...octiconProps} />
         </InfoEntryIcon>
-        <div title={execExitInfo.cwd}>
+        <C title={execExitInfo.cwd}>
           {path.relative(execInfo.enterCwd, execExitInfo.cwd)}
-        </div>
+        </C>
       </InfoEntry>
     );
   }
@@ -597,7 +624,7 @@ infoProviders.push(({ execInfo }) => {
         <InfoEntryIcon title="exit code">
           <octicons.SignOutIcon {...octiconProps} />
         </InfoEntryIcon>
-        <InfoEntryDetails>exit code {execExitInfo.exitCode}</InfoEntryDetails>
+        exit code {execExitInfo.exitCode}
       </InfoEntry>
     );
   }

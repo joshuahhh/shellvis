@@ -3,10 +3,14 @@ import { useDocument } from "@automerge/automerge-repo-react-hooks";
 import { memo, useEffect, useRef, useState } from "react";
 import { Trace } from "../shared/execution.js";
 import { Session } from "../shared/types.js";
+import { useBodyClass } from "./Body.js";
 import { TraceViewerV } from "./TraceViewerV.js";
 import { WithAutomergeV } from "./WithAutomergeV.js";
+import { darkBodyClass } from "./darkBodyClass.js";
 
 export const SessionV = memo((props: { sessionAutomergeUrl: AutomergeUrl }) => {
+  useBodyClass(darkBodyClass);
+
   const { sessionAutomergeUrl } = props;
   const [session] = useDocument<Session>(sessionAutomergeUrl);
 
@@ -73,6 +77,8 @@ const SessionWithTraceAutomergeUrlV = memo(
 );
 
 export const CliSessionV = memo(() => {
+  useBodyClass(darkBodyClass);
+
   // TODO: should I do something smarter than polling here?
   const [sessionAutomergeUrl, setSessionAutomergeUrl] =
     useState<AutomergeUrl | null>(null);

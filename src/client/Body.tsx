@@ -15,9 +15,7 @@ function syncClassCounts() {
   }
 }
 
-export const Body = memo((props: { className?: string }) => {
-  const { className } = props;
-
+export function useBodyClass(className?: string) {
   useEffect(() => {
     if (className) {
       const classNames = className.split(" ").filter(Boolean);
@@ -33,6 +31,12 @@ export const Body = memo((props: { className?: string }) => {
       };
     }
   }, [className]);
+}
+
+export const Body = memo((props: { className?: string }) => {
+  const { className } = props;
+
+  useBodyClass(className);
 
   return null;
 });

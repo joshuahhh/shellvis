@@ -7,11 +7,13 @@ import {
 import { memo } from "react";
 import { HashRouter, Link, Route, Routes } from "react-router-dom";
 import { ASTTest } from "./ASTTest.js";
-import { Body } from "./Body.js";
+import { useBodyClass } from "./Body.js";
+import { GalleryOfAnnotations } from "./GalleryOfAnnotations.js";
 import { GridTest } from "./GridTest.js";
 import { HighlightingTest } from "./HighlightingTest.js";
 import { CliSessionV } from "./SessionV.js";
 import { TestbedLinksV, TestbedV } from "./TestbedV.js";
+import { darkBodyClass } from "./darkBodyClass.js";
 import "./style.css";
 
 library.add(faRotateRight, faRotateLeft, faEllipsisVertical);
@@ -23,18 +25,23 @@ export const MainV = memo(() => {
         <Routes>
           <Route path="/cli" element={<CliSessionV />} />
           <Route path="/testbed/:name" element={<TestbedV />} />
+          <Route
+            path="/gallery-of-annotations"
+            element={<GalleryOfAnnotations />}
+          />
           <Route path="/highlighting-test" element={<HighlightingTest />} />
           <Route path="/ast-test" element={<ASTTest />} />
           <Route path="/grid-test" element={<GridTest />} />
           <Route path="*" element={<HomeV />} />
         </Routes>
       </HashRouter>
-      <Body className="bg-[#1F1F1F] text-white leading-5 font-sans overflow-x-hidden w-full h-full" />
     </>
   );
 });
 
 const HomeV = memo(() => {
+  useBodyClass(darkBodyClass);
+
   return (
     <div className="px-16 mt-16 prose dark:prose-invert prose-a:text-blue-400 hover:prose-a:text-blue-500">
       <h1>ShellVis</h1>
@@ -49,6 +56,9 @@ const HomeV = memo(() => {
           <li>
             testbed
             <TestbedLinksV />
+          </li>
+          <li>
+            <Link to="/gallery-of-annotations">gallery of annotations</Link>
           </li>
           <li>
             tests

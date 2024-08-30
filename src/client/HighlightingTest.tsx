@@ -1,13 +1,17 @@
 import { memo, useEffect, useState } from "react";
 import scriptUrl from "../../examples/test.sh?url";
 import { TokenWithSettings } from "../shared/highlight.js";
+import { useBodyClass } from "./Body.js";
 import { WebHighlighter } from "./WebHighlighter.js";
+import { darkBodyClass } from "./darkBodyClass.js";
 
 // just a syntax highlighting test
 
 const highlighter = new WebHighlighter();
 
 export const HighlightingTest = memo(() => {
+  useBodyClass(darkBodyClass);
+
   const [lines, setLines] = useState<string[] | null>(null);
 
   useEffect(() => {

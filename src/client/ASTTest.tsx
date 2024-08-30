@@ -5,11 +5,15 @@ import * as yaml from "yaml";
 import json5StringifyPrettyCompact from "../shared/json5-stringify-pretty-compact.js";
 import { Script, expandObject } from "../shared/mvdan-sh-helpers.js";
 import { normalizeIndent } from "../shared/normalizeIndent.js";
+import { useBodyClass } from "./Body.js";
 import { Highlighted } from "./HighlightingTest.js";
+import { darkBodyClass } from "./darkBodyClass.js";
 
 const ansiToHtml = new AnsiToHtmlConverter();
 
 export const ASTTest = memo(() => {
+  useBodyClass(darkBodyClass);
+
   return (
     <div className="px-16 mt-4">
       <h1 className="text-4xl mb-6 text-gray-300">some ASTs</h1>

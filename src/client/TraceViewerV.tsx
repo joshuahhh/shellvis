@@ -12,10 +12,12 @@ import { Trace, pipeData } from "../shared/execution.js";
 import { Script, expandObject } from "../shared/mvdan-sh-helpers.js";
 import { Message } from "../shared/tracing.js";
 import { ExecuteRequest } from "../shared/types.js";
+import { useBodyClass } from "./Body.js";
 import { HVContext, defaultHVContext } from "./HVContext.js";
 import { TraceV } from "./TraceV.js";
 import { VSCodeListener } from "./VSCodeListener.js";
 import { WebHighlighter } from "./WebHighlighter.js";
+import { darkBodyClass } from "./darkBodyClass.js";
 import { Button } from "./shadcn/Button.js";
 import { Label } from "./shadcn/Label.js";
 import {
@@ -39,6 +41,8 @@ const highlighter = new WebHighlighter();
 highlighter.init();
 
 export const TraceViewerV = memo((props: TraceViewerVProps) => {
+  useBodyClass(darkBodyClass);
+
   const { sessionAutomergeUrl, traceAutomergeUrl } = props;
   let { trace } = props;
 

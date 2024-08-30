@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 // eslint-disable-next-line import/no-anonymous-default-export
 export default {
-  dark: "selector",
+  dark: "class",
 
   content: ["./index.html", "./src/client/**/*.{js,ts,jsx,tsx}"],
   theme: {
@@ -64,6 +64,7 @@ export default {
           "Verdana",
           "sans-serif",
         ],
+        classy: ["Optima"],
       },
       keyframes: {
         "accordion-down": {
