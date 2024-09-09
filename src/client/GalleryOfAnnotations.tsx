@@ -1,35 +1,44 @@
 import { RawString } from "@automerge/automerge-repo";
-import { ReactNode, memo } from "react";
+import { Fragment, ReactNode, memo } from "react";
 import { ExecInfo } from "../shared/execution.js";
-import { CallFilledAreaV } from "./CallV.js";
+import { CallFilledAreaV, CallFilledAreaVProps } from "./CallV.js";
 import { darkBodyClassWithoutBackground } from "./darkBodyClass.js";
 
-const Call = memo(({ execInfo }: { execInfo: Partial<ExecInfo> }) => {
-  return (
-    <div className={darkBodyClassWithoutBackground}>
-      <CallFilledAreaV
-        execId=""
-        execInfo={{
-          stdout: { data: [], done: false },
-          stderr: { data: [], done: false },
-          enterCwd: "",
-          exitInfo: {
-            exitCode: 0,
-            cwd: "",
-          },
-          varsEnterStr: null,
-          varsExitStr: null,
-          deltaLog: [],
-          suppressed: false,
-          ...execInfo,
-        }}
-        scriptFilePath={null}
-        abbreviate={false}
-        suppressBottomBorder={true}
-      />
-    </div>
-  );
-});
+const Call = memo(
+  ({
+    execInfo,
+    ...rest
+  }: { execInfo: Partial<ExecInfo> } & Omit<
+    Partial<CallFilledAreaVProps>,
+    "execInfo"
+  >) => {
+    return (
+      <div className={darkBodyClassWithoutBackground}>
+        <CallFilledAreaV
+          execId=""
+          execInfo={{
+            stdout: { data: [], done: false },
+            stderr: { data: [], done: false },
+            enterCwd: "",
+            exitInfo: {
+              exitCode: 0,
+              cwd: "",
+            },
+            varsEnterStr: null,
+            varsExitStr: null,
+            deltaLog: [],
+            suppressed: false,
+            ...execInfo,
+          }}
+          scriptFilePath={null}
+          abbreviate={false}
+          suppressBottomBorder={true}
+          {...rest}
+        />
+      </div>
+    );
+  },
+);
 
 export const GalleryOfAnnotations = memo(() => {
   return (
@@ -222,11 +231,13 @@ export const GalleryOfAnnotations = memo(() => {
           }
         />
       </Table>
+      <div className="h-96" />
+      <Abbreviations />
     </div>
   );
 });
 
-export const Table = memo((props: { children: ReactNode }) => {
+const Table = memo((props: { children: ReactNode }) => {
   return (
     <table className="-mx-2 w-full">
       <thead>
@@ -237,7 +248,7 @@ export const Table = memo((props: { children: ReactNode }) => {
   );
 });
 
-export const Row = memo(
+const Row = memo(
   (props: {
     annotation: ReactNode;
     description?: ReactNode;
@@ -256,3 +267,48 @@ export const Row = memo(
     );
   },
 );
+
+const Abbreviations = memo(() => {
+  const execInfos: Partial<ExecInfo>[] = [
+    {
+      deltaLog: [
+        {
+          event: "deletedFile",
+          path: "old-file.txt",
+        },
+        {
+          event: "newFile",
+          path: "new-file-1.txt",
+        },
+        {
+          event: "newFile",
+          path: "new-file-2.txt",
+        },
+      ],
+    },
+    {
+      stdout: {
+        data: [
+          new RawString("first line\nsecond line\nthird line\nfourth line"),
+        ],
+        done: false,
+      },
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-[repeat(3,auto)] w-fit">
+      {execInfos.map((execInfo, i) => (
+        <Fragment key={i}>
+          <div className="pb-10 flex justify-end">
+            <Call execInfo={execInfo} abbreviate={false} />
+          </div>
+          <div className="px-5 py-1">→</div>
+          <div className="">
+            <Call execInfo={execInfo} abbreviate={true} />
+          </div>
+        </Fragment>
+      ))}
+    </div>
+  );
+});

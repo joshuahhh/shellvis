@@ -83,7 +83,7 @@ export const CallOnGridV = memo((props: CallOnGridVProps) => {
   );
 });
 
-type CallFilledAreaVProps = {
+export type CallFilledAreaVProps = {
   execId: string;
   execInfo: ExecInfo;
   abbreviate: boolean;
