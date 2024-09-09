@@ -252,20 +252,22 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
             // onChangeCommitted={() => { setSliderIsDragging(false); }}
           />
         )}
-        <Button
-          onClick={async () => {
-            await fetch(
-              `http://localhost:8080/restart/${sessionAutomergeUrl}`,
-              { method: "POST" },
-            );
-          }}
-          variant="outline"
-        >
-          ▶️ re-run
-        </Button>
+        {!hvContext.minimal && (
+          <Button
+            onClick={async () => {
+              await fetch(
+                `http://localhost:8080/restart/${sessionAutomergeUrl}`,
+                { method: "POST" },
+              );
+            }}
+            variant="outline"
+          >
+            ▶️ re-run
+          </Button>
+        )}
       </div>
 
-      {hvContext.showLogo && (
+      {!hvContext.minimal && (
         <div className="fixed bottom-2 right-14 text-8xl opacity-20 -z-50">
           ShellVis
         </div>
@@ -376,11 +378,11 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
               <label>
                 <input
                   type="checkbox"
-                  checked={hvContext.showLogo}
-                  onChange={(e) => hvContextUP.showLogo.$set(e.target.checked)}
+                  checked={hvContext.minimal}
+                  onChange={(e) => hvContextUP.minimal.$set(e.target.checked)}
                   style={{ marginRight: 10 }}
                 />
-                Show logo
+                Minimal
               </label>
               <div className="flex gap-2">
                 <Button
