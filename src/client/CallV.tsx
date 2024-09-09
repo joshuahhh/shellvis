@@ -216,7 +216,7 @@ const InfoEntryIcon = memo(
         title={title}
         placement="top"
         arrow
-        className={clsy("w-4 h-4 relative mt-[2px]", className)}
+        className={clsy("w-4 h-4 sticky top-[2px]", className)}
       >
         <div>{children}</div>
       </Tooltip>
