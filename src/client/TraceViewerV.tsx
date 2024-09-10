@@ -273,6 +273,12 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
         </div>
       )}
 
+      {showSettings && (
+        <div
+          className="fixed top-0 bottom-0 left-0 right-0"
+          onClick={() => setShowSettings(false)}
+        />
+      )}
       <div
         className="fixed bottom-2 right-2
                     flex flex-row-reverse items-end gap-4
