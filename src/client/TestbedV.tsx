@@ -156,6 +156,12 @@ const examples: Record<
     env: "process.env",
     desc: "big old mess",
   },
+  abbreviations: {
+    path: "./examples/abbreviations.sh",
+    cwd: ".",
+    env: "process.env",
+    desc: "for paper screenshot about abbreviations",
+  },
 };
 
 export const TestbedLinksV = memo((props: { studyOnly?: boolean }) => {
