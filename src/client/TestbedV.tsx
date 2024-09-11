@@ -124,6 +124,12 @@ const examples: Record<
     env: "process.env",
     desc: "demo: move images (finished)",
   },
+  "pics-paper": {
+    path: "./examples/pics/move-photos.sh",
+    cwd: "./examples/pics",
+    env: "process.env",
+    desc: "demo: move images (for paper)",
+  },
   "source-submission": {
     path: "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old/source-submission.fish",
     cwd: "/Users/joshuah/Documents/research/engraft/paper-uist-2023-old",
