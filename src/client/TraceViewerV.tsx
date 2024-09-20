@@ -268,7 +268,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
       </div>
 
       {!hvContext.minimal && (
-        <div className="fixed bottom-2 right-14 text-8xl opacity-20 -z-50">
+        <div className="fixed bottom-2 right-14 text-5xl opacity-20 -z-50">
           ShellVis
         </div>
       )}

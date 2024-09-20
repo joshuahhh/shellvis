@@ -336,7 +336,7 @@ const LineV = memo(function LineV(props: LineVProps) {
             >
               <div
                 className={clsy`
-              absolute left-0 right-0 z-10 mx-1ee  // external positioning
+              absolute left-0 right-0 z-10  // external positioning
             `}
               >
                 <div

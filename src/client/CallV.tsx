@@ -113,7 +113,8 @@ export const CallFilledAreaV = memo((props: CallFilledAreaVProps) => {
         min-w-7 min-h-7
         max-w-full
         max-h-72 overflow-x-auto
-        ${!abbreviate && !suppressBottomBorder && "border-b-[#1F1F1F] border-b-2"}
+        // bottom border is to create separation between expanded call & whatever is below it
+        ${!abbreviate && !suppressBottomBorder && "border-b-[#1F1F1F] border-b-2 -mb-[2px]"}
         `,
         status === "running" && "loading-animation",
         // providerOutputs.length === 0 && 'bg-gray-600'
