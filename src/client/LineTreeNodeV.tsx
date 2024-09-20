@@ -259,7 +259,7 @@ const LineV = memo(function LineV(props: LineVProps) {
         posInfo.end.line > posInfo.pos.line ? line.length : posInfo.end.col - 1,
       decorator: (contents) =>
         detailsMode === "grid" ? (
-          <div className="inline-block border-b border-b-gray-500 border-dashed">
+          <div className="inline-block border-b border-b-gray-500 border-dashed mb-[2px]">
             {/* mb-1 */}
             {contents}
           </div>
