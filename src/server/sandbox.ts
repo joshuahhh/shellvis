@@ -1,14 +1,10 @@
-import { RawString } from "@automerge/automerge-repo";
-import { isBinaryFile } from "isbinaryfile";
-import * as child_process from "node:child_process";
 import { Stats } from "node:fs";
 import * as fsP from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as util from "node:util";
 import { DeltaLogEntry } from "../shared/execution.js";
-
-const exec = util.promisify(child_process.exec);
+import { SandboxLayerLinux, canBeSandboxedLinux } from "./sandbox-linux.js";
+import { SandboxLayerMac, canBeSandboxedMac } from "./sandbox-mac.js";
 
 export async function statOrNull(path: string): Promise<Stats | null> {
   try {
@@ -43,248 +39,72 @@ export async function mkTmpDir(prefix?: string) {
 // GENERAL SYSTEM STUFF
 // --------------------
 
-function getUpperDir(systemDir: string) {
-  return path.join(systemDir, "upper");
+// A "sandbox layer" is a single invocation of UnionFS/OverlayFS. Shelloscope
+// uses two sandbox layers: one to protect the original FS, and a second to
+// isolate individual commands for tracing.
+export interface SandboxLayer {
+  getUnionDir(): string;
+  make(): Promise<this>;
+  remove(): Promise<void>;
+  clear(): Promise<void>;
+  analyzeChanges(): Promise<DeltaLogEntry[]>;
+  applyDeltaLogEntry(entry: DeltaLogEntry): Promise<void>;
 }
 
-function getUnionDir(systemDir: string) {
-  return path.join(systemDir, "union");
-}
+type SandboxLayerConstructor = {
+  new (lowerDir: string, layerDir: string): SandboxLayer;
+  getActiveMounts(): Promise<string[]>;
+};
 
-export async function makeSystem(systemDir: string, rootDir: string) {
-  const upperDir = getUpperDir(systemDir);
-  const unionDir = getUnionDir(systemDir);
+export const SandboxLayerImpl: SandboxLayerConstructor =
+  process.platform === "linux" ? SandboxLayerLinux : SandboxLayerMac;
 
-  await Promise.all([fsP.mkdir(upperDir), fsP.mkdir(unionDir)]);
-
-  await exec(`unionfs -o cow ${upperDir}=rw:${rootDir}=ro ${unionDir}`);
-}
-
-export async function removeSystem(systemDir: string) {
-  const unionDir = getUnionDir(systemDir);
-
-  while (true) {
-    if (!(await isMountPoint(unionDir))) {
-      break;
-    }
-    try {
-      // TODO: force unmount seems necessary to, say, get around daemons. is it ok?
-      await exec(`diskutil unmount force ${unionDir}`);
-      break;
-    } catch {
-      // wait and retry
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  }
-  await fsP.rm(systemDir, { recursive: true, force: true });
-}
+export const canBeSandboxed =
+  process.platform === "linux" ? canBeSandboxedLinux : canBeSandboxedMac;
 
 // -------------
 // SANDBOX STUFF
 // -------------
 
-// a sandbox is two UnionFS systems!
+// a sandbox is two sandbox layers!
 
 export type Sandbox = {
-  sandboxDir: string;
-  sandboxUnionDir: string;
-  deltaDir: string;
-  deltaUnionDir: string;
+  protectLayer: SandboxLayer;
+  deltaLayer: SandboxLayer;
 };
 
 export async function makeSandbox(rootDir = "/"): Promise<Sandbox> {
-  const sandboxDir = await mkTmpDir("sandbox-");
-  const sandboxUnionDir = path.join(sandboxDir, "union");
-  const deltaDir = await mkTmpDir("delta-");
-  const deltaUnionDir = path.join(deltaDir, "union");
+  if (!(await canBeSandboxed(rootDir))) {
+    throw new Error(`can't sandbox ${rootDir}`);
+  }
 
-  await makeSystem(sandboxDir, rootDir);
-  await makeSystem(deltaDir, sandboxUnionDir);
+  const protectLayer = await new SandboxLayerImpl(
+    rootDir,
+    await mkTmpDir("sandbox-"),
+  ).make();
+  const deltaLayer = await new SandboxLayerImpl(
+    protectLayer.getUnionDir(),
+    await mkTmpDir("delta-"),
+  ).make();
 
-  return { sandboxDir, sandboxUnionDir, deltaDir, deltaUnionDir };
+  return { protectLayer, deltaLayer };
 }
 
 export async function removeSandbox(sandbox: Sandbox) {
-  await removeSystem(sandbox.deltaDir);
-  await removeSystem(sandbox.sandboxDir);
+  await sandbox.deltaLayer.remove();
+  await sandbox.protectLayer.remove();
 }
 
 export async function beforeRun(sandbox: Sandbox) {
-  // TODO: We could do this cleanup after afterRun, obviating the need for beforeRun entirely.
-  //       For now, I'm leaving this here, for flexibility's sake.
-  const upperDir = getUpperDir(sandbox.deltaDir);
-  await fsP.rm(upperDir, { recursive: true, force: true });
-  // TODO: catch is here because of race conditions with concurrent runs;
-  //       we really just shouldn't have concurrent runs someday
-  await fsP.mkdir(upperDir).catch(() => null);
+  await sandbox.deltaLayer.clear();
 }
 
 export async function afterRun(sandbox: Sandbox): Promise<DeltaLogEntry[]> {
-  // stage 1: walk delta's upper dir for changed files
-
-  const upperDir = getUpperDir(sandbox.deltaDir);
-
-  let deletedDirs: string[] = [];
-  let deletedFiles: string[] = [];
-  let presentDirs: string[] = [];
-  let presentFiles: string[] = [];
-
-  const walkCreationsAndModifications = async (pathInUpper: string) => {
-    if (pathInUpper === ".unionfs") {
-      return;
-    }
-    if (pathInUpper !== "") {
-      presentDirs.push(pathInUpper);
-    }
-    for await (const dirent of await fsP.opendir(
-      path.join(upperDir, pathInUpper),
-    )) {
-      if (dirent.isDirectory()) {
-        await walkCreationsAndModifications(
-          path.join(pathInUpper, dirent.name),
-        );
-      } else if (dirent.isFile()) {
-        presentFiles.push(path.join(pathInUpper, dirent.name));
-      }
-      // TODO: other types?
-    }
-  };
-  await walkCreationsAndModifications("");
-
-  const DELETION_SUFFIX = "_HIDDEN~";
-  const walkDeletions = async (pathInUpperMeta: string) => {
-    // We can't greedily walk into "my_dir" because there might be a
-    // "my_dir_HIDDEN~" which shadows it. So we store up info as we scan, then
-    // walk at the end.
-    const presentDirsHere = new Set<string>();
-    const deletedDirsHere = new Set<string>();
-    for await (const dirent of await fsP.opendir(
-      path.join(upperDir, ".unionfs", pathInUpperMeta),
-    )) {
-      if (dirent.isFile() && dirent.name.endsWith(DELETION_SUFFIX)) {
-        deletedFiles.push(
-          path.join(
-            pathInUpperMeta,
-            dirent.name.slice(0, -DELETION_SUFFIX.length),
-          ),
-        );
-      } else if (dirent.isDirectory()) {
-        if (dirent.name.endsWith(DELETION_SUFFIX)) {
-          const realName = dirent.name.slice(0, -DELETION_SUFFIX.length);
-          deletedDirs.push(path.join(pathInUpperMeta, realName));
-          deletedDirsHere.add(realName);
-        } else {
-          presentDirsHere.add(dirent.name);
-        }
-      }
-    }
-    for (const dir of presentDirsHere.values()) {
-      if (!deletedDirsHere.has(dir)) {
-        await walkDeletions(path.join(pathInUpperMeta, dir));
-      }
-    }
-  };
-  const upperMetaStat = await statOrNull(path.join(upperDir, ".unionfs"));
-  if (upperMetaStat?.isDirectory()) {
-    await walkDeletions("");
-  }
-
-  // TODO: looks like unionfs can have a _HIDDEN~ marker parallel to a modified marker; weird?
-  deletedDirs = deletedDirs.filter((dir) => !presentDirs.includes(dir));
-  deletedFiles = deletedFiles.filter((file) => !presentFiles.includes(file));
-
-  // stage 2: turn changed files into commands to apply
-
-  const sandboxUnionDir = getUnionDir(sandbox.sandboxDir);
-
-  let deltaLog: DeltaLogEntry[] = [];
-  for (const dir of deletedDirs) {
-    deltaLog.push({ event: "deletedDir", path: dir });
-  }
-  for (const file of deletedFiles) {
-    deltaLog.push({ event: "deletedFile", path: file });
-  }
-  for (const dir of presentDirs) {
-    if (!(await statOrNull(path.join(sandboxUnionDir, dir)))?.isDirectory()) {
-      deltaLog.push({ event: "newDir", path: dir });
-    }
-  }
-  for (const file of presentFiles) {
-    const oldPath = path.join(sandboxUnionDir, file);
-    const fileStat = await statOrNull(oldPath);
-    if (!fileStat) {
-      deltaLog.push({ event: "newFile", path: file });
-    } else if (fileStat.isFile()) {
-      const newPath = path.join(upperDir, file);
-      const oldAndNewAreText =
-        !(await isBinaryFile(oldPath)) && !(await isBinaryFile(newPath));
-      deltaLog.push({
-        event: "modifiedFile",
-        path: file,
-        oldContents: oldAndNewAreText
-          ? new RawString(await fsP.readFile(oldPath, "utf8"))
-          : null,
-        newContents: oldAndNewAreText
-          ? new RawString(await fsP.readFile(newPath, "utf8"))
-          : null,
-      });
-    } else if (fileStat.isDirectory()) {
-      deltaLog.push({ event: "dirReplacedWithFile", path: file });
-    }
-  }
-
-  // stage 3: apply commands
-
+  const deltaLog = await sandbox.deltaLayer.analyzeChanges();
   for (const entry of deltaLog) {
-    await applyDeltaLogEntry(entry, upperDir, sandboxUnionDir);
+    await sandbox.deltaLayer.applyDeltaLogEntry(entry);
   }
-
   return deltaLog;
-}
-
-async function applyDeltaLogEntry(
-  entry: DeltaLogEntry,
-  upperDir: string,
-  sandboxUnionDir: string,
-) {
-  switch (entry.event) {
-    case "deletedDir":
-      await fsP.rm(path.join(sandboxUnionDir, entry.path), {
-        recursive: true,
-        force: true,
-      });
-      break;
-    case "deletedFile":
-      await fsP.rm(path.join(sandboxUnionDir, entry.path));
-      break;
-    case "newDir":
-      await fsP.mkdir(path.join(sandboxUnionDir, entry.path), {
-        recursive: true,
-      });
-      break;
-    case "modifiedFile":
-      await fsP.copyFile(
-        path.join(upperDir, entry.path),
-        path.join(sandboxUnionDir, entry.path),
-      );
-      break;
-    case "dirReplacedWithFile":
-      await fsP.rm(path.join(sandboxUnionDir, entry.path), {
-        recursive: true,
-        force: true,
-      });
-      await fsP.copyFile(
-        path.join(upperDir, entry.path),
-        path.join(sandboxUnionDir, entry.path),
-      );
-      break;
-    case "newFile":
-      await fsP.copyFile(
-        path.join(upperDir, entry.path),
-        path.join(sandboxUnionDir, entry.path),
-      );
-      break;
-  }
 }
 
 export function makeDeltaLogEntryAbsolute(
@@ -299,16 +119,11 @@ export function makeDeltaLogEntryAbsolute(
 
 // null if path is not in sandbox
 export function pathInSandbox(path: string, sandbox: Sandbox): string | null {
-  if (!path.startsWith(sandbox.deltaUnionDir)) {
+  const deltaUnionDir = sandbox.deltaLayer.getUnionDir();
+  console.log(`pathInSandbox`, path, deltaUnionDir);
+  if (!path.startsWith(deltaUnionDir)) {
+    console.log(`path ${path} not in sandbox ${deltaUnionDir}`);
     return null;
   }
-  return path.slice(sandbox.deltaUnionDir.length);
-}
-
-export async function getUnionFSMounts(): Promise<string[]> {
-  const mount = await exec("mount");
-  return mount.stdout
-    .split("\n")
-    .filter((line) => line.startsWith("unionfs@"))
-    .map((line) => line.match(/on ([^ ]+)/)![1]);
+  return path.slice(deltaUnionDir.length);
 }

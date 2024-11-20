@@ -31,13 +31,13 @@ import { Message } from "../shared/tracing.js";
 import { RunParams } from "../shared/types.js";
 import { parseTypeset } from "../shared/typeset.js";
 import { joinIterable } from "../shared/util.js";
-import { Sh2Fr, UploadName } from "./Sh2Fr.js";
-import { Sh2FrViaHttp } from "./Sh2FrViaHttp.js";
+import { Sh2Fr, Sh2FrImpl, UploadName } from "./Sh2Fr.js";
 import { changeAt } from "./automerge.js";
 import {
   Sandbox,
   afterRun,
   beforeRun,
+  canBeSandboxed,
   makeDeltaLogEntryAbsolute,
   makeSandbox,
   pathInSandbox,
@@ -85,12 +85,12 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   > = {};
   script: Script | null = null;
   traceDoc: DocHandle<Trace>;
+  done = false;
 
   constructor(
     public params: RunParams,
     public repo: Repo,
-    // public sh2fr: Sh2Fr = new Sh2FrViaTcp()
-    public sh2fr: Sh2Fr = new Sh2FrViaHttp(),
+    public sh2fr: Sh2Fr = new Sh2FrImpl(),
   ) {
     super();
 
@@ -102,8 +102,27 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   }
 
   async start() {
+    try {
+      await this.startUnprotected();
+    } catch (e) {
+      this.traceDoc.change((trace) => {
+        trace.startError =
+          e instanceof Error ? e.message : (e as any).toString();
+      });
+      await this.stop();
+    }
+  }
+
+  private async startUnprotected() {
     console.log("\n\n\nstarting");
 
+    if (!(await canBeSandboxed(this.params.cwd))) {
+      throw new Error(
+        `don't run in ${this.params.cwd}; it can't be sandboxed correctly`,
+      );
+    }
+
+    console.log("starting sh2fr", this.sh2fr.constructor.name);
     const sh2frStart = await this.sh2fr.start({
       onMessage: this.onSh2FrMessage.bind(this),
       onUpload: this.onSh2FrUpload.bind(this),
@@ -111,14 +130,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
 
     // parse
 
-    try {
-      this.script = new Script(this.params.scriptSrc, parser);
-    } catch (e) {
-      this.traceDoc.change((trace) => {
-        trace.parseError = (e as any).toString();
-      });
-      return;
-    }
+    this.script = new Script(this.params.scriptSrc, parser);
 
     // transform
 
@@ -312,26 +324,38 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       trace.startTime = new Date();
     });
 
-    // TODO: we use a second zsh call to parse this.params.args; kinda ugly
+    const cwd = path.join(
+      this.sandbox.deltaLayer.getUnionDir(),
+      path.resolve(this.params.cwd),
+    );
+
     this.childProcess = child_process.spawn(
       "zsh",
       ["-c", `zsh ${tmpFile.name} ${this.params.args || ""}`],
       {
         cwd: path.join(
-          this.sandbox.deltaUnionDir,
+          this.sandbox.deltaLayer.getUnionDir(),
           path.resolve(this.params.cwd),
         ),
         env: {
           ...process.env, // TODO
           // ...this.params.env === 'process.env' ? process.env : this.params.env,
           ...sh2frStart.env,
-          ROOT: this.sandbox.deltaUnionDir,
+          ROOT: this.sandbox.deltaLayer.getUnionDir(),
         },
         stdio: ["ignore", "ignore", "inherit"],
-        // stdio: ['ignore', 'inherit', 'inherit'],
+        // stdio: ["ignore", "inherit", "inherit"],
         // stdio: 'ignore',
       },
     );
+    if (this.childProcess.pid === undefined) {
+      const error = await new Promise<Error>((resolve) =>
+        this.childProcess!.once("error", resolve),
+      );
+      console.error(error);
+      throw error;
+    }
+
     console.log("fr: spawned child process at", this.childProcess.pid);
 
     this.childProcess.on("close", async (exitCode: number) => {
@@ -340,7 +364,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
         trace.exitCode = exitCode;
       });
       await this.stop();
-      this.dispatchEvent(new Event("close"));
+      this.dispatchEvent(new Event("done"));
     });
 
     process.once("exit", () => {
@@ -359,10 +383,13 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
     if (message.type === "call-enter") {
       const enterCwd = pathInSandbox(message.cwd, this.sandbox!);
 
-      if (!enterCwd) {
-        console.error("call-enter cwd not in sandbox", message.cwd, "aborting");
+      console.log("enterCwd", JSON.stringify(enterCwd));
+
+      if (enterCwd === null) {
+        const msg = `call-enter cwd (${message.cwd}) not in sandbox (${this.sandbox}), aborting`;
+        console.error(msg);
         await this.stop();
-        throw new Error("call-enter cwd not in sandbox");
+        throw new Error(msg);
       }
 
       const execId = mkExecId(message);
@@ -389,7 +416,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
 
       const cwd = pathInSandbox(message.cwd, this.sandbox!);
 
-      if (!cwd) {
+      if (cwd === null) {
         console.error("call-exit cwd not in sandbox", message.cwd, "aborting");
         await this.stop();
         throw new Error("call-exit cwd not in sandbox");
@@ -491,15 +518,16 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
     }
     this.sandbox && (await removeSandbox(this.sandbox));
     await this.sh2fr.stop();
+    this.dispatchEvent(new Event("done"));
+    this.done = true;
   }
 
-  async isClosedPromise() {
-    const trace = await this.traceDoc.doc();
-    if (trace && trace.exitCode !== null) {
+  async waitUntilDone() {
+    if (this.done) {
       return;
     } else {
       return new Promise((resolve) => {
-        this.addEventListener("close", () => {
+        this.addEventListener("done", () => {
           resolve(undefined);
         });
       });

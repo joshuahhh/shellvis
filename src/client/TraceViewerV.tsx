@@ -103,11 +103,11 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
     }
   }, [trace.runParams.scriptSrc]);
 
-  if (trace.parseError) {
+  if (trace.startError) {
     return (
       <div>
-        <h1>parse error</h1>
-        <pre>{trace.parseError}</pre>
+        <h1>error starting</h1>
+        <pre className="whitespace-pre-wrap">{trace.startError}</pre>
       </div>
     );
   }

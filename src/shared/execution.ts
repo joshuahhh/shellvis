@@ -85,7 +85,7 @@ export type Trace = {
   messageLog: Message[];
   exitCode: number | null;
   transformedSrc: string | null;
-  parseError: string | null;
+  startError: string | null;
   scriptFilePath: string | null;
 };
 
@@ -100,7 +100,7 @@ export function newTrace(
     exitCode: null,
     startTime: null,
     transformedSrc: null,
-    parseError: null,
+    startError: null,
     scriptFilePath: null,
     ...opts,
   };

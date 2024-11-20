@@ -18,15 +18,22 @@ export class ScriptWatcher {
   ) {
     // TODO: this is so that we ultimately put an absolute path into the trace
     this.params.path = path.resolve(this.params.path);
-    chokidar.watch(this.params.path).on("all", () => {
-      this._onFile();
-    });
+    chokidar
+      .watch(this.params.path, {
+        usePolling: process.platform === "linux",
+      })
+      .on("all", () => {
+        this._onFile();
+      });
   }
 
   async _onFile() {
     if (this.currentRun) {
+      console.log("_onFile: stopping current run");
       await this.currentRun.stop();
     }
+
+    console.log("_onFile: starting new run");
 
     const scriptStr = fs.readFileSync(this.params.path, { encoding: "utf-8" });
     const runParams: RunParams = {

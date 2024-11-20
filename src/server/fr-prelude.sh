@@ -1,4 +1,5 @@
 # set -x
+fr_debug=1
 
 # HACK to restore nasty bash behavior for study
 setopt shwordsplit

@@ -36,5 +36,20 @@ export default defineConfig({
     fs: {
       strict: false,
     },
+    watch: {
+      // We assume that if we're running on Linux, we're editing from another
+      // machine and need to use polling.
+      usePolling: process.platform === "linux",
+    },
+    open: process.platform !== "linux",
   },
+
+  ...(process.platform === "linux" && {
+    test: {
+      open: false,
+      api: {
+        host: "0.0.0.0",
+      },
+    },
+  }),
 });

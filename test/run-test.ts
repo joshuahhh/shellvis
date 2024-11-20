@@ -1,11 +1,12 @@
 import { RawString, Repo } from "@automerge/automerge-repo";
 import sh from "mvdan-sh";
+import { exec } from "node:child_process";
 import path from "node:path";
 import R from "remeda";
 import { assert, describe, expect, it, onTestFinished } from "vitest";
 import { Sh2Fr } from "../src/server/Sh2Fr.js";
 import { Run } from "../src/server/run.js";
-import { getUnionFSMounts } from "../src/server/sandbox.js";
+import { SandboxLayerImpl, mkTmpDir } from "../src/server/sandbox.js";
 import {
   DeltaLogEntry,
   ForInfo,
@@ -15,15 +16,16 @@ import {
 import { Script } from "../src/shared/mvdan-sh-helpers.js";
 import { normalizeIndent } from "../src/shared/normalizeIndent.js";
 
-const cwd = process.cwd();
-
 export async function runAndGetTrace(run: Run): Promise<Trace> {
   onTestFinished(async () => await run.stop());
   await run.start();
-  await run.isClosedPromise();
+  await run.waitUntilDone();
   const trace = await run.traceDoc.doc();
   if (!trace) {
     assert.fail("trace missing");
+  }
+  if (trace.startError) {
+    throw new Error(trace.startError);
   }
   return trace;
 }
@@ -43,6 +45,7 @@ function callExprIdWithSrc(src: string, script: Script) {
 export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
   describe(name, {}, () => {
     it("basically works", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -60,6 +63,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("cleans up sandbox unionfs ok", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -73,12 +77,17 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
       );
       await runAndGetTrace(run);
 
-      const unionFSMounts = await getUnionFSMounts();
-      expect(unionFSMounts).not.toContain(run.sandbox!.sandboxUnionDir);
-      expect(unionFSMounts).not.toContain(run.sandbox!.deltaUnionDir);
+      const unionFSMounts = await SandboxLayerImpl.getActiveMounts();
+      expect(unionFSMounts).not.toContain(
+        run.sandbox!.protectLayer.getUnionDir(),
+      );
+      expect(unionFSMounts).not.toContain(
+        run.sandbox!.deltaLayer.getUnionDir(),
+      );
     });
 
     it("exit codes work", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -96,6 +105,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("stdout works", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -121,6 +131,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("stdout from function works", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -128,11 +139,11 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           cwd,
           env: process.env,
           scriptSrc: normalizeIndent`
-          function good() {
-            echo "hello"
-          }
-          good
-        `,
+            function good() {
+              echo "hello"
+            }
+            good
+          `,
         },
         repo,
         mkSh2Fr(),
@@ -150,6 +161,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("stderr works", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -157,11 +169,11 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           cwd,
           env: process.env,
           scriptSrc: normalizeIndent`
-          function bad() {
-            echo "bad" >&2
-          }
-          bad
-        `,
+            function bad() {
+              echo "bad" >&2
+            }
+            bad
+          `,
         },
         repo,
         mkSh2Fr(),
@@ -176,7 +188,21 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
       expect(trace.execInfos[badExecId].stderr.data.join("")).toEqual("bad\n");
     });
 
+    it("jot works [prereq]", async () => {
+      // this is just a fail-fast prereq for 'pipes work'
+      exec("jot -b hello 10", (err, stdout, stderr) => {
+        expect(err).toBeNull();
+        expect(stdout).toEqual(
+          R.range(0, 10)
+            .map(() => "hello\n")
+            .join(""),
+        );
+        expect(stderr).toEqual("");
+      });
+    });
+
     it("pipes work", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -184,8 +210,8 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           cwd,
           env: process.env,
           scriptSrc: normalizeIndent`
-          jot -b hello 10 | rev | tr a-z A-Z
-        `,
+            jot -b hello 10 | rev | tr a-z A-Z
+          `,
         },
         repo,
         mkSh2Fr(),
@@ -222,6 +248,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it.todo("pipes work even with an eager generator", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -229,14 +256,14 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           cwd,
           env: process.env,
           scriptSrc: normalizeIndent`
-          function gen() {
-            while true; do
-              echo "hello"
-              sleep 0.1
-            done
-          }
-          gen | head -n 4
-        `,
+            function gen() {
+              while true; do
+                echo "hello"
+                sleep 0.1
+              done
+            }
+            gen | head -n 4
+          `,
         },
         repo,
         mkSh2Fr(),
@@ -255,6 +282,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("file addition works", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -262,8 +290,8 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           cwd,
           env: process.env,
           scriptSrc: normalizeIndent`
-          touch testfile.txt
-        `,
+            touch testfile.txt
+          `,
         },
         repo,
         mkSh2Fr(),
@@ -280,6 +308,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("file deletion works", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -287,8 +316,10 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           cwd,
           env: process.env,
           scriptSrc: normalizeIndent`
-          rm package.json
-        `,
+            touch testfile.txt
+
+            rm testfile.txt
+          `,
         },
         repo,
         mkSh2Fr(),
@@ -297,14 +328,15 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
 
       const rmExecId = mkExecId({
         context: "",
-        nodeId: callExprIdWithSrc("rm package.json", run.script!),
+        nodeId: callExprIdWithSrc("rm testfile.txt", run.script!),
       });
       expect(trace.execInfos[rmExecId].deltaLog).toEqual([
-        { event: "deletedFile", path: path.resolve(cwd, "package.json") },
+        { event: "deletedFile", path: path.resolve(cwd, "testfile.txt") },
       ] satisfies DeltaLogEntry[]);
     });
 
     it("file modification works", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {
@@ -341,6 +373,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("for loops work", async () => {
+      const cwd = await mkTmpDir("test-");
       const repo = new Repo({ network: [] });
       const run = new Run(
         {

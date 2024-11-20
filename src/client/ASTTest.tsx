@@ -23,39 +23,39 @@ export const ASTTest = memo(() => {
         <Pane code="{ a; b; }" />
         <Pane
           code={normalizeIndent`
-        for i in 1 2 3; do
-          echo "hello $i"
-        done
-      `}
+            for i in 1 2 3; do
+              echo "hello $i"
+            done
+          `}
         />
         <Pane
           code={normalizeIndent`
-        myfunc() {
-          echo "hello"
-        }
+            myfunc() {
+              echo "hello"
+            }
 
-        hello
-      `}
+            hello
+          `}
         />
         <Pane
           code={normalizeIndent`
-        x=1
-        while [ $x -le 5 ]
-        do
-          echo "Welcome $x times"
-          x=$(( $x + 1 ))
-        done
-      `}
+            x=1
+            while [ $x -le 5 ]
+            do
+              echo "Welcome $x times"
+              x=$(( $x + 1 ))
+            done
+          `}
         />
         <Pane
           code={normalizeIndent`
-        while
-          cmd1; cmd2
-          cmd3
-        do
-          echo "multiple commands in cond"
-        done
-      `}
+            while
+              cmd1; cmd2
+              cmd3
+            do
+              echo "multiple commands in cond"
+            done
+          `}
         />
       </div>
     </div>

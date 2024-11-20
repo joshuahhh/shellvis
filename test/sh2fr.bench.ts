@@ -20,10 +20,10 @@ describe("sh2fr-benchmark", {}, () => {
           cwd,
           env: process.env,
           scriptSrc: normalizeIndent`
-          for i in {1..10}; do
-            echo $i
-          done
-        `,
+            for i in {1..10}; do
+              echo $i
+            done
+          `,
         },
         repo,
         mkSh2Fr(),

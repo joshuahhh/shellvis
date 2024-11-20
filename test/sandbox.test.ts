@@ -4,9 +4,9 @@ import path from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
 import {
   Sandbox,
+  SandboxLayerImpl,
   afterRun,
   beforeRun,
-  getUnionFSMounts,
   isMountPoint,
   makeSandbox,
   mkTmpDir,
@@ -29,8 +29,10 @@ describe("isMountPoint", () => {
 });
 
 describe("sandbox", () => {
-  async function setUpSandbox() {
-    const rootDir = await mkTmpDir("root-");
+  async function setUpSandbox(rootDir?: string) {
+    if (!rootDir) {
+      rootDir = await mkTmpDir("root-");
+    }
     const sandbox = await makeSandbox(rootDir);
     onTestFinished(() => removeSandbox(sandbox));
     return { rootDir, sandbox };
@@ -52,7 +54,7 @@ describe("sandbox", () => {
     for (let i = 0; i < 2; i++) {
       const deltaLog = await runInSandbox(sandbox, async () => {
         const originalFileContents = await fsP.readFile(
-          path.join(sandbox.sandboxUnionDir, "original-file"),
+          path.join(sandbox.protectLayer.getUnionDir(), "original-file"),
           "utf8",
         );
         expect(originalFileContents).toBe("hello");
@@ -61,12 +63,99 @@ describe("sandbox", () => {
     }
   });
 
+  it("layers can be stacked nice and high", async () => {
+    // oh no: https://stackoverflow.com/a/26003167 means we can only do 2
+    let dir = await mkTmpDir("root-");
+    await fsP.writeFile(path.join(dir, "original-file"), "hello");
+
+    for (let i = 0; i < 2; i++) {
+      const newLayer = await new SandboxLayerImpl(
+        dir,
+        await mkTmpDir("sandbox-"),
+      ).make();
+      onTestFinished(() => newLayer.remove());
+      dir = newLayer.getUnionDir();
+      expect(await fsP.readFile(path.join(dir, "original-file"), "utf8")).toBe(
+        "hello",
+      );
+    }
+  });
+
+  it(
+    "linux: homedir can be accessed from sandbox layer on true root",
+    {
+      skip: process.platform !== "linux",
+    },
+    async () => {
+      await fsP.writeFile("/root/hi-there", "hello");
+
+      const newLayer = await new SandboxLayerImpl(
+        "/",
+        await mkTmpDir("sandbox-"),
+      ).make();
+      onTestFinished(() => newLayer.remove());
+      expect(
+        await fsP.readFile(
+          path.join(newLayer.getUnionDir(), "/root/hi-there"),
+          "utf8",
+        ),
+      ).toBe("hello");
+    },
+  );
+
+  it(
+    "tmp can be accessed from sandbox layer on true root (in homedir)",
+    {
+      skip: process.platform !== "linux",
+    },
+    async () => {
+      let dir = await mkTmpDir("something-in-tmp-");
+      await fsP.writeFile(path.join(dir, "original-file"), "hello");
+
+      const layerDirName = crypto.randomUUID();
+      console.log(
+        "layerDirName:",
+        layerDirName,
+        path.join("/root/tmp", layerDirName),
+      );
+      const layerDir = path.join("/root/tmp", layerDirName);
+      await fsP.mkdir(layerDir, { recursive: true });
+      console.log("layerDir:", layerDir);
+
+      const newLayer = await new SandboxLayerImpl("/", layerDir).make();
+      // onTestFinished(() => newLayer.remove());
+      expect(
+        await fsP.readFile(
+          path.join(newLayer.getUnionDir(), dir, "tmp-file"),
+          "utf8",
+        ),
+      ).toBe("hello");
+    },
+  );
+
+  it("tmp can be accessed from sandbox layer on true root (in tmp)", async () => {
+    let dir = await mkTmpDir("something-in-tmp-");
+    await fsP.writeFile(path.join(dir, "original-file"), "hello");
+
+    const newLayer = await new SandboxLayerImpl(
+      "/",
+      await mkTmpDir("sandbox-"),
+    ).make();
+    onTestFinished(() => newLayer.remove());
+    expect(
+      await fsP.readFile(
+        path.join(newLayer.getUnionDir(), dir, "original-file"),
+        "utf8",
+      ),
+    ).toBe("hello");
+  });
+
   it("works writing new files", async () => {
     const { sandbox } = await setUpSandbox();
 
     const deltaLog1 = await runInSandbox(sandbox, async () => {
       await fsP.writeFile(
-        path.join(sandbox.deltaUnionDir, "new-file"),
+        path.join(sandbox.deltaLayer.getUnionDir(), "new-file"),
         "hello",
       );
     });
@@ -74,7 +163,7 @@ describe("sandbox", () => {
 
     await runInSandbox(sandbox, async () => {
       const newFileContents = await fsP.readFile(
-        path.join(sandbox.sandboxUnionDir, "new-file"),
+        path.join(sandbox.protectLayer.getUnionDir(), "new-file"),
         "utf8",
       );
       expect(newFileContents).toBe("hello");
@@ -86,34 +175,17 @@ describe("sandbox", () => {
     await fsP.writeFile(path.join(rootDir, "original-file"), "hello");
 
     const deltaLog = await runInSandbox(sandbox, async () => {
-      await fsP.rm(path.join(sandbox.deltaUnionDir, "original-file"));
+      await fsP.rm(
+        path.join(sandbox.deltaLayer.getUnionDir(), "original-file"),
+      );
     });
     expect(deltaLog).toEqual([{ event: "deletedFile", path: "original-file" }]);
 
-    await runInSandbox(sandbox, async () => {
-      expect(
-        await fsP
-          .stat(path.join(sandbox.sandboxUnionDir, "original-file"))
-          .catch(() => null),
-      ).toBe(null);
-    });
-  });
-
-  it("works deleting directories", async () => {
-    const { sandbox, rootDir } = await setUpSandbox();
-    await fsP.mkdir(path.join(rootDir, "original-dir"));
-    await fsP.writeFile(
-      path.join(rootDir, "original-dir", "original-file"),
-      "hello",
-    );
-
-    const deltaLog = await runInSandbox(sandbox, async () => {
-      await fsP.rm(path.join(sandbox.deltaUnionDir, "original-dir"), {
-        recursive: true,
-        force: true,
-      });
-    });
-    expect(deltaLog).toEqual([{ event: "deletedDir", path: "original-dir" }]);
+    expect(
+      await fsP
+        .stat(path.join(sandbox.protectLayer.getUnionDir(), "original-file"))
+        .catch(() => null),
+    ).toBe(null);
   });
 
   it("works modifying files", async () => {
@@ -122,7 +194,7 @@ describe("sandbox", () => {
 
     const deltaLog = await runInSandbox(sandbox, async () => {
       await fsP.writeFile(
-        path.join(sandbox.deltaUnionDir, "original-file"),
+        path.join(sandbox.deltaLayer.getUnionDir(), "original-file"),
         "goodbye",
       );
     });
@@ -135,50 +207,50 @@ describe("sandbox", () => {
       },
     ]);
 
-    await runInSandbox(sandbox, async () => {
-      const originalFileContents = await fsP.readFile(
-        path.join(sandbox.sandboxUnionDir, "original-file"),
-        "utf8",
-      );
-      expect(originalFileContents).toBe("goodbye");
-    });
+    const originalFileContents = await fsP.readFile(
+      path.join(sandbox.protectLayer.getUnionDir(), "original-file"),
+      "utf8",
+    );
+    expect(originalFileContents).toBe("goodbye");
   });
 
   it("works creating new directories", async () => {
     const { sandbox } = await setUpSandbox();
 
     const deltaLog = await runInSandbox(sandbox, async () => {
-      await fsP.mkdir(path.join(sandbox.deltaUnionDir, "new-dir"));
+      await fsP.mkdir(path.join(sandbox.deltaLayer.getUnionDir(), "new-dir"));
     });
     expect(deltaLog).toEqual([{ event: "newDir", path: "new-dir" }]);
 
-    await runInSandbox(sandbox, async () => {
-      expect(
-        (
-          await fsP.stat(path.join(sandbox.sandboxUnionDir, "new-dir"))
-        ).isDirectory(),
-      ).toBe(true);
-    });
+    expect(
+      (
+        await fsP.stat(path.join(sandbox.protectLayer.getUnionDir(), "new-dir"))
+      ).isDirectory(),
+    ).toBe(true);
   });
 
   it("works deleting directories", async () => {
     const { sandbox, rootDir } = await setUpSandbox();
     await fsP.mkdir(path.join(rootDir, "original-dir"));
+    await fsP.mkdir(path.join(rootDir, "original-dir", "original-subdir"));
+    await fsP.writeFile(
+      path.join(rootDir, "original-dir", "original-subdir", "file"),
+      "hello",
+    );
 
     const deltaLog = await runInSandbox(sandbox, async () => {
-      await fsP.rm(path.join(sandbox.deltaUnionDir, "original-dir"), {
-        recursive: true,
-      });
+      await fsP.rm(
+        path.join(sandbox.deltaLayer.getUnionDir(), "original-dir"),
+        { recursive: true },
+      );
     });
     expect(deltaLog).toEqual([{ event: "deletedDir", path: "original-dir" }]);
 
-    await runInSandbox(sandbox, async () => {
-      expect(
-        await fsP
-          .stat(path.join(sandbox.sandboxUnionDir, "original-dir"))
-          .catch(() => null),
-      ).toBe(null);
-    });
+    expect(
+      await fsP
+        .stat(path.join(sandbox.protectLayer.getUnionDir(), "original-dir"))
+        .catch(() => null),
+    ).toBe(null);
   });
 
   it("works replacing directories with files", async () => {
@@ -186,11 +258,12 @@ describe("sandbox", () => {
     await fsP.mkdir(path.join(rootDir, "original-dir-or-file"));
 
     const deltaLog = await runInSandbox(sandbox, async () => {
-      await fsP.rm(path.join(sandbox.deltaUnionDir, "original-dir-or-file"), {
-        recursive: true,
-      });
+      await fsP.rm(
+        path.join(sandbox.deltaLayer.getUnionDir(), "original-dir-or-file"),
+        { recursive: true },
+      );
       await fsP.writeFile(
-        path.join(sandbox.deltaUnionDir, "original-dir-or-file"),
+        path.join(sandbox.deltaLayer.getUnionDir(), "original-dir-or-file"),
         "goodbye",
       );
     });
@@ -198,28 +271,85 @@ describe("sandbox", () => {
       { event: "dirReplacedWithFile", path: "original-dir-or-file" },
     ]);
 
-    await runInSandbox(sandbox, async () => {
-      const originalFileContents = await fsP.readFile(
-        path.join(sandbox.sandboxUnionDir, "original-dir-or-file"),
+    const originalFileContents = await fsP.readFile(
+      path.join(sandbox.protectLayer.getUnionDir(), "original-dir-or-file"),
+      "utf8",
+    );
+    expect(originalFileContents).toBe("goodbye");
+  });
+
+  it("works replacing files with directories", async () => {
+    const { sandbox, rootDir } = await setUpSandbox();
+    await fsP.writeFile(path.join(rootDir, "original-dir-or-file"), "hello");
+
+    const deltaLog = await runInSandbox(sandbox, async () => {
+      await fsP.rm(
+        path.join(sandbox.deltaLayer.getUnionDir(), "original-dir-or-file"),
+      );
+      await fsP.mkdir(
+        path.join(sandbox.deltaLayer.getUnionDir(), "original-dir-or-file"),
+      );
+    });
+    expect(deltaLog).toEqual([
+      { event: "deletedFile", path: "original-dir-or-file" },
+      { event: "newDir", path: "original-dir-or-file" },
+    ]);
+
+    expect(
+      (
+        await fsP.stat(
+          path.join(sandbox.protectLayer.getUnionDir(), "original-dir-or-file"),
+        )
+      ).isDirectory(),
+    ).toBe(true);
+  });
+
+  it("works twice", async () => {
+    const { sandbox } = await setUpSandbox();
+
+    const deltaLog1 = await runInSandbox(sandbox, async () => {
+      await fsP.writeFile(
+        path.join(sandbox.deltaLayer.getUnionDir(), "new-file-1"),
+        "hello-1",
+      );
+    });
+    expect(deltaLog1).toEqual([{ event: "newFile", path: "new-file-1" }]);
+
+    const deltaLog2 = await runInSandbox(sandbox, async () => {
+      const newFile1Contents = await fsP.readFile(
+        path.join(sandbox.protectLayer.getUnionDir(), "new-file-1"),
         "utf8",
       );
-      expect(originalFileContents).toBe("goodbye");
+      expect(newFile1Contents).toBe("hello-1");
+      await fsP.writeFile(
+        path.join(sandbox.deltaLayer.getUnionDir(), "new-file-2"),
+        "hello-2",
+      );
     });
+    expect(deltaLog2).toEqual([{ event: "newFile", path: "new-file-2" }]);
+
+    const newFileContents = await fsP.readFile(
+      path.join(sandbox.protectLayer.getUnionDir(), "new-file-2"),
+      "utf8",
+    );
+    expect(newFileContents).toBe("hello-2");
   });
 
   it("cleans up unionfs ok", async () => {
     const sandbox = await makeSandbox("/");
     onTestFinished(() => removeSandbox(sandbox)); // for backup
 
-    const unionFSMounts = await getUnionFSMounts();
-    expect(unionFSMounts).toContain(sandbox.sandboxUnionDir);
-    expect(unionFSMounts).toContain(sandbox.deltaUnionDir);
+    const unionFSMounts = await SandboxLayerImpl.getActiveMounts();
+    expect(unionFSMounts).toContain(sandbox.protectLayer.getUnionDir());
+    expect(unionFSMounts).toContain(sandbox.deltaLayer.getUnionDir());
 
     await removeSandbox(sandbox);
 
-    const unionFSMountsAfter = await getUnionFSMounts();
-    expect(unionFSMountsAfter).not.toContain(sandbox.sandboxUnionDir);
-    expect(unionFSMountsAfter).not.toContain(sandbox.deltaUnionDir);
+    const unionFSMountsAfter = await SandboxLayerImpl.getActiveMounts();
+    expect(unionFSMountsAfter).not.toContain(
+      sandbox.protectLayer.getUnionDir(),
+    );
+    expect(unionFSMountsAfter).not.toContain(sandbox.deltaLayer.getUnionDir());
 
     await removeSandbox(sandbox); // should be idempotent
   });

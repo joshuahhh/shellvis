@@ -1,4 +1,5 @@
 import { Message } from "../shared/tracing.js";
+import { Sh2FrViaHttp } from "./Sh2FrViaHttp.js";
 
 export type Sh2Fr = {
   start: (props: Sh2Fr.StartProps) => Promise<Sh2Fr.StartResult>;
@@ -40,3 +41,6 @@ export namespace Sh2Fr {
     ) => Promise<void>;
   };
 }
+
+export const Sh2FrImpl = Sh2FrViaHttp;
+// process.platform === 'linux' ? Sh2FrViaTcpNoPipe : Sh2FrViaHttp;
