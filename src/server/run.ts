@@ -35,14 +35,15 @@ import { Sh2Fr, Sh2FrImpl, UploadName } from "./Sh2Fr.js";
 import { changeAt } from "./automerge.js";
 import {
   Sandbox,
+  SandboxLayerImpl,
   afterRun,
   beforeRun,
-  canBeSandboxed,
   makeDeltaLogEntryAbsolute,
   makeSandbox,
   pathInSandbox,
   removeSandbox,
 } from "./sandbox.js";
+import { exec, statOrNull } from "./util.js";
 
 const parser = sh.syntax.NewParser(sh.syntax.KeepComments(true));
 const printer = sh.syntax.NewPrinter();
@@ -116,7 +117,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   private async startUnprotected() {
     console.log("\n\n\nstarting");
 
-    if (!(await canBeSandboxed(this.params.cwd))) {
+    if (!(await SandboxLayerImpl.canBeSandboxed(this.params.cwd))) {
       throw new Error(
         `don't run in ${this.params.cwd}; it can't be sandboxed correctly`,
       );
@@ -329,14 +330,38 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       path.resolve(this.params.cwd),
     );
 
+    console.log(
+      "delta",
+      this.sandbox.deltaLayer.getUnionDir(),
+      await statOrNull(this.sandbox.deltaLayer.getUnionDir()),
+    );
+    console.log(
+      "delta ls",
+      await exec(`ls -l ${this.sandbox.deltaLayer.getUnionDir()}`),
+    );
+    console.log(
+      "delta ls/tmp",
+      await exec(`ls -l ${this.sandbox.deltaLayer.getUnionDir()}/tmp`),
+    );
+    console.log(
+      "this.params.cwd",
+      this.params.cwd,
+      await statOrNull(this.params.cwd),
+    );
+    console.log(
+      "resolved cwd",
+      path.resolve(this.params.cwd),
+      await statOrNull(path.resolve(this.params.cwd)),
+    );
+    console.log("resolved cwd in delta", cwd, await statOrNull(cwd));
+
+    console.log("running in", cwd, await statOrNull(cwd));
+
     this.childProcess = child_process.spawn(
       "zsh",
       ["-c", `zsh ${tmpFile.name} ${this.params.args || ""}`],
       {
-        cwd: path.join(
-          this.sandbox.deltaLayer.getUnionDir(),
-          path.resolve(this.params.cwd),
-        ),
+        cwd,
         env: {
           ...process.env, // TODO
           // ...this.params.env === 'process.env' ? process.env : this.params.env,

@@ -2,9 +2,9 @@ import { RawString } from "@automerge/automerge-repo";
 import * as fsP from "node:fs/promises";
 import path from "node:path";
 import { DeltaLogEntry } from "../shared/execution.js";
-import { exec } from "./exec.js";
-import { SandboxLayerBase, statOrNull } from "./sandbox-base.js";
+import { SandboxLayerBase } from "./sandbox-base.js";
 import { SandboxLayer } from "./sandbox.js";
+import { exec, statOrNull } from "./util.js";
 
 export class SandboxLayerMac extends SandboxLayerBase implements SandboxLayer {
   async make() {
@@ -13,7 +13,6 @@ export class SandboxLayerMac extends SandboxLayerBase implements SandboxLayer {
     await exec(
       `unionfs -o cow ${this.upperDir}=rw:${this.lowerDir}=ro ${this.unionDir}`,
     );
-    // await exec(`mount -t overlayfs overlayfs -o lowerdir=${rootDir},upperdir=${upperDir} ${unionDir}`);
 
     return this;
   }
@@ -139,8 +138,8 @@ export class SandboxLayerMac extends SandboxLayerBase implements SandboxLayer {
       .filter((line) => line.startsWith("unionfs@"))
       .map((line) => line.match(/on ([^ ]+)/)![1]);
   }
-}
 
-export async function canBeSandboxedMac() {
-  return true;
+  static async canBeSandboxed() {
+    return true;
+  }
 }

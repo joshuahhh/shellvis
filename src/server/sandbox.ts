@@ -1,18 +1,10 @@
-import { Stats } from "node:fs";
 import * as fsP from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { DeltaLogEntry } from "../shared/execution.js";
-import { SandboxLayerLinux, canBeSandboxedLinux } from "./sandbox-linux.js";
-import { SandboxLayerMac, canBeSandboxedMac } from "./sandbox-mac.js";
-
-export async function statOrNull(path: string): Promise<Stats | null> {
-  try {
-    return await fsP.stat(path);
-  } catch {
-    return null;
-  }
-}
+import { SandboxLayerLinux } from "./sandbox-linux.js";
+import { SandboxLayerMac } from "./sandbox-mac.js";
+import { statOrNull } from "./util.js";
 
 export async function isMountPoint(p: string): Promise<boolean> {
   // The root directory is always a mount point
@@ -39,9 +31,9 @@ export async function mkTmpDir(prefix?: string) {
 // GENERAL SYSTEM STUFF
 // --------------------
 
-// A "sandbox layer" is a single invocation of UnionFS/OverlayFS. Shelloscope
-// uses two sandbox layers: one to protect the original FS, and a second to
-// isolate individual commands for tracing.
+// A "sandbox layer" is a single invocation of UnionFS/OverlayFS.
+// ShellVis uses two sandbox layers: one to protect the original FS,
+// and a second to isolate individual commands for tracing.
 export interface SandboxLayer {
   getUnionDir(): string;
   make(): Promise<this>;
@@ -52,15 +44,13 @@ export interface SandboxLayer {
 }
 
 type SandboxLayerConstructor = {
-  new (lowerDir: string, layerDir: string): SandboxLayer;
+  new (props: { lowerDir: string; layerDir: string }): SandboxLayer;
   getActiveMounts(): Promise<string[]>;
+  canBeSandboxed(dir: string): Promise<boolean>;
 };
 
 export const SandboxLayerImpl: SandboxLayerConstructor =
   process.platform === "linux" ? SandboxLayerLinux : SandboxLayerMac;
-
-export const canBeSandboxed =
-  process.platform === "linux" ? canBeSandboxedLinux : canBeSandboxedMac;
 
 // -------------
 // SANDBOX STUFF
@@ -74,18 +64,18 @@ export type Sandbox = {
 };
 
 export async function makeSandbox(rootDir = "/"): Promise<Sandbox> {
-  if (!(await canBeSandboxed(rootDir))) {
+  if (!(await SandboxLayerImpl.canBeSandboxed(rootDir))) {
     throw new Error(`can't sandbox ${rootDir}`);
   }
 
-  const protectLayer = await new SandboxLayerImpl(
-    rootDir,
-    await mkTmpDir("sandbox-"),
-  ).make();
-  const deltaLayer = await new SandboxLayerImpl(
-    protectLayer.getUnionDir(),
-    await mkTmpDir("delta-"),
-  ).make();
+  const protectLayer = await new SandboxLayerImpl({
+    lowerDir: rootDir,
+    layerDir: await mkTmpDir("sandbox-"),
+  }).make();
+  const deltaLayer = await new SandboxLayerImpl({
+    lowerDir: protectLayer.getUnionDir(),
+    layerDir: await mkTmpDir("delta-"),
+  }).make();
 
   return { protectLayer, deltaLayer };
 }
@@ -120,9 +110,9 @@ export function makeDeltaLogEntryAbsolute(
 // null if path is not in sandbox
 export function pathInSandbox(path: string, sandbox: Sandbox): string | null {
   const deltaUnionDir = sandbox.deltaLayer.getUnionDir();
-  console.log(`pathInSandbox`, path, deltaUnionDir);
+  // console.log(`pathInSandbox`, path, deltaUnionDir);
   if (!path.startsWith(deltaUnionDir)) {
-    console.log(`path ${path} not in sandbox ${deltaUnionDir}`);
+    // console.log(`path ${path} not in sandbox ${deltaUnionDir}`);
     return null;
   }
   return path.slice(deltaUnionDir.length);

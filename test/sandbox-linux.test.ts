@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { canBeSandboxed } from "../src/server/sandbox.js";
+import { describe, expect, it, onTestFinished } from "vitest";
+import { SandboxLayerImpl, mkTmpDir } from "../src/server/sandbox.js";
 
 describe(
   "isOnOverlayLinux",
@@ -8,9 +8,18 @@ describe(
   },
   () => {
     it("works", async () => {
-      expect(await canBeSandboxed("/root")).toBe(true);
-      expect(await canBeSandboxed("/root/shell")).toBe(false);
-      expect(await canBeSandboxed("/mnt")).toBe(true);
+      // you can sandbox an ordinary directory...
+      expect(await SandboxLayerImpl.canBeSandboxed("/")).toBe(true);
+
+      // ...but not a directory that's already on an overlay
+      const newLayer = await new SandboxLayerImpl({
+        lowerDir: "/",
+        layerDir: await mkTmpDir("sandbox-"),
+      }).make();
+      onTestFinished(() => newLayer.remove());
+      expect(
+        await SandboxLayerImpl.canBeSandboxed(newLayer.getUnionDir()),
+      ).toBe(false);
     });
   },
 );

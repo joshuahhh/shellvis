@@ -4,9 +4,9 @@ import * as fsP from "node:fs/promises";
 import * as path from "node:path";
 import { DeltaLogEntry } from "../shared/execution.js";
 import { normalizeIndent } from "../shared/normalizeIndent.js";
-import { exec } from "./exec.js";
-import { SandboxLayerBase, statOrNull } from "./sandbox-base.js";
+import { SandboxLayerBase } from "./sandbox-base.js";
 import { SandboxLayer } from "./sandbox.js";
+import { exec, statOrNull } from "./util.js";
 
 function isWhiteoutFile(stats: Stats) {
   // The relevant line from try is:
@@ -23,11 +23,11 @@ export class SandboxLayerLinux
 {
   workDir: string;
 
-  constructor(
-    public lowerDir: string,
-    public layerDir: string,
-  ) {
-    super(lowerDir, layerDir);
+  constructor(props: { lowerDir: string; layerDir: string }) {
+    if (!props.lowerDir) {
+      throw new Error("lowerDir is required");
+    }
+    super(props);
     this.workDir = path.join(this.layerDir, "work");
   }
 
@@ -38,10 +38,10 @@ export class SandboxLayerLinux
       fsP.mkdir(this.workDir),
     ]);
 
-    console.log("made dirs:");
-    console.log(this.upperDir);
-    console.log(this.unionDir);
-    console.log(this.workDir);
+    // console.log("made dirs:");
+    // console.log(this.upperDir);
+    // console.log(this.unionDir);
+    // console.log(this.workDir);
 
     const mountCmd = normalizeIndent`
       mount -t overlay \\
@@ -50,12 +50,12 @@ export class SandboxLayerLinux
         ${this.unionDir}
     `;
 
-    console.log("gonna run:");
-    console.log(mountCmd);
+    // console.log("gonna run:");
+    // console.log(mountCmd);
 
     await exec(mountCmd);
 
-    console.log("ran mount");
+    // console.log("ran mount");
 
     return this;
   }
@@ -80,25 +80,25 @@ export class SandboxLayerLinux
 
     const deltaLog: DeltaLogEntry[] = [];
     for (const file of changedFiles) {
-      const pathInUpper = path.relative(this.upperDir, file);
-      const pathInLower = path.join(this.lowerDir, pathInUpper);
+      const relToUpper = path.relative(this.upperDir, file);
+      const pathInLower = path.join(this.lowerDir, relToUpper);
 
       const stats = await fsP.stat(file);
       if (isWhiteoutFile(stats)) {
         const lowerStats = await fsP.stat(pathInLower);
         const event = lowerStats.isDirectory() ? "deletedDir" : "deletedFile";
-        deltaLog.push({ event, path: pathInUpper });
+        deltaLog.push({ event, path: relToUpper });
       } else if (stats.isDirectory()) {
         const lowerStats = await statOrNull(pathInLower);
         if (lowerStats) {
           if (!lowerStats.isDirectory()) {
-            deltaLog.push({ event: "deletedFile", path: pathInUpper });
-            deltaLog.push({ event: "newDir", path: pathInUpper });
+            deltaLog.push({ event: "deletedFile", path: relToUpper });
+            deltaLog.push({ event: "newDir", path: relToUpper });
           } else {
             // no change
           }
         } else {
-          deltaLog.push({ event: "newDir", path: pathInUpper });
+          deltaLog.push({ event: "newDir", path: relToUpper });
         }
       } else {
         // non-whiteout file
@@ -107,19 +107,17 @@ export class SandboxLayerLinux
           if (lowerStats.isFile()) {
             deltaLog.push({
               event: "modifiedFile",
-              path: pathInUpper,
+              path: relToUpper,
               oldContents: new RawString(
                 await fsP.readFile(pathInLower, "utf8"),
               ),
-              newContents: new RawString(
-                await fsP.readFile(pathInUpper, "utf8"),
-              ),
+              newContents: new RawString(await fsP.readFile(file, "utf8")),
             });
           } else {
-            deltaLog.push({ event: "dirReplacedWithFile", path: pathInUpper });
+            deltaLog.push({ event: "dirReplacedWithFile", path: relToUpper });
           }
         } else {
-          deltaLog.push({ event: "newFile", path: pathInUpper });
+          deltaLog.push({ event: "newFile", path: relToUpper });
         }
       }
     }
@@ -134,6 +132,11 @@ export class SandboxLayerLinux
       .filter((line) => line.startsWith("overlay"))
       .map((line) => line.match(/on ([^ ]+)/)![1]);
   }
+
+  static async canBeSandboxed(p: string) {
+    const fstype = await getFstype(p);
+    return fstype !== "overlay";
+  }
 }
 
 async function getFstype(p: string): Promise<string> {
@@ -143,9 +146,4 @@ async function getFstype(p: string): Promise<string> {
     throw new Error(`unexpected output from df; first line is ${dfLines[0]}`);
   }
   return dfLines[1];
-}
-
-export async function canBeSandboxedLinux(p: string) {
-  const fstype = await getFstype(p);
-  return fstype !== "overlay";
 }

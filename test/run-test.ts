@@ -344,14 +344,14 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           cwd,
           env: process.env,
           scriptSrc: normalizeIndent`
-          touch testfile.txt
+            touch testfile.txt
 
-          modify () {
-            echo "hello" > testfile.txt
-          }
+            modify () {
+              echo "hello" > testfile.txt
+            }
 
-          modify
-        `,
+            modify
+          `,
         },
         repo,
         mkSh2Fr(),
@@ -381,10 +381,10 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
           cwd,
           env: process.env,
           scriptSrc: normalizeIndent`
-          for i in {1..3}; do
-            echo $i
-          done
-        `,
+            for i in {1..3}; do
+              echo $i
+            done
+          `,
         },
         repo,
         mkSh2Fr(),

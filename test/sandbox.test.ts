@@ -1,4 +1,5 @@
 import { RawString } from "@automerge/automerge-repo";
+import crypto from "node:crypto";
 import fsP from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -31,10 +32,11 @@ describe("isMountPoint", () => {
 describe("sandbox", () => {
   async function setUpSandbox(rootDir?: string) {
     if (!rootDir) {
+      // for these tests, we sandbox a fake tmp root directory;
       rootDir = await mkTmpDir("root-");
     }
     const sandbox = await makeSandbox(rootDir);
-    onTestFinished(() => removeSandbox(sandbox));
+    onTestFinished(async () => await removeSandbox(sandbox));
     return { rootDir, sandbox };
   }
 
@@ -65,35 +67,35 @@ describe("sandbox", () => {
 
   it("layers can be stacked nice and high", async () => {
     // oh no: https://stackoverflow.com/a/26003167 means we can only do 2
-    let dir = await mkTmpDir("root-");
-    await fsP.writeFile(path.join(dir, "original-file"), "hello");
+    let lowerDir = await mkTmpDir("root-");
+    await fsP.writeFile(path.join(lowerDir, "original-file"), "hello");
 
     for (let i = 0; i < 2; i++) {
-      const newLayer = await new SandboxLayerImpl(
-        dir,
-        await mkTmpDir("sandbox-"),
-      ).make();
-      onTestFinished(() => newLayer.remove());
-      dir = newLayer.getUnionDir();
-      expect(await fsP.readFile(path.join(dir, "original-file"), "utf8")).toBe(
-        "hello",
-      );
+      const newLayer = await new SandboxLayerImpl({
+        lowerDir,
+        layerDir: await mkTmpDir("sandbox-"),
+      }).make();
+      onTestFinished(async () => await newLayer.remove());
+      lowerDir = newLayer.getUnionDir();
+      expect(
+        await fsP.readFile(path.join(lowerDir, "original-file"), "utf8"),
+      ).toBe("hello");
     }
   });
 
   it(
-    "linux: homedir can be accessed from sandbox layer on true root",
+    "linux: homedir can be accessed from sandboxed root (in tmp)",
     {
       skip: process.platform !== "linux",
     },
     async () => {
       await fsP.writeFile("/root/hi-there", "hello");
 
-      const newLayer = await new SandboxLayerImpl(
-        "/",
-        await mkTmpDir("sandbox-"),
-      ).make();
-      onTestFinished(() => newLayer.remove());
+      const newLayer = await new SandboxLayerImpl({
+        lowerDir: "/",
+        layerDir: await mkTmpDir("sandbox-"),
+      }).make();
+      onTestFinished(async () => await newLayer.remove());
       expect(
         await fsP.readFile(
           path.join(newLayer.getUnionDir(), "/root/hi-there"),
@@ -104,7 +106,7 @@ describe("sandbox", () => {
   );
 
   it(
-    "tmp can be accessed from sandbox layer on true root (in homedir)",
+    "linux: tmp can be accessed from sandboxed root (in homedir)",
     {
       skip: process.platform !== "linux",
     },
@@ -113,17 +115,14 @@ describe("sandbox", () => {
       await fsP.writeFile(path.join(dir, "original-file"), "hello");
 
       const layerDirName = crypto.randomUUID();
-      console.log(
-        "layerDirName:",
-        layerDirName,
-        path.join("/root/tmp", layerDirName),
-      );
       const layerDir = path.join("/root/tmp", layerDirName);
       await fsP.mkdir(layerDir, { recursive: true });
-      console.log("layerDir:", layerDir);
+      const newLayer = await new SandboxLayerImpl({
+        lowerDir: "/",
+        layerDir,
+      }).make();
+      onTestFinished(async () => await newLayer.remove());
 
-      const newLayer = await new SandboxLayerImpl("/", layerDir).make();
-      // onTestFinished(() => newLayer.remove());
       expect(
         await fsP.readFile(
           path.join(newLayer.getUnionDir(), dir, "tmp-file"),
@@ -133,15 +132,17 @@ describe("sandbox", () => {
     },
   );
 
-  it("tmp can be accessed from sandbox layer on true root (in tmp)", async () => {
+  it("tmp can be accessed from sandboxed root (in tmp)", async () => {
     let dir = await mkTmpDir("something-in-tmp-");
     await fsP.writeFile(path.join(dir, "original-file"), "hello");
 
-    const newLayer = await new SandboxLayerImpl(
-      "/",
-      await mkTmpDir("sandbox-"),
-    ).make();
-    onTestFinished(() => newLayer.remove());
+    const layerDir = await mkTmpDir("sandbox-");
+
+    const newLayer = await new SandboxLayerImpl({
+      lowerDir: "/",
+      layerDir,
+    }).make();
+    onTestFinished(async () => await newLayer.remove());
     expect(
       await fsP.readFile(
         path.join(newLayer.getUnionDir(), dir, "original-file"),
@@ -149,6 +150,75 @@ describe("sandbox", () => {
       ),
     ).toBe("hello");
   });
+
+  it("tmp can be accessed from double-layer sandboxed root (in tmp)", async () => {
+    let dir = await mkTmpDir("something-in-tmp-");
+    await fsP.writeFile(path.join(dir, "original-file"), "hello");
+
+    const { sandbox } = await setUpSandbox("/");
+
+    expect(
+      await fsP.readFile(
+        path.join(sandbox.deltaLayer.getUnionDir(), dir, "original-file"),
+        "utf8",
+      ),
+    ).toBe("hello");
+  });
+
+  it("works reading files", async () => {
+    const { sandbox, rootDir } = await setUpSandbox();
+    await fsP.writeFile(path.join(rootDir, "original-file"), "hello");
+
+    expect(
+      await fsP.readFile(
+        path.join(sandbox.deltaLayer.getUnionDir(), "original-file"),
+        "utf8",
+      ),
+    ).toBe("hello");
+  });
+
+  it("works reading files (sandboxing real root, reaching into tmp)", async () => {
+    const { sandbox } = await setUpSandbox("/");
+
+    let dir = await mkTmpDir("something-in-tmp-");
+    await fsP.writeFile(path.join(dir, "original-file"), "hello");
+
+    expect(
+      await fsP.readFile(
+        path.join(sandbox.deltaLayer.getUnionDir(), dir, "original-file"),
+        "utf8",
+      ),
+    ).toBe("hello");
+  });
+
+  it(
+    "linux: works reading files (sandboxing real root, reaching into home)",
+    {
+      skip: process.platform !== "linux",
+    },
+    async () => {
+      const { sandbox } = await setUpSandbox("/");
+
+      const tmpInHomeDirName = crypto.randomUUID();
+      const tmpInHomeDir = path.join("/root/tmp", tmpInHomeDirName);
+      await fsP.mkdir(tmpInHomeDir, { recursive: true });
+      await fsP.writeFile(path.join(tmpInHomeDir, "original-file"), "hello");
+      onTestFinished(
+        async () => await fsP.rm(tmpInHomeDir, { recursive: true }),
+      );
+
+      expect(
+        await fsP.readFile(
+          path.join(
+            sandbox.deltaLayer.getUnionDir(),
+            tmpInHomeDir,
+            "original-file",
+          ),
+          "utf8",
+        ),
+      ).toBe("hello");
+    },
+  );
 
   it("works writing new files", async () => {
     const { sandbox } = await setUpSandbox();

@@ -1,25 +1,21 @@
-import { Stats } from "node:fs";
 import * as fsP from "node:fs/promises";
 import * as path from "node:path";
 import { DeltaLogEntry } from "../shared/execution.js";
 import { SandboxLayer, isMountPoint } from "./sandbox.js";
 
-export async function statOrNull(path: string): Promise<Stats | null> {
-  try {
-    return await fsP.stat(path);
-  } catch {
-    return null;
-  }
-}
-
 export abstract class SandboxLayerBase implements SandboxLayer {
+  lowerDir: string;
+  layerDir: string;
   unionDir: string;
   upperDir: string;
 
-  constructor(
-    public lowerDir: string,
-    public layerDir: string,
-  ) {
+  constructor(props: { lowerDir: string; layerDir: string }) {
+    const { lowerDir, layerDir } = props;
+    if (!lowerDir) {
+      throw new Error("lowerDir is required");
+    }
+    this.lowerDir = lowerDir;
+    this.layerDir = layerDir;
     this.unionDir = path.join(this.layerDir, "union");
     this.upperDir = path.join(this.layerDir, "upper");
   }
