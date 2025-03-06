@@ -117,6 +117,10 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
   private async startUnprotected() {
     console.log("\n\n\nstarting");
 
+    this.traceDoc.change((trace) => {
+      trace.startTime = new Date();
+    });
+
     if (!(await SandboxLayerImpl.canBeSandboxed(this.params.cwd))) {
       throw new Error(
         `don't run in ${this.params.cwd}; it can't be sandboxed correctly`,
@@ -321,10 +325,6 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       encoding: "utf-8",
     });
 
-    this.traceDoc.change((trace) => {
-      trace.startTime = new Date();
-    });
-
     const cwd = path.join(
       this.sandbox.deltaLayer.getUnionDir(),
       path.resolve(this.params.cwd),
@@ -387,7 +387,9 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       console.log("child process exited with code", exitCode);
       this.traceDoc.change((trace) => {
         trace.exitCode = exitCode;
+        trace.endTime = new Date();
       });
+
       await this.stop();
       this.dispatchEvent(new Event("done"));
     });
@@ -408,7 +410,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
     if (message.type === "call-enter") {
       const enterCwd = pathInSandbox(message.cwd, this.sandbox!);
 
-      console.log("enterCwd", JSON.stringify(enterCwd));
+      // console.log("enterCwd", JSON.stringify(enterCwd));
 
       if (enterCwd === null) {
         const msg = `call-enter cwd (${message.cwd}) not in sandbox (${this.sandbox}), aborting`;

@@ -82,6 +82,7 @@ export type Trace = {
   forInfos: Record<string, ForInfo>;
   whileInfos: Record<string, WhileInfo>;
   startTime: Date | null;
+  endTime: Date | null;
   messageLog: Message[];
   exitCode: number | null;
   transformedSrc: string | null;
@@ -99,6 +100,7 @@ export function newTrace(
     whileInfos: {},
     exitCode: null,
     startTime: null,
+    endTime: null,
     transformedSrc: null,
     startError: null,
     scriptFilePath: null,

@@ -442,6 +442,12 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
                   Open in Terminal
                 </Button>
               </div>
+              {trace.startTime && trace.endTime && (
+                <div style={{ fontSize: "50%", lineHeight: 1, color: "#777" }}>
+                  finished in{" "}
+                  {trace.endTime.getTime() - trace.startTime.getTime()}ms
+                </div>
+              )}
               <div style={{ fontSize: "50%", lineHeight: 1, color: "#777" }}>
                 session {sessionAutomergeUrl}
               </div>
