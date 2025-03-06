@@ -13,4 +13,4 @@ title=$(pup "title text{}" <<< "$html")
 echo "Title: $title"
 
 textutil -stdin -format html -convert rtf -stdout <<< "<a href=\"${url}\">&#x1F517; ${title}</a>" |
-  FUNRUN_PAUSE=1 pbcopy  # @funrun-pause
+  SHELLVIS=1 pbcopy  # @shellvis-pause

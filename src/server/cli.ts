@@ -5,7 +5,7 @@ import { ScriptWatcherParams, Session } from "../shared/types.js";
 import { ScriptWatcher } from "./ScriptWatcher.js";
 import { AutomergeServer } from "./automerge.js";
 
-console.log("welcome to funrun");
+console.log("welcome to shellvis");
 
 const argv = yargs(process.argv.slice(2))
   .command("* <script>", "run a script", (yargs) =>

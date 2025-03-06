@@ -6,7 +6,7 @@ import { ExecuteRequest, Session } from "../shared/types.js";
 import { ScriptWatcher } from "./ScriptWatcher.js";
 import { AutomergeServer } from "./automerge.js";
 
-console.log("welcome to funrun");
+console.log("welcome to shellvis");
 
 const app = express();
 
