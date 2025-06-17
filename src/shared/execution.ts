@@ -85,7 +85,7 @@ export type Trace = {
   endTime: Date | null;
   messageLog: Message[];
   exitCode: number | null;
-  transformedSrc: string | null;
+  transformedSrc: RawString | null;
   startError: string | null;
   scriptFilePath: string | null;
 };

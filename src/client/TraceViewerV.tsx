@@ -63,7 +63,7 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
 
   const [hvContext, setHVContext] = React.useState<HVContext>(defaultHVContext);
   const hvContextUP = useUpdateProxy(setHVContext);
-  const { showMessages, showAST, showTrace } = hvContext;
+  const { showTransformedSrc, showMessages, showAST, showTrace } = hvContext;
 
   useEffect(() => {
     // omg love this 😍
@@ -112,12 +112,12 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
     );
   }
 
-  const partTransformed = () =>
-    trace.transformedSrc && (
+  const partTransformedSrc = () =>
+    trace.transformedSrc ? (
       <div>
         <h1>transformed</h1>
-        <pre>
-          {trace.transformedSrc
+        <pre style={{ lineHeight: 0.7 }}>
+          {trace.transformedSrc.val
             .split("\n")
             .map(
               (line, i) =>
@@ -127,6 +127,8 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
             .join("\n")}
         </pre>
       </div>
+    ) : (
+      "Transformed source not available"
     );
 
   const partAST = () => (
@@ -224,8 +226,8 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
 
       <div style={{ marginTop: 30 }}></div>
 
+      {showTransformedSrc && partTransformedSrc()}
       {showMessages && partMessages()}
-      {false && partTransformed()}
       {showAST && partAST()}
       {showTrace && partTrace()}
       {false && partExecInfo()}
@@ -351,6 +353,17 @@ export const TraceViewerV = memo((props: TraceViewerVProps) => {
                   style={{ marginRight: 10 }}
                 />
                 Show time slider
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={hvContext.showTransformedSrc}
+                  onChange={(e) =>
+                    hvContextUP.showTransformedSrc.$set(e.target.checked)
+                  }
+                  style={{ marginRight: 10 }}
+                />
+                Show transformed source
               </label>
               <label>
                 <input
