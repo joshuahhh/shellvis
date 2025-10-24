@@ -45,16 +45,14 @@ function callExprIdWithSrc(src: string, script: Script) {
 export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
   describe(name, {}, () => {
     it("basically works", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: "echo hello",
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
@@ -63,16 +61,14 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("cleans up sandbox unionfs ok", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: "echo hello",
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       await runAndGetTrace(run);
@@ -87,16 +83,14 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("exit codes work", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: "exit 42",
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
@@ -105,16 +99,14 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("stdout works", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: "echo hello",
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
@@ -131,12 +123,10 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("stdout from function works", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: normalizeIndent`
             function good() {
@@ -145,7 +135,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
             good
           `,
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
@@ -161,12 +151,10 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("stderr works", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: normalizeIndent`
             function bad() {
@@ -175,7 +163,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
             bad
           `,
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
@@ -202,18 +190,16 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("pipes work", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: normalizeIndent`
             jot -b hello 10 | rev | tr a-z A-Z
           `,
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
@@ -248,12 +234,10 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it.todo("pipes work even with an eager generator", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: normalizeIndent`
             function gen() {
@@ -265,7 +249,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
             gen | head -n 4
           `,
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
@@ -282,18 +266,16 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("file addition works", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: normalizeIndent`
             touch testfile.txt
           `,
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
@@ -303,17 +285,18 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
         nodeId: callExprIdWithSrc("touch testfile.txt", run.script!),
       });
       expect(trace.execInfos[touchExecId].deltaLog).toEqual([
-        { event: "newFile", path: path.resolve(cwd, "testfile.txt") },
+        {
+          event: "newFile",
+          path: path.resolve(run.params.cwd, "testfile.txt"),
+        },
       ] satisfies DeltaLogEntry[]);
     });
 
     it("file deletion works", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: normalizeIndent`
             touch testfile.txt
@@ -321,7 +304,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
             rm testfile.txt
           `,
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
@@ -331,17 +314,18 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
         nodeId: callExprIdWithSrc("rm testfile.txt", run.script!),
       });
       expect(trace.execInfos[rmExecId].deltaLog).toEqual([
-        { event: "deletedFile", path: path.resolve(cwd, "testfile.txt") },
+        {
+          event: "deletedFile",
+          path: path.resolve(run.params.cwd, "testfile.txt"),
+        },
       ] satisfies DeltaLogEntry[]);
     });
 
     it("file modification works", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: normalizeIndent`
             touch testfile.txt
@@ -353,7 +337,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
             modify
           `,
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
@@ -365,7 +349,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
       expect(trace.execInfos[touchExecId].deltaLog).toEqual([
         {
           event: "modifiedFile",
-          path: path.resolve(cwd, "testfile.txt"),
+          path: path.resolve(run.params.cwd, "testfile.txt"),
           oldContents: new RawString(""),
           newContents: new RawString("hello\n"),
         },
@@ -373,12 +357,10 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
     });
 
     it("for loops work", async () => {
-      const cwd = await mkTmpDir("test-");
-      const repo = new Repo({ network: [] });
       const run = new Run(
         {
           path: "DUMMY-PATH",
-          cwd,
+          cwd: await mkTmpDir("test-"),
           env: process.env,
           scriptSrc: normalizeIndent`
             for i in {1..3}; do
@@ -386,7 +368,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
             done
           `,
         },
-        repo,
+        new Repo({ network: [] }),
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
