@@ -14,7 +14,7 @@ const sh2Fr = new Sh2FrViaHttp();
 it("directory outside sandbox IS readable", async () => {
   const dirOutside = await mkTmpDir("outside-");
   const fileOutside = path.join(dirOutside, "hello.txt");
-  await fsP.writeFile(fileOutside, "hello");
+  await fsP.writeFile(fileOutside, "hello\n");
 
   const scriptSrc = `cat ${fileOutside}`;
 
@@ -34,15 +34,15 @@ it("directory outside sandbox IS readable", async () => {
     context: "",
     nodeId: callExprIdWithSrc(scriptSrc, run.script!),
   });
-  expect(pipeData(trace.execInfos[rmExecId].stdout)).toEqual(["hello"]);
+  expect(pipeData(trace.execInfos[rmExecId].stdout)).toEqual(["hello\n"]);
 });
 
 it("directory outside sandbox IS NOT writable", async () => {
   const dirOutside = await mkTmpDir("outside-");
   const fileOutside = path.join(dirOutside, "hello.txt");
-  await fsP.writeFile(fileOutside, "hello");
+  await fsP.writeFile(fileOutside, "hello\n");
 
-  expect(await fsP.readFile(fileOutside, "utf-8")).toBe("hello");
+  expect(await fsP.readFile(fileOutside, "utf-8")).toBe("hello\n");
 
   const scriptSrc = `rm ${fileOutside}`;
 
@@ -58,5 +58,26 @@ it("directory outside sandbox IS NOT writable", async () => {
   );
   const trace = await runAndGetTrace(run);
 
-  expect(await fsP.readFile(fileOutside, "utf-8")).toBe("hello");
+  expect(await fsP.readFile(fileOutside, "utf-8")).toBe("hello\n");
+});
+
+it("directory inside sandbox IS writable", async () => {
+  const cwd = await mkTmpDir("test-");
+  const fileInside = path.join(cwd, "hello.txt");
+
+  const scriptSrc = `echo "hello" > ${fileInside}`;
+
+  const run = new Run(
+    {
+      path: "DUMMY-PATH",
+      cwd,
+      env: process.env,
+      scriptSrc,
+    },
+    new Repo({ network: [] }),
+    sh2Fr,
+  );
+  const trace = await runAndGetTrace(run);
+
+  expect(await fsP.readFile(fileInside, "utf-8")).toBe("hello\n");
 });
