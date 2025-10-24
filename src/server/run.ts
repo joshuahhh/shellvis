@@ -43,7 +43,6 @@ import {
   pathInSandbox,
   removeSandbox,
 } from "./sandbox.js";
-import { exec, statOrNull } from "./util.js";
 
 const parser = sh.syntax.NewParser(sh.syntax.KeepComments(true));
 const printer = sh.syntax.NewPrinter();
@@ -331,32 +330,32 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       path.resolve(this.params.cwd),
     );
 
-    console.log(
-      "delta",
-      this.sandbox.deltaLayer.getUnionDir(),
-      await statOrNull(this.sandbox.deltaLayer.getUnionDir()),
-    );
-    console.log(
-      "delta ls",
-      await exec(`ls -l ${this.sandbox.deltaLayer.getUnionDir()}`),
-    );
-    console.log(
-      "delta ls/tmp",
-      await exec(`ls -l ${this.sandbox.deltaLayer.getUnionDir()}/tmp`),
-    );
-    console.log(
-      "this.params.cwd",
-      this.params.cwd,
-      await statOrNull(this.params.cwd),
-    );
-    console.log(
-      "resolved cwd",
-      path.resolve(this.params.cwd),
-      await statOrNull(path.resolve(this.params.cwd)),
-    );
-    console.log("resolved cwd in delta", cwd, await statOrNull(cwd));
+    // console.log(
+    //   "delta",
+    //   this.sandbox.deltaLayer.getUnionDir(),
+    //   await statOrNull(this.sandbox.deltaLayer.getUnionDir()),
+    // );
+    // console.log(
+    //   "delta ls",
+    //   await exec(`ls -l ${this.sandbox.deltaLayer.getUnionDir()}`),
+    // );
+    // console.log(
+    //   "delta ls/tmp",
+    //   await exec(`ls -l ${this.sandbox.deltaLayer.getUnionDir()}/tmp`),
+    // );
+    // console.log(
+    //   "this.params.cwd",
+    //   this.params.cwd,
+    //   await statOrNull(this.params.cwd),
+    // );
+    // console.log(
+    //   "resolved cwd",
+    //   path.resolve(this.params.cwd),
+    //   await statOrNull(path.resolve(this.params.cwd)),
+    // );
+    // console.log("resolved cwd in delta", cwd, await statOrNull(cwd));
 
-    console.log("running in", cwd, await statOrNull(cwd));
+    // console.log("running in", cwd, await statOrNull(cwd));
 
     this.childProcess = child_process.spawn(
       "zsh",

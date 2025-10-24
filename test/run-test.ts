@@ -30,7 +30,7 @@ export async function runAndGetTrace(run: Run): Promise<Trace> {
   return trace;
 }
 
-function callExprIdWithSrc(src: string, script: Script) {
+export function callExprIdWithSrc(src: string, script: Script) {
   const matches = Object.entries(script.nodesById).filter(
     ([_, node]) =>
       script.srcForNode(node).startsWith(src) &&
