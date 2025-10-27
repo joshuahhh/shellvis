@@ -110,6 +110,7 @@ export function runTestsWithSh2Fr(name: string, mkSh2Fr: () => Sh2Fr) {
         mkSh2Fr(),
       );
       const trace = await runAndGetTrace(run);
+      expect(trace.exitCode).toEqual(0);
 
       const echoExecId = mkExecId({
         context: "",

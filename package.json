@@ -6,6 +6,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "../sandbox-runtime",
     "@automerge/automerge-repo": "^2.0.0-alpha.4",
     "@automerge/automerge-repo-network-websocket": "^2.0.0-alpha.4",
     "@automerge/automerge-repo-react-hooks": "^2.0.0-alpha.4",

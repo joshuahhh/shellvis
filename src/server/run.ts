@@ -4,6 +4,10 @@
 import { dump } from "wtfnode";
 (global as any).dump = dump;
 
+import {
+  SandboxManager,
+  SandboxRuntimeConfig,
+} from "@anthropic-ai/sandbox-runtime";
 import { DocHandle, Repo } from "@automerge/automerge-repo";
 import { RawString } from "@automerge/automerge/next";
 import sh from "mvdan-sh";
@@ -357,22 +361,43 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
 
     // console.log("running in", cwd, await statOrNull(cwd));
 
-    this.childProcess = child_process.spawn(
-      "zsh",
-      ["-c", `zsh ${tmpFile.name} ${this.params.args || ""}`],
-      {
-        cwd,
-        env: {
-          ...process.env, // TODO
-          // ...this.params.env === 'process.env' ? process.env : this.params.env,
-          ...sh2frStart.env,
-          ROOT: this.sandbox.deltaLayer.getUnionDir(),
-        },
-        stdio: ["ignore", "ignore", "inherit"],
-        // stdio: ["ignore", "inherit", "inherit"],
-        // stdio: 'ignore',
+    const config: SandboxRuntimeConfig = {
+      filesystem: {
+        // goal: allow all reads; only allow writes to sandbox
+        allowWrite: [path.join(this.sandbox.deltaLayer.getUnionDir(), "**")],
+        denyWrite: ["."],
+        denyRead: [],
       },
+      network: {
+        // goal: allow everything
+        allowedDomains: ["*"],
+        deniedDomains: [],
+        allowAllUnixSockets: true,
+        allowLocalBinding: true,
+        allowUnixSockets: ["*"],
+      },
+    };
+
+    // Initialize the sandbox (starts proxy servers, etc.)
+    await SandboxManager.initialize(config);
+
+    // Wrap a command with sandbox restrictions
+    const sandboxedCommand = await SandboxManager.wrapWithSandbox(
+      `zsh ${tmpFile.name} ${this.params.args || ""}`,
     );
+
+    this.childProcess = child_process.spawn("zsh", ["-c", sandboxedCommand], {
+      cwd,
+      env: {
+        ...process.env, // TODO
+        // ...this.params.env === 'process.env' ? process.env : this.params.env,
+        ...sh2frStart.env,
+        ROOT: this.sandbox.deltaLayer.getUnionDir(),
+      },
+      stdio: ["ignore", "ignore", "inherit"],
+      // stdio: ["ignore", "inherit", "inherit"],
+      // stdio: 'ignore',
+    });
     if (this.childProcess.pid === undefined) {
       const error = await new Promise<Error>((resolve) =>
         this.childProcess!.once("error", resolve),
@@ -544,6 +569,7 @@ export class Run extends (EventTarget as TypedEventTarget<EventMap>) {
       this.childProcess.kill();
     }
     this.sandbox && (await removeSandbox(this.sandbox));
+    await SandboxManager.reset();
     await this.sh2fr.stop();
     this.dispatchEvent(new Event("done"));
     this.done = true;
